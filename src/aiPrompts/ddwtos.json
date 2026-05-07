@@ -1,0 +1,8 @@
+{
+  "title": "Drag words into text Moodle question",
+  "instructions": [
+    "Choose which draggable text belongs in each blank/drop slot.",
+    "Return one action per slotIndex with the exact draggable label.",
+    "Use grammar and local sentence context to verify every blank."
+  ]
+}

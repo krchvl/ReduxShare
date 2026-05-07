@@ -1,0 +1,8 @@
+{
+  "title": "Generic Moodle quiz question",
+  "instructions": [
+    "Solve the Moodle question using only the question text and visible controls/options.",
+    "If the data is insufficient, still return the most likely answer but lower confidence honestly.",
+    "Prefer exact visible option labels over paraphrases so the extension can apply the answer."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "title": "Matching Moodle question",
+  "instructions": [
+    "Match each prompt/left-side item to the best visible dropdown option.",
+    "Return one action for every select control. Each action must use the select control slotIndex and the exact dropdown option label.",
+    "Do not put 'prompt: answer' pairs in action.label. action.label must be only the option label, for example 'Вольт'.",
+    "Every label listed in the control options is available even if it is not currently selected or not visible in the collapsed dropdown.",
+    "Consider all options for each row before answering. If the task implies one-to-one matching, avoid repeating the same option unless it is clearly correct.",
+    "The human-readable answer may show pairs, but actions are what the extension applies."
+  ]
+}

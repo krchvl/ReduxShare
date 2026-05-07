@@ -92,7 +92,7 @@
   "updates.uptodate.line1": "Installed version {version} is up to date",
   "updates.uptodate.line2": "Last check: {date}",
   "updates.idle.line1": "Checks run automatically on extension startup",
-  "updates.idle.line2": "The update source is currently a stub",
+  "updates.idle.line2": "The update source is the GitHub .VERSION file",
   "updates.action.checking": "Checking",
   "updates.action.openRelease": "Open release",
   "updates.action.check": "Check",
@@ -121,7 +121,6 @@
   "errors.registerFailed": "Could not sign up. Check your email, username, and password.",
   "errors.profileSaveFailed": "Could not save ReduxShare profile: {message}",
   "errors.progressUpdateFailed": "Could not update ReduxShare progress: {message}",
-  "errors.quotaCheckFailed": "Could not check ReduxShare limit: {message}",
   "errors.reduxAnswersFetchFailed": "Could not fetch ReduxShare answers: {message}",
   "errors.reduxReviewSaveFailed": "Could not save ReduxShare answers: {message}",
   "errors.supabaseMissingConfig": "Supabase is not configured. Fill VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
@@ -132,9 +131,8 @@
   "errors.aiRequestFailed": "Could not complete the Google AI request.",
   "errors.aiQuestionTypeUnsupported": "AI is disabled for this question type.",
   "errors.backgroundConnection": "Could not reach the background script.",
-  "errors.syncshareRequest": "Could not complete the SyncShare request.",
+  "errors.externalRequest": "Could not complete the external request.",
   "errors.authRequired": "Sign in through the popup first.",
   "errors.moodleIdsMissing": "Moodle courseId or contextInstanceId was not found.",
-  "errors.questionIdMissing": "Question qid was not found.",
-  "errors.freeLimitExceeded": "The weekly free test limit has been reached."
+  "errors.questionIdMissing": "Question qid was not found."
 }

@@ -1,0 +1,8 @@
+{
+  "title": "Short answer Moodle question",
+  "instructions": [
+    "Return the shortest answer that would be accepted by an automated short-answer checker.",
+    "Avoid explanations, articles, and punctuation unless they are required by the question.",
+    "Use one action with the text that should be entered."
+  ]
+}

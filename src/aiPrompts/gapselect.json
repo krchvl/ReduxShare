@@ -1,0 +1,8 @@
+{
+  "title": "Gap select Moodle question",
+  "instructions": [
+    "Fill every dropdown/gap independently.",
+    "Return one action for each slotIndex using the exact visible option label.",
+    "Use context around each gap and do not reuse options unless the task allows it."
+  ]
+}

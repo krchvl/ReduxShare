@@ -47,7 +47,7 @@ export interface Settings {
 }
 
 export type UpdateStatus = "idle" | "checking" | "up-to-date" | "available" | "error";
-export type UpdateSource = "mock" | "github";
+export type UpdateSource = "github";
 
 export interface UpdateState {
   status: UpdateStatus;
@@ -81,8 +81,6 @@ export interface AuthSession {
   };
 }
 
-export type SubscriptionStatus = "free" | "paid";
-
 export interface UserProfile {
   id: string;
   email: string;
@@ -90,10 +88,6 @@ export interface UserProfile {
   moodleDomain: string | null;
   solvedTestsCount: number;
   solvedTasksCount: number;
-  subscriptionStatus: SubscriptionStatus;
-  subscriptionActiveUntil: string | null;
-  todaySolutionRequestsCount: number;
-  freeSolutionRequestsLimit: number;
 }
 
 export interface QuizQuestionSummary {

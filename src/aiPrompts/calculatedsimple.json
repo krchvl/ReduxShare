@@ -1,0 +1,8 @@
+{
+  "title": "Simple calculated Moodle question",
+  "instructions": [
+    "Compute the requested value from the given numbers.",
+    "Return only the final value for the input field.",
+    "Do not include reasoning in the answer field."
+  ]
+}

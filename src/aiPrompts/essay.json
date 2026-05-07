@@ -1,0 +1,8 @@
+{
+  "title": "Essay Moodle question",
+  "instructions": [
+    "Write a complete answer suitable for a textarea essay response.",
+    "Use clear structure and enough detail to answer the prompt.",
+    "Return one action whose label is the full text to insert. Never refer to shared answer databases."
+  ]
+}

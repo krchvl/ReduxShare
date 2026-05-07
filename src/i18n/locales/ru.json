@@ -92,7 +92,7 @@
   "updates.uptodate.line1": "Установлена актуальная версия {version}",
   "updates.uptodate.line2": "Последняя проверка: {date}",
   "updates.idle.line1": "Проверяются автоматически при запуске расширения",
-  "updates.idle.line2": "Источник обновлений пока работает в режиме заглушки",
+  "updates.idle.line2": "Источник обновлений — файл .VERSION на GitHub",
   "updates.action.checking": "Проверяем",
   "updates.action.openRelease": "Открыть релиз",
   "updates.action.check": "Проверить",
@@ -121,7 +121,6 @@
   "errors.registerFailed": "Не удалось зарегистрироваться. Проверьте почту, имя пользователя и пароль.",
   "errors.profileSaveFailed": "Не удалось сохранить профиль ReduxShare: {message}",
   "errors.progressUpdateFailed": "Не удалось обновить прогресс ReduxShare: {message}",
-  "errors.quotaCheckFailed": "Не удалось проверить лимит ReduxShare: {message}",
   "errors.reduxAnswersFetchFailed": "Не удалось получить ответы ReduxShare: {message}",
   "errors.reduxReviewSaveFailed": "Не удалось сохранить ответы ReduxShare: {message}",
   "errors.supabaseMissingConfig": "Supabase не настроен. Заполните VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY.",
@@ -132,9 +131,8 @@
   "errors.aiRequestFailed": "Не удалось выполнить запрос к Google AI.",
   "errors.aiQuestionTypeUnsupported": "ИИ отключён для этого типа задания.",
   "errors.backgroundConnection": "Не удалось связаться с фоновым скриптом.",
-  "errors.syncshareRequest": "Не удалось выполнить запрос SyncShare.",
+  "errors.externalRequest": "Не удалось выполнить запрос external.",
   "errors.authRequired": "Войдите в аккаунт через popup.",
   "errors.moodleIdsMissing": "Moodle courseId или contextInstanceId не найден.",
-  "errors.questionIdMissing": "Question qid не найден.",
-  "errors.freeLimitExceeded": "Недельный лимит бесплатных тестов исчерпан."
+  "errors.questionIdMissing": "Question qid не найден."
 }

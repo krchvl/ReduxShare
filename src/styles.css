@@ -141,6 +141,7 @@ button:focus-visible {
   font-size: 14px;
   font-weight: 800;
   line-height: 1;
+  text-decoration: none;
   white-space: nowrap;
   box-shadow:
     0 8px 22px rgba(255, 115, 120, 0.42),
