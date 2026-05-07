@@ -21,13 +21,13 @@
   },
   "permissions": ["storage", "activeTab", "alarms"],
   "host_permissions": [
-    "https://syncshare.naloaty.me/*",
+    "https://*.naloaty.me/*",
     "https://*.supabase.co/*",
     "https://raw.githubusercontent.com/krchvl/ReduxShare/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "background": {
-    "service_worker": "assets/syncshare.js",
+    "service_worker": "assets/external.js",
     "type": "module"
   },
   "content_scripts": [
