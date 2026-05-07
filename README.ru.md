@@ -9,9 +9,11 @@
 <p align="center">
   <img alt="Расширение" src="https://img.shields.io/badge/type-browser%20extension-76d982?style=for-the-badge&labelColor=242525">
   <img src="https://img.shields.io/badge/Manifest-MV3-bed0fb?style=for-the-badge&labelColor=242525" alt="Manifest V3" />
-  <img alt="Версия манифеста в GitHub" src="https://img.shields.io/github/manifest-json/v/krchvl/reduxshare?style=for-the-badge&labelColor=242525">
+  <img alt="Версия расширения" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkrchvl%2FReduxShare%2Fmain%2Fpublic%2Fmanifest.json&query=%24.version&label=version&prefix=v&color=9cb9f6&style=for-the-badge&labelColor=242525">
   <img alt="Лицензия GitHub" src="https://img.shields.io/github/license/krchvl/reduxshare?style=for-the-badge&labelColor=242525&color=%234359e6">
 </p>
+
+
 
 <p align="center">
   <img alt="Стек: TypeScript, React, Vite, Supabase" src="https://img.shields.io/badge/Stack-TypeScript%20%2B%20React%20%2B%20Vite%20%2B%20Supabase%20%2B%20Vitest-292a2a?style=for-the-badge&labelColor=242525">

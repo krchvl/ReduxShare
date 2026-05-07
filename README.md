@@ -9,7 +9,7 @@
 <p align="center">
   <img alt="Extension" src="https://img.shields.io/badge/type-browser%20extension-76d982?style=for-the-badge&labelColor=242525">
   <img src="https://img.shields.io/badge/Manifest-MV3-bed0fb?style=for-the-badge&labelColor=242525" alt="Manifest V3" />
-  <img alt="GitHub manifest version" src="https://img.shields.io/github/manifest-json/v/krchvl/reduxshare?style=for-the-badge&labelColor=242525">
+  <img alt="Extension version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkrchvl%2FReduxShare%2Fmain%2Fpublic%2Fmanifest.json&query=%24.version&label=version&prefix=v&color=9cb9f6&style=for-the-badge&labelColor=242525">
   <img alt="GitHub License" src="https://img.shields.io/github/license/krchvl/reduxshare?style=for-the-badge&labelColor=242525&color=%234359e6">
 </p>
 <p align="center">
