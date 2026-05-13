@@ -4801,7 +4801,7 @@ function buildAiAnswerRequestPayload(questionNode: Element, questionId: string |
 
 function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement) {
   const triggerRect = trigger.getBoundingClientRect();
-  const margin = 12;
+  const margin = 60;
   const menuWidth = Math.min(window.innerWidth <= 640 ? 286 : 316, window.innerWidth - margin * 2);
   const flyoutWidth = window.innerWidth <= 640 ? 170 : 190;
   const flyoutGap = 0;
