@@ -381,7 +381,7 @@ export function getAnswerTriggerMarkup() {
         max-width: 100%;
         margin-top: 10px;
         font-family: Inter, Arial, sans-serif;
-        z-index: 2147483000;
+        z-index: auto;
       }
 
       :host([data-reduxshare-inline-widget="true"]) {
@@ -460,7 +460,7 @@ export function getAnswerMenuMarkup(
         height: 0;
         overflow: visible;
         pointer-events: none;
-        z-index: 2147483647;
+        z-index: auto;
         font-family: Inter, Arial, sans-serif;
       }
 
