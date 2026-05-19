@@ -167,15 +167,11 @@ export function isAiSettingsSaved(settings: StoredStateLike["settings"] | undefi
     return false;
   }
 
-  if (ai.provider === "google") {
-    return Boolean(ai.model?.trim());
-  }
-
   if (ai.provider === "custom") {
     return Boolean(ai.customEndpoint?.trim() && ai.customModelName?.trim());
   }
 
-  return false;
+  return Boolean(ai.model?.trim());
 }
 
 export function createIdleAiAnswerState(): AiAnswerState {

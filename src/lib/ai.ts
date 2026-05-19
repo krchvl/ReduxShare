@@ -1,11 +1,17 @@
-import type { AiSettings } from "../types";
+import type { AiModelOption, AiSettings } from "../types";
 
 export const TEST_AI_CONNECTION_MESSAGE = "REDUXSHARE_TEST_AI_CONNECTION";
+export const FETCH_AI_MODELS_MESSAGE = "REDUXSHARE_FETCH_AI_MODELS";
 export const GENERATE_AI_ANSWER_MESSAGE = "REDUXSHARE_GENERATE_AI_ANSWER";
 export const AI_DISABLED_QUESTION_TYPES = new Set(["ddimageortext", "ddmarker"]);
 
 export interface TestAiConnectionMessage {
   type: typeof TEST_AI_CONNECTION_MESSAGE;
+  payload: AiSettings;
+}
+
+export interface FetchAiModelsMessage {
+  type: typeof FETCH_AI_MODELS_MESSAGE;
   payload: AiSettings;
 }
 
@@ -29,6 +35,12 @@ export interface AiResponse {
   answer?: string;
   confidence?: number;
   actions?: AiAnswerAction[];
+  error?: string;
+}
+
+export interface AiModelsResponse {
+  ok: boolean;
+  models?: AiModelOption[];
   error?: string;
 }
 
@@ -73,6 +85,15 @@ export function isTestAiConnectionMessage(message: unknown): message is TestAiCo
   );
 }
 
+export function isFetchAiModelsMessage(message: unknown): message is FetchAiModelsMessage {
+  return Boolean(
+    message &&
+      typeof message === "object" &&
+      (message as Partial<FetchAiModelsMessage>).type === FETCH_AI_MODELS_MESSAGE &&
+      typeof (message as Partial<FetchAiModelsMessage>).payload === "object"
+  );
+}
+
 export function isGenerateAiAnswerMessage(message: unknown): message is GenerateAiAnswerMessage {
   return Boolean(
     message &&
@@ -80,6 +101,27 @@ export function isGenerateAiAnswerMessage(message: unknown): message is Generate
       (message as Partial<GenerateAiAnswerMessage>).type === GENERATE_AI_ANSWER_MESSAGE &&
       typeof (message as Partial<GenerateAiAnswerMessage>).payload === "object"
   );
+}
+
+export function requestAiModels(settings: AiSettings): Promise<AiModelsResponse> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        type: FETCH_AI_MODELS_MESSAGE,
+        payload: settings
+      },
+      (response: AiModelsResponse | undefined) => {
+        const runtimeError = chrome.runtime.lastError;
+
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+
+        resolve(response ?? { ok: false, error: "Background script did not return a response." });
+      }
+    );
+  });
 }
 
 export function requestAiConnectionTest(settings: AiSettings): Promise<AiResponse> {

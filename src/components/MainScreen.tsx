@@ -4,8 +4,10 @@ import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
 import {
   AI_PROVIDER_OPTIONS,
-  GOOGLE_AI_MODEL_OPTIONS,
+  getAiModelOptionsForProvider,
+  getDefaultAiModelForProvider,
   normalizeAiSettings,
+  type AiModelOption,
   type AiSettings,
   type Settings,
   type UpdateState
@@ -14,7 +16,7 @@ import { AccentColorPicker } from "./AccentColorPicker";
 import { Button } from "./Button";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
-import { requestAiConnectionTest } from "../lib/ai";
+import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import githubIcon from "../assets/github.svg";
 import telegramIcon from "../assets/telegram.svg";
@@ -49,6 +51,14 @@ interface AiTestState {
   status: AiTestStatus;
   message: string | null;
   verifiedAt: string | null;
+}
+
+interface AiModelsState {
+  provider: AiSettings["provider"] | null;
+  requestKey: string | null;
+  status: "idle" | "loading" | "success" | "error";
+  models: AiModelOption[];
+  message: string | null;
 }
 
 function GearIcon() {
@@ -171,9 +181,32 @@ function getAiProviderLabel(provider: AiSettings["provider"]) {
   return AI_PROVIDER_OPTIONS.find((option) => option.value === provider)?.label ?? provider;
 }
 
-function getAiModelLabel(model: AiSettings["model"]) {
-  const googleOption = GOOGLE_AI_MODEL_OPTIONS.find((option) => option.value === model);
-  return googleOption?.label ?? model;
+function getAiModelLabel(provider: AiSettings["provider"], model: AiSettings["model"], dynamicModels: AiModelOption[] = []) {
+  const modelOption = [...dynamicModels, ...getAiModelOptionsForProvider(provider)].find((option) => option.value === model);
+  return modelOption?.label ?? model;
+}
+
+function mergeAiModelOptions(dynamicModels: AiModelOption[], fallbackModels: readonly AiModelOption[], currentModel: string) {
+  const mergedModels: AiModelOption[] = [];
+  const seenModelIds = new Set<string>();
+
+  for (const model of [...dynamicModels, ...fallbackModels]) {
+    if (!model.value.trim() || seenModelIds.has(model.value)) {
+      continue;
+    }
+
+    seenModelIds.add(model.value);
+    mergedModels.push(model);
+  }
+
+  if (currentModel.trim() && !seenModelIds.has(currentModel)) {
+    mergedModels.unshift({
+      value: currentModel,
+      label: currentModel
+    });
+  }
+
+  return mergedModels;
 }
 
 function openExternalUrl(url: string) {
@@ -202,6 +235,13 @@ export function MainScreen({
     status: settings.ai.connectionVerified ? "saved" : "idle",
     message: null,
     verifiedAt: settings.ai.verifiedAt
+  });
+  const [aiModelsState, setAiModelsState] = useState<AiModelsState>({
+    provider: null,
+    requestKey: null,
+    status: "idle",
+    models: [],
+    message: null
   });
 
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
@@ -259,8 +299,20 @@ export function MainScreen({
     : [t("settings.hotkey.line1"), t("settings.hotkey.line2")];
 
   const isAiConnectionChecking = aiTestState.status === "checking";
-  const canTestAiConnection = Boolean(aiDraft.apiKey.trim()) && !isAiConnectionChecking;
-  const canSaveAiSettings = aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim());
+  const hasAiConnectionTarget = aiDraft.provider === "custom"
+    ? Boolean(aiDraft.customEndpoint?.trim() && aiDraft.customModelName?.trim())
+    : Boolean(aiDraft.model.trim());
+  const isAiModelsLoading = aiModelsState.status === "loading";
+  const aiModelsAutoRequestKey = activeTab === "ai" &&
+    aiDraft.provider !== "custom" &&
+    (
+      aiDraft.provider === "openrouter" ||
+      (Boolean(aiDraft.apiKey.trim()) && (aiTestState.status === "success" || aiTestState.status === "saved"))
+    )
+    ? `${aiDraft.provider}:${aiDraft.provider === "openrouter" ? "public" : aiDraft.apiKey.trim()}`
+    : null;
+  const canTestAiConnection = Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
+  const canSaveAiSettings = aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget;
   const hasSavedAiKey = settings.ai.connectionVerified && Boolean(settings.ai.apiKey.trim());
 
   function updateAiDraft(patch: Partial<AiSettings>) {
@@ -273,6 +325,88 @@ export function MainScreen({
     }));
     setAiTestState({ status: "idle", message: null, verifiedAt: null });
   }
+
+  function updateAiProvider(provider: AiSettings["provider"]) {
+    setAiModelsState({
+      provider: null,
+      requestKey: null,
+      status: "idle",
+      models: [],
+      message: null
+    });
+    updateAiDraft({
+      provider,
+      model: getDefaultAiModelForProvider(provider),
+      customEndpoint: provider === "custom" ? aiDraft.customEndpoint : undefined,
+      customModelName: provider === "custom" ? aiDraft.customModelName : undefined
+    });
+  }
+
+  async function handleFetchAiModels(requestKey: string) {
+    if (aiDraft.provider === "custom") {
+      return;
+    }
+
+    setAiModelsState({
+      provider: aiDraft.provider,
+      requestKey,
+      status: "loading",
+      models: [],
+      message: null
+    });
+
+    try {
+      const response = await requestAiModels({
+        ...aiDraft,
+        apiKey: aiDraft.apiKey.trim()
+      });
+
+      if (!response.ok || !response.models?.length) {
+        setAiModelsState({
+          provider: aiDraft.provider,
+          requestKey,
+          status: "error",
+          models: [],
+          message: response.error ?? t("settings.ai.status.modelsError")
+        });
+        return;
+      }
+
+      setAiModelsState({
+        provider: aiDraft.provider,
+        requestKey,
+        status: "success",
+        models: response.models,
+        message: t("settings.ai.status.modelsLoaded", { count: String(response.models.length) })
+      });
+
+      if (!response.models.some((model) => model.value === aiDraft.model)) {
+        updateAiDraft({ model: response.models[0].value });
+      }
+    } catch (error) {
+      setAiModelsState({
+        provider: aiDraft.provider,
+        requestKey,
+        status: "error",
+        models: [],
+        message: error instanceof Error ? error.message : t("settings.ai.status.modelsError")
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!aiModelsAutoRequestKey || aiModelsState.requestKey === aiModelsAutoRequestKey) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void handleFetchAiModels(aiModelsAutoRequestKey);
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [aiModelsAutoRequestKey, aiModelsState.requestKey]);
 
   async function handleTestAiConnection() {
     setAiTestState({ status: "checking", message: t("settings.ai.status.checking"), verifiedAt: null });
@@ -398,6 +532,14 @@ export function MainScreen({
 
     if (activeTab === "ai") {
       const isCustomProvider = aiDraft.provider === "custom";
+      const dynamicAiModelOptions = aiModelsState.status === "success" && aiModelsState.provider === aiDraft.provider
+        ? aiModelsState.models
+        : [];
+      const aiModelOptions = mergeAiModelOptions(
+        dynamicAiModelOptions,
+        getAiModelOptionsForProvider(aiDraft.provider),
+        aiDraft.model
+      );
 
       return (
         <div className="settings-panel__rows">
@@ -420,7 +562,7 @@ export function MainScreen({
                       <span className="ai-settings-summary__name">
                         {settings.ai.provider === "custom"
                           ? settings.ai.customModelName?.trim() || t("settings.ai.customModelPlaceholder")
-                          : getAiModelLabel(settings.ai.model)}
+                          : getAiModelLabel(settings.ai.provider, settings.ai.model, dynamicAiModelOptions)}
                       </span>
                     </span>
                   </>
@@ -433,7 +575,7 @@ export function MainScreen({
                 <select
                   className="ai-select"
                   value={aiDraft.provider}
-                  onChange={(event) => updateAiDraft({ provider: event.target.value as AiSettings["provider"] })}
+                  onChange={(event) => updateAiProvider(event.target.value as AiSettings["provider"])}
                 >
                   {AI_PROVIDER_OPTIONS.map((provider) => (
                     <option key={provider.value} value={provider.value}>
@@ -475,7 +617,7 @@ export function MainScreen({
                     value={aiDraft.model}
                     onChange={(event) => updateAiDraft({ model: event.target.value })}
                   >
-                    {GOOGLE_AI_MODEL_OPTIONS.map((model) => (
+                    {aiModelOptions.map((model) => (
                       <option key={model.value} value={model.value}>
                         {model.label}
                       </option>
@@ -514,6 +656,11 @@ export function MainScreen({
               </div>
               {aiTestState.message && (
                 <p className={`ai-status ai-status--${aiTestState.status}`}>{aiTestState.message}</p>
+              )}
+              {aiModelsState.provider === aiDraft.provider && aiModelsState.message && (
+                <p className={`ai-status ai-status--${aiModelsState.status === "error" ? "error" : "success"}`}>
+                  {aiModelsState.message}
+                </p>
               )}
             </div>
           </section>

@@ -1,4 +1,4 @@
-import type { AiSettings } from "../types";
+import type { AiModelOption, AiProvider, AiSettings } from "../types";
 import calculatedPrompt from "../aiPrompts/calculated.json";
 import calculatedMultiPrompt from "../aiPrompts/calculatedmulti.json";
 import calculatedSimplePrompt from "../aiPrompts/calculatedsimple.json";
@@ -16,6 +16,93 @@ import truefalsePrompt from "../aiPrompts/truefalse.json";
 import type { AiAnswerAction, AiQuestionControl, AiQuestionImage, GenerateAiAnswerPayload } from "./ai";
 
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+
+type OpenAiCompatibleProviderConfig = {
+  name: string;
+  endpoint: string;
+  extraHeaders?: Record<string, string>;
+};
+
+const OPENAI_COMPATIBLE_PROVIDERS: Partial<Record<AiProvider, OpenAiCompatibleProviderConfig>> = {
+  openrouter: {
+    name: "OpenRouter",
+    endpoint: "https://openrouter.ai/api/v1/chat/completions",
+    extraHeaders: {
+      "X-Title": "ReduxShare"
+    }
+  },
+  openai: {
+    name: "OpenAI",
+    endpoint: "https://api.openai.com/v1/chat/completions"
+  },
+  groq: {
+    name: "Groq",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions"
+  },
+  mistral: {
+    name: "Mistral",
+    endpoint: "https://api.mistral.ai/v1/chat/completions"
+  },
+  xai: {
+    name: "xAI",
+    endpoint: "https://api.x.ai/v1/chat/completions"
+  },
+  deepseek: {
+    name: "DeepSeek",
+    endpoint: "https://api.deepseek.com/chat/completions"
+  }
+};
+
+type ModelListProviderConfig = {
+  name: string;
+  endpoint: string;
+  auth: "bearer" | "google" | "anthropic" | "optional-bearer";
+};
+
+const MODEL_LIST_PROVIDERS: Partial<Record<AiProvider, ModelListProviderConfig>> = {
+  google: {
+    name: "Google",
+    endpoint: GEMINI_API_BASE_URL,
+    auth: "google"
+  },
+  openrouter: {
+    name: "OpenRouter",
+    endpoint: "https://openrouter.ai/api/v1/models",
+    auth: "optional-bearer"
+  },
+  openai: {
+    name: "OpenAI",
+    endpoint: "https://api.openai.com/v1/models",
+    auth: "bearer"
+  },
+  anthropic: {
+    name: "Anthropic",
+    endpoint: "https://api.anthropic.com/v1/models",
+    auth: "anthropic"
+  },
+  groq: {
+    name: "Groq",
+    endpoint: "https://api.groq.com/openai/v1/models",
+    auth: "bearer"
+  },
+  mistral: {
+    name: "Mistral",
+    endpoint: "https://api.mistral.ai/v1/models",
+    auth: "bearer"
+  },
+  xai: {
+    name: "xAI",
+    endpoint: "https://api.x.ai/v1/models",
+    auth: "bearer"
+  },
+  deepseek: {
+    name: "DeepSeek",
+    endpoint: "https://api.deepseek.com/models",
+    auth: "bearer"
+  }
+};
 
 interface PromptConfig {
   title: string;
@@ -65,11 +152,23 @@ async function readGeminiResponseBody(response: Response): Promise<unknown> {
 }
 
 function getGeminiErrorMessage(body: unknown) {
+  return getAiErrorMessage(body);
+}
+
+function getAiErrorMessage(body: unknown) {
   const bodyRecord = getRecord(body);
   const errorRecord = getRecord(bodyRecord?.error);
-  const message = errorRecord?.message;
+  const message = errorRecord?.message ?? bodyRecord?.message;
 
-  return typeof message === "string" && message.trim() ? message : null;
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+
+  if (typeof bodyRecord?.error === "string" && bodyRecord.error.trim()) {
+    return bodyRecord.error;
+  }
+
+  return null;
 }
 
 function extractGeminiText(body: unknown) {
@@ -88,16 +187,173 @@ function extractGeminiText(body: unknown) {
     .trim();
 }
 
+function extractTextContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return content
+    .map((part) => {
+      const partRecord = getRecord(part);
+      const text = partRecord?.text ?? partRecord?.content;
+
+      return typeof text === "string" ? text : "";
+    })
+    .join("")
+    .trim();
+}
+
+function extractOpenAiCompatibleText(body: unknown) {
+  const bodyRecord = getRecord(body);
+  const choices = Array.isArray(bodyRecord?.choices) ? bodyRecord.choices : [];
+  const firstChoice = getRecord(choices[0]);
+  const message = getRecord(firstChoice?.message);
+
+  return extractTextContent(message?.content).trim();
+}
+
+function extractAnthropicText(body: unknown) {
+  const bodyRecord = getRecord(body);
+  return extractTextContent(bodyRecord?.content).trim();
+}
+
+function getModelRecordId(modelRecord: Record<string, unknown>) {
+  const id = modelRecord.id ?? modelRecord.name;
+  return typeof id === "string" ? id.trim() : "";
+}
+
+function getModelRecordLabel(modelRecord: Record<string, unknown>, fallbackId: string) {
+  const label = modelRecord.display_name ?? modelRecord.displayName ?? modelRecord.name ?? modelRecord.id;
+  return typeof label === "string" && label.trim() ? label.trim().replace(/^models\//, "") : fallbackId;
+}
+
+function shouldKeepListedModel(provider: AiProvider, modelRecord: Record<string, unknown>, modelId: string) {
+  if (!modelId) {
+    return false;
+  }
+
+  if (provider === "google") {
+    const supportedMethods = modelRecord.supportedGenerationMethods;
+    return Array.isArray(supportedMethods)
+      ? supportedMethods.some((method) => method === "generateContent")
+      : true;
+  }
+
+  const architecture = getRecord(modelRecord.architecture);
+  const outputModalities = architecture && Array.isArray(architecture.output_modalities)
+    ? architecture.output_modalities
+    : null;
+
+  if (outputModalities && !outputModalities.includes("text")) {
+    return false;
+  }
+
+  return !/\b(?:embedding|moderation|transcrib|tts|whisper|image|audio|realtime)\b/i.test(modelId);
+}
+
+function normalizeListedModels(provider: AiProvider, body: unknown): AiModelOption[] {
+  const bodyRecord = getRecord(body);
+  let rawModels: unknown[] = [];
+
+  if (Array.isArray(body)) {
+    rawModels = body;
+  } else if (Array.isArray(bodyRecord?.models)) {
+    rawModels = bodyRecord.models;
+  } else if (Array.isArray(bodyRecord?.data)) {
+    rawModels = bodyRecord.data;
+  }
+
+  const seenModelIds = new Set<string>();
+  const models: AiModelOption[] = [];
+
+  for (const rawModel of rawModels) {
+    const modelRecord = getRecord(rawModel);
+
+    if (!modelRecord) {
+      continue;
+    }
+
+    const rawId = getModelRecordId(modelRecord);
+    const modelId = provider === "google" ? rawId.replace(/^models\//, "") : rawId;
+
+    if (!shouldKeepListedModel(provider, modelRecord, modelId) || seenModelIds.has(modelId)) {
+      continue;
+    }
+
+    seenModelIds.add(modelId);
+    models.push({
+      value: modelId,
+      label: getModelRecordLabel(modelRecord, modelId)
+    });
+  }
+
+  return models;
+}
+
+function getModelListHeaders(config: ModelListProviderConfig, apiKey: string) {
+  const headers: Record<string, string> = {
+    Accept: "application/json"
+  };
+  const trimmedApiKey = apiKey.trim();
+
+  if (config.auth === "google" && trimmedApiKey) {
+    headers["x-goog-api-key"] = trimmedApiKey;
+  }
+
+  if ((config.auth === "bearer" || config.auth === "optional-bearer") && trimmedApiKey) {
+    headers.Authorization = `Bearer ${trimmedApiKey}`;
+  }
+
+  if (config.auth === "anthropic") {
+    headers["anthropic-version"] = ANTHROPIC_VERSION;
+    if (trimmedApiKey) {
+      headers["x-api-key"] = trimmedApiKey;
+    }
+  }
+
+  return headers;
+}
+
+export async function fetchAiModelOptions(settings: AiSettings): Promise<AiModelOption[]> {
+  if (settings.provider === "custom") {
+    throw new Error("Custom AI does not expose a known model list endpoint.");
+  }
+
+  const providerConfig = MODEL_LIST_PROVIDERS[settings.provider];
+
+  if (!providerConfig) {
+    throw new Error("AI provider is not supported.");
+  }
+
+  if (providerConfig.auth !== "optional-bearer" && !settings.apiKey.trim()) {
+    throw new Error(`${providerConfig.name} API key is missing.`);
+  }
+
+  const response = await fetch(providerConfig.endpoint, {
+    method: "GET",
+    headers: getModelListHeaders(providerConfig, settings.apiKey)
+  });
+  const body = await readGeminiResponseBody(response);
+
+  if (!response.ok) {
+    throw new Error(getAiErrorMessage(body) ?? `${providerConfig.name} model list request failed with status ${response.status}.`);
+  }
+
+  const models = normalizeListedModels(settings.provider, body);
+
+  if (models.length === 0) {
+    throw new Error(`${providerConfig.name} did not return usable chat models.`);
+  }
+
+  return models;
+}
+
 export function hasUsableAiSettings(settings: Partial<AiSettings> | undefined) {
   if (!settings || !settings.apiKey?.trim()) return false;
-
-  if (settings.provider === "google") {
-    return Boolean(
-      settings.connectionVerified &&
-        typeof settings.model === "string" &&
-        settings.model.trim()
-    );
-  }
 
   if (settings.provider === "custom") {
     return Boolean(
@@ -106,6 +362,14 @@ export function hasUsableAiSettings(settings: Partial<AiSettings> | undefined) {
         settings.customEndpoint.trim() &&
         typeof settings.customModelName === "string" &&
         settings.customModelName.trim()
+    );
+  }
+
+  if (settings.provider) {
+    return Boolean(
+      settings.connectionVerified &&
+        typeof settings.model === "string" &&
+        settings.model.trim()
     );
   }
 
@@ -326,23 +590,31 @@ export async function generateCustomAiText(
     imageParts?: GoogleAiImagePart[];
   } = {}
 ) {
-  if (!settings.apiKey.trim()) {
-    throw new Error("API key is missing.");
-  }
-
   if (!settings.customEndpoint?.trim()) {
     throw new Error("Custom endpoint is missing.");
   }
 
   const modelName = settings.customModelName?.trim() || settings.model;
 
-  const imageContent = (options.imageParts ?? []).map((part) => ({
+  return generateOpenAiCompatibleChatCompletion({
+    providerName: "Custom AI",
+    endpoint: settings.customEndpoint.trim(),
+    apiKey: settings.apiKey,
+    model: modelName,
+    prompt,
+    options
+  });
+}
+
+function buildOpenAiCompatibleMessageContent(prompt: string, imageParts: GoogleAiImagePart[] = []) {
+  const imageContent = imageParts.map((part) => ({
     type: "image_url",
     image_url: {
       url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
     }
   }));
-  const messageContent = imageContent.length > 0
+
+  return imageContent.length > 0
     ? [
         {
           type: "text",
@@ -351,19 +623,51 @@ export async function generateCustomAiText(
         ...imageContent
       ]
     : prompt;
+}
 
-  const response = await fetch(settings.customEndpoint.trim(), {
+async function generateOpenAiCompatibleChatCompletion({
+  providerName,
+  endpoint,
+  apiKey,
+  model,
+  prompt,
+  options,
+  extraHeaders
+}: {
+  providerName: string;
+  endpoint: string;
+  apiKey: string;
+  model: string;
+  prompt: string;
+  options: {
+    responseMimeType?: "text/plain" | "application/json";
+    maxOutputTokens?: number;
+    temperature?: number;
+    imageParts?: GoogleAiImagePart[];
+  };
+  extraHeaders?: Record<string, string>;
+}) {
+  if (!apiKey.trim()) {
+    throw new Error(`${providerName} API key is missing.`);
+  }
+
+  if (!model.trim()) {
+    throw new Error(`${providerName} model is missing.`);
+  }
+
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${settings.apiKey.trim()}`
+      Authorization: `Bearer ${apiKey.trim()}`,
+      ...extraHeaders
     },
     body: JSON.stringify({
-      model: modelName,
+      model: model.trim(),
       messages: [
         {
           role: "user",
-          content: messageContent
+          content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? [])
         }
       ],
       max_tokens: options.maxOutputTokens ?? 1024,
@@ -374,18 +678,108 @@ export async function generateCustomAiText(
   const body = await readGeminiResponseBody(response);
 
   if (!response.ok) {
-    const errorMessage = getGeminiErrorMessage(body) ?? `Custom AI request failed with status ${response.status}.`;
+    const errorMessage = getAiErrorMessage(body) ?? `${providerName} request failed with status ${response.status}.`;
     throw new Error(errorMessage);
   }
 
-  const bodyRecord = getRecord(body);
-  const choices = Array.isArray(bodyRecord?.choices) ? bodyRecord.choices : [];
-  const firstChoice = getRecord(choices[0]);
-  const message = getRecord(firstChoice?.message);
-  const text = typeof message?.content === "string" ? message.content : "";
+  const text = extractOpenAiCompatibleText(body);
 
   if (!text) {
-    throw new Error("Custom AI returned an empty response.");
+    throw new Error(`${providerName} returned an empty response.`);
+  }
+
+  return text;
+}
+
+export async function generateOpenAiCompatibleAiText(
+  settings: AiSettings,
+  prompt: string,
+  options: {
+    responseMimeType?: "text/plain" | "application/json";
+    maxOutputTokens?: number;
+    temperature?: number;
+    imageParts?: GoogleAiImagePart[];
+  } = {}
+) {
+  const providerConfig = OPENAI_COMPATIBLE_PROVIDERS[settings.provider];
+
+  if (!providerConfig) {
+    throw new Error("AI provider is not supported.");
+  }
+
+  return generateOpenAiCompatibleChatCompletion({
+    providerName: providerConfig.name,
+    endpoint: providerConfig.endpoint,
+    apiKey: settings.apiKey,
+    model: settings.model,
+    prompt,
+    options,
+    extraHeaders: providerConfig.extraHeaders
+  });
+}
+
+export async function generateAnthropicAiText(
+  settings: AiSettings,
+  prompt: string,
+  options: {
+    responseMimeType?: "text/plain" | "application/json";
+    maxOutputTokens?: number;
+    temperature?: number;
+    imageParts?: GoogleAiImagePart[];
+  } = {}
+) {
+  if (!settings.apiKey.trim()) {
+    throw new Error("Anthropic API key is missing.");
+  }
+
+  if (!settings.model.trim()) {
+    throw new Error("Anthropic model is missing.");
+  }
+
+  const imageContent = (options.imageParts ?? []).map((part) => ({
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: part.inlineData.mimeType,
+      data: part.inlineData.data
+    }
+  }));
+  const response = await fetch(ANTHROPIC_MESSAGES_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": settings.apiKey.trim(),
+      "anthropic-version": ANTHROPIC_VERSION
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      max_tokens: options.maxOutputTokens ?? 1024,
+      temperature: options.temperature ?? 0.2,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt
+            },
+            ...imageContent
+          ]
+        }
+      ]
+    })
+  });
+
+  const body = await readGeminiResponseBody(response);
+
+  if (!response.ok) {
+    throw new Error(getAiErrorMessage(body) ?? `Anthropic request failed with status ${response.status}.`);
+  }
+
+  const text = extractAnthropicText(body);
+
+  if (!text) {
+    throw new Error("Anthropic returned an empty response.");
   }
 
   return text;
@@ -680,8 +1074,22 @@ export async function generateAiAnswer(settings: AiSettings, payload: GenerateAi
       temperature,
       imageParts
     });
-  } else {
+  } else if (settings.provider === "google") {
     text = await generateGoogleAiText(settings, prompt, {
+      responseMimeType: "application/json",
+      maxOutputTokens,
+      temperature,
+      imageParts
+    });
+  } else if (settings.provider === "anthropic") {
+    text = await generateAnthropicAiText(settings, prompt, {
+      responseMimeType: "application/json",
+      maxOutputTokens,
+      temperature,
+      imageParts
+    });
+  } else {
+    text = await generateOpenAiCompatibleAiText(settings, prompt, {
       responseMimeType: "application/json",
       maxOutputTokens,
       temperature,
@@ -700,5 +1108,13 @@ export async function testAiConnection(settings: AiSettings) {
     return generateCustomAiText(settings, "Reply with exactly: OK");
   }
 
-  return generateGoogleAiText(settings, "Reply with exactly: OK");
+  if (settings.provider === "google") {
+    return generateGoogleAiText(settings, "Reply with exactly: OK");
+  }
+
+  if (settings.provider === "anthropic") {
+    return generateAnthropicAiText(settings, "Reply with exactly: OK");
+  }
+
+  return generateOpenAiCompatibleAiText(settings, "Reply with exactly: OK");
 }

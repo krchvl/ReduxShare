@@ -1,15 +1,18 @@
 import {
   AI_DISABLED_QUESTION_TYPES,
   type GenerateAiAnswerPayload,
+  isFetchAiModelsMessage,
   isGenerateAiAnswerMessage,
   isTestAiConnectionMessage,
+  type AiModelsResponse,
   type AiResponse
 } from "../lib/ai";
 import {
+  fetchAiModelOptions,
   generateAiAnswer,
   hasUsableAiSettings,
   testAiConnection
-} from "../lib/googleAi";
+} from "../lib/aiProvider";
 import {
   fetchReduxShareTasks,
   saveReduxShareReviewAnswers,
@@ -546,6 +549,25 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
   }
 }
 
+async function handleFetchAiModels(payload: AiSettings): Promise<AiModelsResponse> {
+  const storedState = await loadStoredState();
+  const aiSettings = normalizeAiSettings(payload);
+
+  try {
+    const models = await fetchAiModelOptions(aiSettings);
+
+    return {
+      ok: true,
+      models
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: getErrorMessage(error, storedState.settings?.language, "errors.aiModelsFetchFailed")
+    };
+  }
+}
+
 async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise<AiResponse> {
   const storedState = await loadStoredState();
   const t = getTranslator(storedState.settings?.language);
@@ -608,6 +630,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.aiConnectionFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchAiModelsMessage(message)) {
+    void handleFetchAiModels(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.aiModelsFetchFailed");
       });
 
     return true;
