@@ -466,7 +466,7 @@ export function getAnswerMenuMarkup(
 
       .menu {
         position: relative;
-        width: 316px;
+        width: 348px;
         max-width: calc(100vw - 24px);
         min-height: 100%;
         border: 1px solid rgba(32, 32, 32, 0.78);
@@ -485,6 +485,10 @@ export function getAnswerMenuMarkup(
           transform 160ms ease,
           visibility 160ms ease;
         visibility: hidden;
+      }
+
+      :host([data-flyout-side="left"]) .menu {
+        transform-origin: top right;
       }
 
       :host([data-open="true"]) .menu {
@@ -577,6 +581,8 @@ export function getAnswerMenuMarkup(
         display: -webkit-box;
         max-width: 100%;
         overflow: hidden;
+        overflow-wrap: anywhere;
+        word-break: break-word;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
       }
@@ -780,6 +786,12 @@ export function getAnswerMenuMarkup(
         visibility: hidden;
       }
 
+      :host([data-flyout-side="left"]) .flyout {
+        left: auto;
+        right: calc(100% - 4px);
+        transform: translateX(6px);
+      }
+
       .flyout-text {
         padding: 5px 7px;
         color: #ffffff;
@@ -926,7 +938,7 @@ export function getAnswerMenuMarkup(
 
       @media (max-width: 640px) {
         .menu {
-          width: min(286px, calc(100vw - 24px));
+          width: min(304px, calc(100vw - 24px));
         }
 
         .label {

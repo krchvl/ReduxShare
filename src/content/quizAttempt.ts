@@ -116,6 +116,8 @@ declare global {
         mountAnswerWidgets: typeof mountAnswerWidgets;
         createAnswerWidgetHost: typeof createAnswerWidgetHost;
         getAnswerMenuMarkup: typeof getAnswerMenuMarkup;
+        positionAnswerMenuPortal: typeof positionAnswerMenuPortal;
+        updateAnswerMenuFlyoutSide: typeof updateAnswerMenuFlyoutSide;
         createEmptySourceAnswerData: typeof createEmptySourceAnswerData;
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
       }
@@ -912,6 +914,38 @@ function findQuestionNodeForTrigger(trigger: HTMLButtonElement): Element | null 
   const root = trigger.getRootNode();
   if (!(root instanceof ShadowRoot)) return null;
   return root.host.closest(".que");
+}
+
+function findQuestionBoundsNodeForTrigger(trigger: HTMLElement): HTMLElement | null {
+  const root = trigger.getRootNode();
+
+  if (!(root instanceof ShadowRoot) || !(root.host instanceof HTMLElement)) {
+    return null;
+  }
+
+  const host = root.host;
+  const questionNode = host.closest(".que");
+
+  if (!(questionNode instanceof HTMLElement)) {
+    return null;
+  }
+
+  const boundsCandidates = [
+    ".formulation",
+    ".content",
+    ".ablock",
+    ".answer"
+  ];
+
+  for (const selector of boundsCandidates) {
+    const candidate = questionNode.querySelector<HTMLElement>(selector);
+
+    if (candidate && candidate.contains(host)) {
+      return candidate;
+    }
+  }
+
+  return questionNode;
 }
 
 function isSelectableQuestionType(questionNode: Element) {
@@ -4801,17 +4835,209 @@ function buildAiAnswerRequestPayload(questionNode: Element, questionId: string |
 
 function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement) {
   const triggerRect = trigger.getBoundingClientRect();
-  const margin = 60;
-  const menuWidth = Math.min(window.innerWidth <= 640 ? 286 : 316, window.innerWidth - margin * 2);
-  const flyoutWidth = window.innerWidth <= 640 ? 170 : 190;
-  const flyoutGap = 0;
-  const totalOpenWidth = menuWidth + flyoutGap + flyoutWidth;
-  const maxLeft = Math.max(margin, window.innerWidth - totalOpenWidth - margin);
-  const left = Math.max(margin, Math.min(triggerRect.left, maxLeft));
-  const top = Math.max(margin, triggerRect.bottom + 8);
+  const shadowRoot = menuPortal.shadowRoot;
+  const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
+  const flyout = shadowRoot?.querySelector<HTMLElement>(".flyout");
+  const viewportWidth = document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight;
+  const margin = viewportWidth <= 640 ? 12 : 16;
+  const gap = 8;
+  const menuRect = menu?.getBoundingClientRect();
+  const flyoutRect = flyout?.getBoundingClientRect();
+  const menuWidth = Math.max(1, Math.round(menuRect?.width ?? menu?.offsetWidth ?? (viewportWidth <= 640 ? 304 : 348)));
+  const menuHeight = Math.max(1, Math.round(menuRect?.height ?? menu?.offsetHeight ?? 0));
+  const flyoutWidth = Math.max(1, Math.round(flyoutRect?.width ?? flyout?.offsetWidth ?? (viewportWidth <= 640 ? 170 : 190)));
+  const horizontalBounds = resolveAnswerMenuHorizontalBounds(trigger, menuWidth, margin, viewportWidth);
+  const maxMenuLeft = Math.max(horizontalBounds.left, horizontalBounds.right - menuWidth);
+  const preferredLeft = Math.round(triggerRect.left);
+  const preferredRightAlignedLeft = Math.round(triggerRect.right - menuWidth);
+  const flyoutOverlap = 4;
+
+  let left = Math.max(horizontalBounds.left, Math.min(preferredLeft, maxMenuLeft));
+  const rightSpace = horizontalBounds.right - (left + menuWidth);
+  const leftSpace = left - horizontalBounds.left;
+  const flyoutSide = chooseAnswerMenuFlyoutSide(leftSpace, rightSpace, flyoutWidth - flyoutOverlap);
+
+  if (flyoutSide === "left") {
+    left = Math.min(
+      maxMenuLeft,
+      Math.max(
+        horizontalBounds.left + flyoutWidth - flyoutOverlap,
+        Math.min(preferredRightAlignedLeft, maxMenuLeft)
+      )
+    );
+  }
+
+  const preferredBelowTop = Math.round(triggerRect.bottom + gap);
+  const preferredAboveTop = Math.round(triggerRect.top - menuHeight - gap);
+  const maxTop = Math.max(margin, viewportHeight - menuHeight - margin);
+  const top =
+    preferredBelowTop <= maxTop
+      ? preferredBelowTop
+      : preferredAboveTop >= margin
+        ? preferredAboveTop
+        : Math.max(margin, Math.min(preferredBelowTop, maxTop));
 
   menuPortal.style.left = `${Math.round(left)}px`;
   menuPortal.style.top = `${Math.round(top)}px`;
+  menuPortal.dataset.flyoutSide = flyoutSide;
+  menuPortal.dataset.boundsLeft = String(horizontalBounds.left);
+  menuPortal.dataset.boundsRight = String(horizontalBounds.right);
+  clampAnswerMenuPortalToViewport(menuPortal);
+}
+
+function getAnswerMenuPortalVisibleBounds(menuPortal: HTMLElement) {
+  const shadowRoot = menuPortal.shadowRoot;
+  if (!shadowRoot) {
+    return null;
+  }
+
+  const menu = shadowRoot.querySelector<HTMLElement>(".menu");
+
+  if (!menu) {
+    return null;
+  }
+
+  const menuRect = menu.getBoundingClientRect();
+  const activeItem = shadowRoot.querySelector<HTMLElement>('.menu-item[data-active="true"]');
+  const activeFlyout = activeItem?.querySelector<HTMLElement>(".flyout");
+
+  if (!activeFlyout) {
+    return {
+      left: menuRect.left,
+      right: menuRect.right
+    };
+  }
+
+  const flyoutRect = activeFlyout.getBoundingClientRect();
+
+  return {
+    left: Math.min(menuRect.left, flyoutRect.left),
+    right: Math.max(menuRect.right, flyoutRect.right)
+  };
+}
+
+function shiftAnswerMenuPortalHorizontally(menuPortal: HTMLElement, deltaX: number) {
+  if (Math.abs(deltaX) < 0.5) {
+    return;
+  }
+
+  const currentLeft = Number.parseFloat(menuPortal.style.left || "0");
+  const safeLeft = Number.isFinite(currentLeft) ? currentLeft : 0;
+  menuPortal.style.left = `${Math.round(safeLeft + deltaX)}px`;
+}
+
+function resolveAnswerMenuHorizontalBounds(
+  trigger: HTMLElement,
+  menuWidth: number,
+  margin: number,
+  viewportWidth: number
+) {
+  const viewportBounds = {
+    left: margin,
+    right: viewportWidth - margin
+  };
+  const boundsNode = trigger instanceof HTMLButtonElement
+    ? findQuestionBoundsNodeForTrigger(trigger)
+    : trigger.closest<HTMLElement>(".formulation, .content, .ablock, .answer, .que");
+
+  if (!(boundsNode instanceof HTMLElement)) {
+    return viewportBounds;
+  }
+
+  const questionRect = boundsNode.getBoundingClientRect();
+  const questionInnerMargin = 8;
+  const questionBounds = {
+    left: Math.max(viewportBounds.left, Math.round(questionRect.left) + questionInnerMargin),
+    right: Math.min(viewportBounds.right, Math.round(questionRect.right) - questionInnerMargin)
+  };
+
+  if (questionBounds.right - questionBounds.left < menuWidth) {
+    return viewportBounds;
+  }
+
+  return questionBounds;
+}
+
+function getAnswerMenuPortalHorizontalBounds(menuPortal: HTMLElement, viewportWidth: number) {
+  const margin = viewportWidth <= 640 ? 12 : 16;
+  const rawLeft = Number.parseFloat(menuPortal.dataset.boundsLeft ?? "");
+  const rawRight = Number.parseFloat(menuPortal.dataset.boundsRight ?? "");
+  const left = Number.isFinite(rawLeft) ? rawLeft : margin;
+  const right = Number.isFinite(rawRight) ? rawRight : viewportWidth - margin;
+
+  return {
+    left,
+    right
+  };
+}
+
+function clampAnswerMenuPortalToViewport(menuPortal: HTMLElement) {
+  const bounds = getAnswerMenuPortalVisibleBounds(menuPortal);
+
+  if (!bounds) {
+    return;
+  }
+
+  const viewportWidth = document.documentElement.clientWidth;
+  const horizontalBounds = getAnswerMenuPortalHorizontalBounds(menuPortal, viewportWidth);
+  let deltaX = 0;
+
+  if (bounds.right > horizontalBounds.right) {
+    deltaX -= bounds.right - horizontalBounds.right;
+  }
+
+  if (bounds.left + deltaX < horizontalBounds.left) {
+    deltaX += horizontalBounds.left - (bounds.left + deltaX);
+  }
+
+  shiftAnswerMenuPortalHorizontally(menuPortal, deltaX);
+}
+
+function chooseAnswerMenuFlyoutSide(
+  leftSpace: number,
+  rightSpace: number,
+  requiredSpace: number
+): "left" | "right" {
+  const canFitLeft = leftSpace >= requiredSpace;
+  const canFitRight = rightSpace >= requiredSpace;
+
+  if (canFitLeft && canFitRight) {
+    return leftSpace > rightSpace ? "left" : "right";
+  }
+
+  if (canFitLeft) {
+    return "left";
+  }
+
+  if (canFitRight) {
+    return "right";
+  }
+
+  return leftSpace > rightSpace ? "left" : "right";
+}
+
+function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
+  const shadowRoot = menuPortal.shadowRoot;
+  const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
+  const activeItem = shadowRoot?.querySelector<HTMLElement>('.menu-item[data-active="true"]');
+  const activeFlyout = activeItem?.querySelector<HTMLElement>(".flyout");
+
+  if (!menu || !activeFlyout) {
+    return;
+  }
+
+  const viewportWidth = document.documentElement.clientWidth;
+  const flyoutOverlap = 4;
+  const horizontalBounds = getAnswerMenuPortalHorizontalBounds(menuPortal, viewportWidth);
+  const menuRect = menu.getBoundingClientRect();
+  const flyoutWidth = Math.max(1, Math.round(activeFlyout.getBoundingClientRect().width || activeFlyout.offsetWidth || (viewportWidth <= 640 ? 170 : 190)));
+  const rightSpace = horizontalBounds.right - menuRect.right;
+  const leftSpace = menuRect.left - horizontalBounds.left;
+  const nextFlyoutSide = chooseAnswerMenuFlyoutSide(leftSpace, rightSpace, flyoutWidth - flyoutOverlap);
+
+  menuPortal.dataset.flyoutSide = nextFlyoutSide;
+  clampAnswerMenuPortalToViewport(menuPortal);
 }
 
 function openAnswerMenuPortal(
@@ -4862,6 +5088,12 @@ function openAnswerMenuPortal(
     }
 
     activeMenuItem = nextItem;
+
+    if (nextItem) {
+      updateAnswerMenuFlyoutSide(menuPortal);
+    } else {
+      clampAnswerMenuPortalToViewport(menuPortal);
+    }
   }
 
   function setActiveMenuTab(tabKey: string) {
@@ -6557,6 +6789,8 @@ function installQuizAttemptTestApi() {
     mountAnswerWidgets,
     createAnswerWidgetHost,
     getAnswerMenuMarkup,
+    positionAnswerMenuPortal,
+    updateAnswerMenuFlyoutSide,
     createEmptySourceAnswerData,
     createEmptyVariantCounts
   };
