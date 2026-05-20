@@ -1,7 +1,7 @@
 import { describe, expect, it, type Mock } from "vitest";
 import type { AiAnswerState } from "../src/content/quizAttempt/model";
 import { GENERATE_AI_ANSWER_MESSAGE } from "../src/content/quizAttempt/model";
-import { buildQuizAnswerPrompt, normalizeStructuredAiAnswerForPayload, parseStructuredAiAnswer } from "../src/lib/googleAi";
+import { buildQuizAnswerPrompt, normalizeStructuredAiAnswerForPayload, parseStructuredAiAnswer } from "../src/lib/aiProvider";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 
