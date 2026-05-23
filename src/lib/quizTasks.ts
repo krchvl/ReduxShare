@@ -80,6 +80,110 @@ function requiresExactTaskHash(question: QuizTaskQuestionRequest) {
   return question.questionType === "match" && Boolean(question.questionHash);
 }
 
+type ReduxShareTaskDataRow = {
+  anchor?: unknown;
+  suggestions?: unknown;
+  submissions?: unknown;
+};
+
+type ReduxShareSuggestionLike = {
+  label?: unknown;
+};
+
+type ReduxShareSubmissionLike = {
+  correctness: number;
+  count: number;
+  label: string;
+};
+
+function getBooleanSuggestionValue(label: string) {
+  const normalizedLabel = label.trim().toLowerCase();
+
+  if (normalizedLabel === "true") {
+    return true;
+  }
+
+  if (normalizedLabel === "false") {
+    return false;
+  }
+
+  return null;
+}
+
+function shouldDowngradeMismatchedHashData(data: unknown) {
+  if (!Array.isArray(data)) {
+    return false;
+  }
+
+  const suggestionLabels = data.flatMap((row) => {
+    if (!row || typeof row !== "object") {
+      return [];
+    }
+
+    const typedRow = row as ReduxShareTaskDataRow;
+    const suggestions = Array.isArray(typedRow.suggestions) ? typedRow.suggestions : [];
+
+    return suggestions.flatMap((suggestion) => {
+      if (!suggestion || typeof suggestion !== "object") {
+        return [];
+      }
+
+      const suggestionLike = suggestion as ReduxShareSuggestionLike;
+      const label = typeof suggestionLike.label === "string" ? suggestionLike.label.trim() : "";
+
+      return label ? [label] : [];
+    });
+  });
+
+  return suggestionLabels.length > 0 && suggestionLabels.every((label) => getBooleanSuggestionValue(label) !== null);
+}
+
+function downgradeMismatchedHashData(data: unknown) {
+  if (!Array.isArray(data)) {
+    return data;
+  }
+
+  return data.map((row) => {
+    if (!row || typeof row !== "object") {
+      return row;
+    }
+
+    const typedRow = row as ReduxShareTaskDataRow;
+    const suggestions = Array.isArray(typedRow.suggestions) ? typedRow.suggestions : [];
+    const submissions = Array.isArray(typedRow.submissions) ? typedRow.submissions : [];
+
+    const syntheticSubmissions: ReduxShareSubmissionLike[] =
+      submissions.length > 0
+        ? []
+        : suggestions
+            .map((suggestion) => {
+              if (!suggestion || typeof suggestion !== "object") {
+                return null;
+              }
+
+              const suggestionLike = suggestion as ReduxShareSuggestionLike;
+              const label = typeof suggestionLike.label === "string" ? suggestionLike.label.trim() : "";
+
+              if (!label) {
+                return null;
+              }
+
+              return {
+                correctness: 1,
+                count: 1,
+                label
+              };
+            })
+            .filter((submission): submission is ReduxShareSubmissionLike => submission !== null);
+
+    return {
+      ...typedRow,
+      suggestions: [],
+      submissions: submissions.length > 0 ? submissions : syntheticSubmissions
+    };
+  });
+}
+
 export async function fetchReduxShareTasks(
   authSession: AuthSession,
   payload: FetchReduxShareTasksPayload,
@@ -135,6 +239,11 @@ export async function fetchReduxShareTasks(
         rowsByQuestion.get(getTaskKey(question.questionId, question.questionHash)) ??
         (requiresExactTaskHash(question) ? undefined : question.questionId ? rowsByQuestionId.get(question.questionId) : undefined);
 
+      const hasHashMismatch =
+        Boolean(question.questionHash) &&
+        Boolean(row?.question_hash) &&
+        row?.question_hash !== question.questionHash;
+
       if (!row) {
         return {
           questionId: question.questionId,
@@ -147,14 +256,14 @@ export async function fetchReduxShareTasks(
       }
 
       return {
-        questionId: row.question_id,
-        questionType: row.question_type ?? question.questionType,
-        questionHash: row.question_hash,
-        ok: true,
-        data: row.data,
-        answerCount: row.answer_count ?? 0
-      };
-    })
+          questionId: row.question_id,
+          questionType: row.question_type ?? question.questionType,
+          questionHash: row.question_hash,
+          ok: true,
+          data: hasHashMismatch && shouldDowngradeMismatchedHashData(row.data) ? downgradeMismatchedHashData(row.data) : row.data,
+          answerCount: row.answer_count ?? 0
+        };
+      })
   };
 }
 

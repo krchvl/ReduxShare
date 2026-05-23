@@ -452,6 +452,29 @@ function getQuestionText(questionNode: Element) {
   const qTextNode = questionNode.querySelector(".qtext");
 
   if (qTextNode) {
+    if (questionNode.classList.contains("ordering")) {
+      const clonedQtext = qTextNode.cloneNode(true);
+
+      if (clonedQtext instanceof Element) {
+        clonedQtext.querySelectorAll(
+          [
+            ".ablock",
+            ".answer",
+            ".sortablelist",
+            "input",
+            "select",
+            "textarea",
+            "button",
+            `[${ANSWER_WIDGET_ATTR}="true"]`
+          ].join(",")
+        ).forEach((node) => {
+          node.remove();
+        });
+
+        return getMoodleAnswerLabelText(clonedQtext).replace(/\s+/g, " ").trim();
+      }
+    }
+
     return getMoodleAnswerLabelText(qTextNode).replace(/\s+/g, " ").trim();
   }
 
@@ -1901,11 +1924,38 @@ function answerSlotMatchesLabel(slot: AnswerSlotData, label: string) {
   );
 }
 
+function answerSlotHasBooleanConflict(slot: AnswerSlotData) {
+  const booleanValues = new Set<boolean>();
+
+  for (const label of [
+    ...slot.suggestions.map((suggestion) => suggestion.label),
+    ...slot.submissions.map((submission) => submission.label)
+  ]) {
+    const booleanValue = getBooleanChoiceAnswerValue(label);
+
+    if (booleanValue !== null) {
+      booleanValues.add(booleanValue);
+    }
+  }
+
+  return booleanValues.size > 1;
+}
+
 function getChoiceAnswerSlotMatch(answerData: AnswerData, input: HTMLInputElement, label: string) {
   const slotIndex = getChoiceSlotIndex(input, answerData);
   const labelMatchedSlot = answerData.slots.find((slot) => answerSlotMatchesLabel(slot, label));
   const indexMatchedSlot =
     slotIndex === null ? null : (answerData.slots.find((slot) => slot.hasExplicitIndex && slot.index === slotIndex) ?? null);
+  const isCheckboxChoice = input.type === "checkbox" && !input.closest(".que.multianswer");
+
+  if (isCheckboxChoice && labelMatchedSlot) {
+    return { slot: labelMatchedSlot, slotIndex };
+  }
+
+  if (isCheckboxChoice && indexMatchedSlot && answerSlotHasBooleanConflict(indexMatchedSlot)) {
+    return { slot: null, slotIndex };
+  }
+
   const slot = input.closest(".que.multianswer") ? (indexMatchedSlot ?? labelMatchedSlot) : (labelMatchedSlot ?? indexMatchedSlot);
 
   return { slot, slotIndex };
@@ -1925,25 +1975,113 @@ function getBooleanChoiceAnswerValue(label: string) {
   return null;
 }
 
-function getExactBooleanChoiceSlotValue(slot: AnswerSlotData | null | undefined) {
+function getBooleanChoiceSuggestionTotals(
+  suggestions: SuggestionItem[],
+  booleanValue: boolean
+) {
+  return suggestions
+    .filter((suggestion) => suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === booleanValue)
+    .reduce(
+      (totals, suggestion) => {
+        totals.entries.push(suggestion);
+        totals.count += suggestion.count ?? 1;
+        totals.confidence += suggestion.confidence ?? 0;
+        return totals;
+      },
+      {
+        entries: [] as SuggestionItem[],
+        count: 0,
+        confidence: 0
+      }
+    );
+}
+
+function getPreferredBooleanChoiceExactSuggestion(slot: AnswerSlotData | null | undefined): SuggestionItem | null {
   if (!slot) {
     return null;
   }
 
-  const exactBooleanValues = slot.suggestions
-    .filter((suggestion) => suggestion.correctness === 2)
-    .map((suggestion) => getBooleanChoiceAnswerValue(suggestion.label))
-    .filter((value): value is boolean => value !== null);
+  const trueTotals = getBooleanChoiceSuggestionTotals(slot.suggestions, true);
+  const falseTotals = getBooleanChoiceSuggestionTotals(slot.suggestions, false);
 
-  if (exactBooleanValues.includes(true)) {
-    return true;
+  if (trueTotals.entries.length === 0 && falseTotals.entries.length === 0) {
+    return null;
   }
 
-  if (exactBooleanValues.includes(false)) {
-    return false;
+  const compareByWeight = (left: typeof trueTotals, right: typeof trueTotals) => {
+    if (left.count !== right.count) {
+      return left.count - right.count;
+    }
+
+    if (left.confidence !== right.confidence) {
+      return left.confidence - right.confidence;
+    }
+
+    return left.entries.length - right.entries.length;
+  };
+
+  const comparison = compareByWeight(trueTotals, falseTotals);
+
+  if (comparison === 0) {
+    return null;
   }
 
-  return null;
+  const winner = comparison > 0 ? trueTotals : falseTotals;
+  const loser = comparison > 0 ? falseTotals : trueTotals;
+  const winnerLabel = comparison > 0 ? "true" : "false";
+  const totalWeight = winner.count + loser.count;
+  const normalizedConfidence =
+    totalWeight > 0
+      ? Math.max(0, Math.min(1, winner.count / totalWeight))
+      : Math.max(...winner.entries.map((entry) => entry.confidence ?? 0), 0);
+
+  return {
+    correctness: 2,
+    confidence: normalizedConfidence,
+    count: winner.count,
+    label: winnerLabel,
+    actionSlotIndex: winner.entries[0]?.actionSlotIndex
+  };
+}
+
+function normalizeChoiceSlotForWidget(slot: AnswerSlotData): AnswerSlotData {
+  const preferredBooleanSuggestion = getPreferredBooleanChoiceExactSuggestion(slot);
+
+  if (!preferredBooleanSuggestion) {
+    return slot;
+  }
+
+  const hasTrueExact = slot.suggestions.some((suggestion) => suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === true);
+  const hasFalseExact = slot.suggestions.some((suggestion) => suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === false);
+  const hasConflictingBooleanExact = hasTrueExact && hasFalseExact;
+
+  if (!hasConflictingBooleanExact) {
+    return {
+      ...slot,
+      suggestions: [preferredBooleanSuggestion]
+    };
+  }
+
+  return {
+    ...slot,
+    suggestions: [preferredBooleanSuggestion],
+    submissions: [
+      ...slot.submissions,
+      ...slot.suggestions
+        .filter((suggestion) => suggestion.correctness === 2)
+        .map((suggestion): SubmissionItem => ({
+          correctness: suggestion.correctness,
+          count: suggestion.count ?? 1,
+          label: suggestion.label,
+          displayLabel: suggestion.displayLabel,
+          actionSlotIndex: suggestion.actionSlotIndex
+        }))
+    ]
+  };
+}
+
+function getExactBooleanChoiceSlotValue(slot: AnswerSlotData | null | undefined) {
+  return getBooleanChoiceAnswerValue(getPreferredBooleanChoiceExactSuggestion(slot)?.label ?? "");
 }
 
 function getNonBooleanExactChoiceSuggestions(answerData: AnswerData) {
@@ -2040,14 +2178,16 @@ function scopeAnswerDataToChoice(answerData: AnswerData, input: HTMLInputElement
   const { slot, slotIndex } = getChoiceAnswerSlotMatch(answerData, input, label);
 
   if (slot) {
+    const normalizedSlot = normalizeChoiceSlotForWidget(slot);
+
     return {
       answerData: {
-        anchors: slot.anchors,
-        suggestions: slot.suggestions,
-        submissions: slot.submissions,
-        slots: [slot]
+        anchors: normalizedSlot.anchors,
+        suggestions: normalizedSlot.suggestions,
+        submissions: normalizedSlot.submissions,
+        slots: [normalizedSlot]
       },
-      slotIndex: slot.index
+      slotIndex: normalizedSlot.index
     };
   }
 
@@ -3490,29 +3630,16 @@ function autoSelectBooleanChoiceQuestionAnswers(questionNode: Element, answerDat
     return { hasBooleanData: false, changed: false };
   }
 
+  const checkboxInputs = answerInputs.filter((input) => input.type === "checkbox");
+
+  if (checkboxInputs.length === 0) {
+    return { hasBooleanData: false, changed: false };
+  }
+
   let hasBooleanData = false;
   let changed = false;
 
-  if (answerInputs.some((input) => input.type === "checkbox")) {
-    for (const input of answerInputs.filter((answerInput) => answerInput.type === "checkbox")) {
-      const label = getInputAnswerLabelText(questionNode, input);
-      const { slot } = getChoiceAnswerSlotMatch(answerData, input, label);
-      const booleanChoiceValue = getExactBooleanChoiceSlotValue(slot);
-
-      if (booleanChoiceValue === null) {
-        continue;
-      }
-
-      hasBooleanData = true;
-      changed = setAnswerInputChecked(input, booleanChoiceValue) || changed;
-    }
-
-    return { hasBooleanData, changed };
-  }
-
-  const trueInputs: HTMLInputElement[] = [];
-
-  for (const input of answerInputs) {
+  for (const input of checkboxInputs) {
     const label = getInputAnswerLabelText(questionNode, input);
     const { slot } = getChoiceAnswerSlotMatch(answerData, input, label);
     const booleanChoiceValue = getExactBooleanChoiceSlotValue(slot);
@@ -3522,14 +3649,7 @@ function autoSelectBooleanChoiceQuestionAnswers(questionNode: Element, answerDat
     }
 
     hasBooleanData = true;
-
-    if (booleanChoiceValue) {
-      trueInputs.push(input);
-    }
-  }
-
-  if (trueInputs.length === 1) {
-    changed = setAnswerInputChecked(trueInputs[0], true);
+    changed = setAnswerInputChecked(input, booleanChoiceValue) || changed;
   }
 
   return { hasBooleanData, changed };
@@ -3999,27 +4119,63 @@ function buildReviewMultichoiceBooleanAnswers(questionNode: Element): ReviewAnsw
 
   return inputs
     .filter((input) => input.type === "checkbox")
-    .map((input, index): ReviewAnswerPayload | null => {
+    .flatMap((input, index): ReviewAnswerPayload[] => {
       const optionLabel = getInputAnswerLabelText(questionNode, input);
       const hasCorrectLabels = correctLabels.length > 0;
       const isCorrectOption = hasCorrectLabels && correctLabels.some((correctLabel) => labelsMatch(optionLabel, correctLabel));
-      const label = hasCorrectLabels ? (isCorrectOption ? "true" : "false") : input.checked ? "true" : "false";
+      const actualLabel = input.checked ? "true" : "false";
+      const expectedLabel = hasCorrectLabels ? (isCorrectOption ? "true" : "false") : actualLabel;
       const slotIndex = getReviewChoiceSlotIndex(input, index);
-      const answerKey = createReviewAnswerKey(label);
+      const slotKey = optionLabel || `slot:${slotIndex}`;
+      const exactAnswerKey = createReviewAnswerKey(expectedLabel);
+      const answers: ReviewAnswerPayload[] = [];
 
-      return answerKey
-        ? {
-            label,
-            answerKey,
-            slotKey: `slot:${slotIndex}`,
+      if (!exactAnswerKey) {
+        return answers;
+      }
+
+      if (!hasCorrectLabels) {
+        answers.push({
+          label: actualLabel,
+          answerKey: exactAnswerKey,
+          slotKey,
+          slotIndex,
+          correctness: 1,
+          isCorrect: false,
+          wasSelected: true
+        });
+
+        return answers;
+      }
+
+      answers.push({
+        label: expectedLabel,
+        answerKey: exactAnswerKey,
+        slotKey,
+        slotIndex,
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: actualLabel === expectedLabel
+      });
+
+      if (actualLabel !== expectedLabel) {
+        const observedAnswerKey = createReviewAnswerKey(actualLabel);
+
+        if (observedAnswerKey) {
+          answers.push({
+            label: actualLabel,
+            answerKey: observedAnswerKey,
+            slotKey,
             slotIndex,
-            correctness: hasCorrectLabels ? 2 : 1,
-            isCorrect: hasCorrectLabels,
+            correctness: 0,
+            isCorrect: false,
             wasSelected: true
-          }
-        : null;
+          });
+        }
+      }
+
+      return answers;
     })
-    .filter((answer): answer is ReviewAnswerPayload => answer !== null);
 }
 
 function getReviewOrderingSelectedObservations(questionNode: Element): ReviewObservation[] {
@@ -4029,6 +4185,10 @@ function getReviewOrderingSelectedObservations(questionNode: Element): ReviewObs
 }
 
 function getReviewOrderingCorrectObservations(questionNode: Element): ReviewObservation[] {
+  if (isReviewQuestionMarkedCorrect(questionNode)) {
+    return getReviewOrderingSelectedObservations(questionNode);
+  }
+
   return Array.from(questionNode.querySelectorAll(".rightanswer ol.correctorder li"))
     .map((item, index) => getOrderingPositionObservation(index + 1, getMoodleAnswerLabelText(item).replace(/\s+/g, " ").trim()))
     .filter((observation) => observation.label.trim() !== "");
@@ -4325,6 +4485,34 @@ function getReviewDdimageOrTextCorrectObservations(questionNode: Element): Revie
   return [];
 }
 
+function getReviewGapSelectCorrectObservations(questionNode: Element): ReviewObservation[] {
+  if (isReviewQuestionMarkedCorrect(questionNode)) {
+    return getReviewSelectedObservations(questionNode);
+  }
+
+  const selects = Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select"));
+
+  if (selects.length === 0) {
+    return [];
+  }
+
+  const optionLabels = getQuestionAnswerLabels(questionNode);
+
+  for (const rightAnswerNode of Array.from(questionNode.querySelectorAll(".rightanswer"))) {
+    const labels = matchAnswerTextToOptionsInTextOrder(
+      getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)),
+      optionLabels,
+      selects.length
+    );
+
+    if (labels.length >= selects.length) {
+      return selects.map((select, index) => getSelectSlotObservation(select, labels[index]));
+    }
+  }
+
+  return [];
+}
+
 function getCompoundReviewControls(questionNode: Element) {
   const controls: Array<HTMLInputElement | HTMLSelectElement> = [
     ...Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select")),
@@ -4435,6 +4623,14 @@ function getReviewCorrectObservations(questionNode: Element, questionType: strin
     return getReviewDdimageOrTextCorrectObservations(questionNode);
   }
 
+  if (questionType === "gapselect") {
+    const gapselectObservations = getReviewGapSelectCorrectObservations(questionNode);
+
+    if (gapselectObservations.length > 0) {
+      return gapselectObservations;
+    }
+  }
+
   if (isMatchingQuestionTypeName(questionType)) {
     const matchObservations = getReviewMatchCorrectObservations(questionNode);
 
@@ -4488,7 +4684,11 @@ function buildReviewAnswersForQuestion(questionNode: Element, questionType: stri
   }
 
   const correctLabels =
-    questionType === "ordering" || questionType === "ddwtos" || questionType === "ddmarker" || questionType === "ddimageortext"
+    questionType === "ordering" ||
+    questionType === "ddwtos" ||
+    questionType === "ddmarker" ||
+    questionType === "ddimageortext" ||
+    questionType === "gapselect"
       ? []
       : getReviewCorrectLabels(questionNode);
   const correctObservations = getReviewCorrectObservations(questionNode, questionType, correctLabels);

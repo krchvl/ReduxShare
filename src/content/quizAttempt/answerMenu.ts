@@ -40,8 +40,77 @@ function getFlyoutActionAttributes(item: { label: string; actionSlotIndex?: numb
   return attributes.join(" ");
 }
 
-function renderSuggestionFlyout(suggestions: SuggestionItem[]): string {
+function getBooleanSuggestionValue(label: string) {
+  const normalizedLabel = label.trim().toLowerCase();
+
+  if (normalizedLabel === "true") {
+    return true;
+  }
+
+  if (normalizedLabel === "false") {
+    return false;
+  }
+
+  return null;
+}
+
+function getRenderableExactSuggestions(suggestions: SuggestionItem[]) {
   const verifiedSuggestions = suggestions.filter((suggestion) => suggestion.correctness === 2);
+
+  if (verifiedSuggestions.length === 0) {
+    return [];
+  }
+
+  const booleanSuggestions = verifiedSuggestions.filter(
+    (suggestion) => getBooleanSuggestionValue(suggestion.label) !== null
+  );
+
+  if (booleanSuggestions.length !== verifiedSuggestions.length) {
+    return verifiedSuggestions;
+  }
+
+  const sumWeight = (targetValue: boolean) => {
+    return booleanSuggestions
+      .filter((suggestion) => getBooleanSuggestionValue(suggestion.label) === targetValue)
+      .reduce(
+        (totals, suggestion) => {
+          totals.entries.push(suggestion);
+          totals.count += suggestion.count ?? 1;
+          totals.confidence += suggestion.confidence ?? 0;
+          return totals;
+        },
+        {
+          entries: [] as SuggestionItem[],
+          count: 0,
+          confidence: 0
+        }
+      );
+  };
+
+  const trueTotals = sumWeight(true);
+  const falseTotals = sumWeight(false);
+
+  if (trueTotals.entries.length === 0 || falseTotals.entries.length === 0) {
+    return verifiedSuggestions;
+  }
+
+  if (trueTotals.count !== falseTotals.count) {
+    return trueTotals.count > falseTotals.count ? trueTotals.entries : falseTotals.entries;
+  }
+
+  if (trueTotals.confidence !== falseTotals.confidence) {
+    return trueTotals.confidence > falseTotals.confidence ? trueTotals.entries : falseTotals.entries;
+  }
+
+  if (trueTotals.entries.length !== falseTotals.entries.length) {
+    return trueTotals.entries.length > falseTotals.entries.length ? trueTotals.entries : falseTotals.entries;
+  }
+
+  return [];
+}
+
+function renderSuggestionFlyout(suggestions: SuggestionItem[]): string {
+  const verifiedSuggestions = getRenderableExactSuggestions(suggestions);
 
   if (verifiedSuggestions.length === 0) {
     return renderEmptyFlyout();
