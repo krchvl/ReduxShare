@@ -116,7 +116,7 @@ describe("ReduxShare review DB save", () => {
     expect(dbMocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("does not reuse old question-id fallback rows for match questions", async () => {
+  it("does not reuse old question-id fallback rows when the requested question hash differs", async () => {
     const { fetchReduxShareTasks } = await importQuizTasks();
     dbMocks.rpc.mockResolvedValue({
       data: [
@@ -153,7 +153,7 @@ describe("ReduxShare review DB save", () => {
     });
   });
 
-  it("keeps question-id fallback rows for non-match questions", async () => {
+  it("keeps question-id fallback rows only when no question hash is available", async () => {
     const { fetchReduxShareTasks } = await importQuizTasks();
     dbMocks.rpc.mockResolvedValue({
       data: [
@@ -176,7 +176,7 @@ describe("ReduxShare review DB save", () => {
         {
           questionId: "shortanswer-1",
           questionType: "shortanswer",
-          questionHash: "new-shortanswer-hash"
+          questionHash: null
         }
       ]
     });
@@ -189,5 +189,98 @@ describe("ReduxShare review DB save", () => {
       answerCount: 1
     });
     expect(JSON.stringify(result.results[0].data)).toContain("Joseph Stalin");
+  });
+
+  it("downgrades mismatched-hash fallback rows into statistics-only data for non-match questions", async () => {
+    const { fetchReduxShareTasks } = await importQuizTasks();
+    dbMocks.rpc.mockResolvedValue({
+      data: [
+        {
+          question_id: "multichoice-1",
+          question_type: "multichoice",
+          question_hash: "legacy-hash",
+          data: [
+            {
+              anchor: { index: 1, label: "slot:1" },
+              suggestions: [{ label: "true", correctness: 2, confidence: 1 }],
+              submissions: []
+            }
+          ],
+          answer_count: 1
+        }
+      ],
+      error: null
+    });
+
+    const result = await fetchReduxShareTasks(authSession, {
+      domain: "school.moodledemo.net",
+      courseId: 2,
+      quizId: 1150,
+      questions: [
+        {
+          questionId: "multichoice-1",
+          questionType: "multichoice",
+          questionHash: "current-hash"
+        }
+      ]
+    });
+
+    expect(result.results[0]).toMatchObject({
+      ok: true,
+      questionId: "multichoice-1",
+      questionType: "multichoice",
+      questionHash: "legacy-hash",
+      answerCount: 1
+    });
+    expect(result.results[0].data).toEqual([
+      {
+        anchor: { index: 1, label: "slot:1" },
+        suggestions: [],
+        submissions: [{ label: "true", correctness: 1, count: 1 }]
+      }
+    ]);
+  });
+
+  it("keeps non-boolean mismatched-hash fallback rows as exact answers", async () => {
+    const { fetchReduxShareTasks } = await importQuizTasks();
+    dbMocks.rpc.mockResolvedValue({
+      data: [
+        {
+          question_id: "radio-1",
+          question_type: "multichoice",
+          question_hash: "legacy-hash",
+          data: [
+            {
+              anchor: { index: 1, label: "question" },
+              suggestions: [{ label: "Non-judgement", correctness: 2, confidence: 1 }],
+              submissions: []
+            }
+          ],
+          answer_count: 1
+        }
+      ],
+      error: null
+    });
+
+    const result = await fetchReduxShareTasks(authSession, {
+      domain: "school.moodledemo.net",
+      courseId: 2,
+      quizId: 1150,
+      questions: [
+        {
+          questionId: "radio-1",
+          questionType: "multichoice",
+          questionHash: "current-hash"
+        }
+      ]
+    });
+
+    expect(result.results[0].data).toEqual([
+      {
+        anchor: { index: 1, label: "question" },
+        suggestions: [{ label: "Non-judgement", correctness: 2, confidence: 1 }],
+        submissions: []
+      }
+    ]);
   });
 });

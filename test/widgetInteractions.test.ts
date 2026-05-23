@@ -4,6 +4,7 @@ import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import {
   answerSlot,
+  exactAnswerData,
   exactSuggestion,
   sourceAnswerData,
   slottedAnswerData,
@@ -132,6 +133,101 @@ describe("R-menu widget interactions", () => {
     expect(getInput("q125:1_choice3").checked).toBe(true);
   });
 
+  it("prefers the dominant boolean exact value for ReduxShare checkbox slots and keeps the conflict in statistics", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+    const { input } = mountChoiceWidget(
+      api,
+      "q125:1_choice2",
+      sourceAnswerData({
+        reduxshare: slottedAnswerData([
+          answerSlot(3, {
+            anchors: ["between 10 and 20 percent of the time."],
+            suggestions: [
+              { ...slottedExactSuggestion("false", 3, 0.75, 3) },
+              { ...slottedExactSuggestion("true", 3, 0.25, 1) }
+            ]
+          })
+        ])
+      })
+    );
+
+    const root = getPortalRoot();
+    const exactOptions = Array.from(root.querySelectorAll<HTMLElement>('[data-answer-menu="reduxshare-exact"] .flyout-option[data-answer-label]'));
+
+    expect(exactOptions.map((option) => option.dataset.answerLabel)).toEqual(["false"]);
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-stats"] [data-answer-label="false"]')).toBeTruthy();
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-stats"] [data-answer-label="true"]')).toBeTruthy();
+
+    exactOptions[0].click();
+
+    expect(input.checked).toBe(false);
+  });
+
+  it("matches ReduxShare multichoice checkbox slots by option label even when the visible order is shuffled", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+    const answerContainer = document.querySelector(".answer");
+    expect(answerContainer).toBeInstanceOf(HTMLElement);
+
+    const rows = Array.from(answerContainer!.children);
+    expect(rows).toHaveLength(4);
+    answerContainer!.append(rows[0], rows[2], rows[3], rows[1]);
+
+    api.setSourceAnswerData(
+      "1385",
+      "reduxshare",
+      slottedAnswerData([
+        answerSlot(1, { anchors: ["63 percent of the time."], suggestions: [slottedExactSuggestion("true", 1)] }),
+        answerSlot(2, { anchors: ["23 percent of the time."], suggestions: [slottedExactSuggestion("false", 2)] }),
+        answerSlot(3, {
+          anchors: ["between 10 and 20 percent of the time."],
+          suggestions: [slottedExactSuggestion("false", 3)]
+        }),
+        answerSlot(4, { anchors: ["47 percent of the time."], suggestions: [slottedExactSuggestion("false", 4)] })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const host = document.querySelector<HTMLElement>('[data-reduxshare-choice-input-id="q125:1_choice0"]');
+    expect(host).toBeInstanceOf(HTMLElement);
+    host!.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    const root = getPortalRoot();
+    const exactOption = root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-exact"] [data-answer-label="true"]');
+    expect(exactOption).toBeInstanceOf(HTMLElement);
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-exact"] [data-answer-label="false"]')).toBeFalsy();
+  });
+
+  it("does not bind polluted legacy positional multichoice boolean rows to a shuffled option", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+
+    api.setSourceAnswerData(
+      "1385",
+      "reduxshare",
+      slottedAnswerData([
+        answerSlot(2, {
+          anchors: ["slot:2"],
+          suggestions: [
+            { ...slottedExactSuggestion("false", 2, 0.5, 2) },
+            { ...slottedExactSuggestion("true", 2, 0.5, 2) }
+          ]
+        })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const host = document.querySelector<HTMLElement>('[data-reduxshare-choice-input-id="q125:1_choice1"]');
+    expect(host).toBeInstanceOf(HTMLElement);
+    host!.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    const root = getPortalRoot();
+    expect(root.querySelector<HTMLElement>('[data-menu-tab="internal"]')).toBeFalsy();
+  });
+
   it("auto-selects match answers by prompt anchor instead of row order", async () => {
     const api = await getQuizAttemptTestApi();
     const questionNode = loadQuestionFixture("match", "attempt");
@@ -166,6 +262,32 @@ describe("R-menu widget interactions", () => {
 
     expect((document.getElementById("menuq123:11_sub0") as HTMLSelectElement).value).toBe("2");
     expect((document.getElementById("menuq123:11_sub1") as HTMLSelectElement).value).toBe("1");
+  });
+
+  it("auto-selects truefalse from a question-level exact label answer", async () => {
+    const api = await getQuizAttemptTestApi();
+    const questionNode = loadQuestionFixture("truefalse", "attempt");
+
+    expect(api.autoSelectQuestionAnswers(questionNode, exactAnswerData("False"))).toBe(true);
+
+    expect((document.getElementById("q134:8_answertrue") as HTMLInputElement).checked).toBe(false);
+    expect((document.getElementById("q134:8_answerfalse") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("auto-selects truefalse from slotted internal-source exact data", async () => {
+    const api = await getQuizAttemptTestApi();
+    const questionNode = loadQuestionFixture("truefalse", "attempt");
+    const answerData = slottedAnswerData([
+      answerSlot(1, {
+        anchors: ["question"],
+        suggestions: [slottedExactSuggestion("False", 1)]
+      })
+    ]);
+
+    expect(api.autoSelectQuestionAnswers(questionNode, answerData)).toBe(true);
+
+    expect((document.getElementById("q134:8_answertrue") as HTMLInputElement).checked).toBe(false);
+    expect((document.getElementById("q134:8_answerfalse") as HTMLInputElement).checked).toBe(true);
   });
 
   it("applies a full ddmarker External coordinate set without visible home-marker copies", async () => {

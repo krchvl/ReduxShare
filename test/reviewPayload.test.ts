@@ -43,6 +43,12 @@ describe("Moodle review payload builder", () => {
     expect(question.questionType).toBe("multichoice");
     expect(question.questionHash).toBeTruthy();
     expect(answers.map((answer) => answer.slotIndex)).toEqual([1, 2, 3, 4]);
+    expect(answers.map((answer) => answer.slotKey)).toEqual([
+      "63 percent of the time.",
+      "23 percent of the time.",
+      "between 10 and 20 percent of the time.",
+      "47 percent of the time."
+    ]);
     expectBooleanAnswers(answers, ["false", "false", "false", "true"], 2, true);
   });
 
@@ -57,7 +63,188 @@ describe("Moodle review payload builder", () => {
     expect(question.questionId).toBe("1385");
     expect(question.questionType).toBe("multichoice");
     expect(answers.map((answer) => answer.slotIndex)).toEqual([1, 2, 3, 4]);
+    expect(answers.map((answer) => answer.slotKey)).toEqual([
+      "63 percent of the time.",
+      "23 percent of the time.",
+      "between 10 and 20 percent of the time.",
+      "47 percent of the time."
+    ]);
     expectBooleanAnswers(answers, ["false", "false", "false", "true"], 1, false);
+  });
+
+  it("keeps multichoice attempt and review hashes aligned for ReduxShare lookup", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("multichoice", "attempt");
+    const [attemptSummary] = api.collectQuestionSummaries();
+
+    loadQuestionFixture("multichoice", "review-hidden");
+    const [hiddenReviewSummary] = api.collectQuestionSummaries();
+
+    loadQuestionFixture("multichoice", "review-open");
+    const [openReviewSummary] = api.collectQuestionSummaries();
+
+    expect(attemptSummary).toMatchObject({
+      questionId: "1385",
+      questionType: "multichoice",
+      questionText: "Research from Harvard shows the mind wanders, on average....."
+    });
+    expect(hiddenReviewSummary.questionHash).toBe(attemptSummary.questionHash);
+    expect(openReviewSummary.questionHash).toBe(attemptSummary.questionHash);
+  });
+
+  it("stores incorrect checkbox multichoice selections as red statistics alongside the exact boolean answer", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("multichoice", "review-open");
+
+    const wrongSelected = document.getElementById("q125:1_choice0") as HTMLInputElement;
+    const missedCorrect = document.getElementById("q125:1_choice3") as HTMLInputElement;
+    wrongSelected.checked = true;
+    missedCorrect.checked = false;
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    expect(answers).toEqual(
+      expect.arrayContaining([
+      expect.objectContaining({
+        slotKey: "63 percent of the time.",
+        label: "false",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
+      }),
+      expect.objectContaining({
+        slotKey: "63 percent of the time.",
+        label: "true",
+        correctness: 0,
+        isCorrect: false,
+        wasSelected: true
+      }),
+      expect.objectContaining({
+        slotKey: "47 percent of the time.",
+        label: "true",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
+      }),
+      expect.objectContaining({
+        slotKey: "47 percent of the time.",
+        label: "false",
+        correctness: 0,
+        isCorrect: false,
+        wasSelected: true
+      })
+      ])
+    );
+  });
+
+  it("saves truefalse open review with exact correct answer and incorrect selected answer", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("truefalse", "review-open");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+
+    expect(question.questionId).toBe("3700");
+    expect(question.questionType).toBe("truefalse");
+    expect(question.answers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slotKey: "question",
+          label: "False",
+          correctness: 2,
+          isCorrect: true,
+          wasSelected: false
+        }),
+        expect.objectContaining({
+          slotKey: "question",
+          label: "True",
+          correctness: 0,
+          isCorrect: false,
+          wasSelected: true
+        })
+      ])
+    );
+  });
+
+  it("saves gapselect open review with exact per-slot answers and incorrect selected statistics", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("gapselect", "review-open");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    expect(question.questionId).toBe("3699");
+    expect(question.questionType).toBe("gapselect");
+    expect(answers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slotKey: "slot:1",
+          slotIndex: 1,
+          label: "фвфывфв",
+          correctness: 2,
+          isCorrect: true,
+          wasSelected: false
+        }),
+        expect.objectContaining({
+          slotKey: "slot:1",
+          slotIndex: 1,
+          label: "фвфывфы",
+          correctness: 0,
+          isCorrect: false,
+          wasSelected: true
+        }),
+        expect.objectContaining({
+          slotKey: "slot:2",
+          slotIndex: 2,
+          label: "фвфывфы",
+          correctness: 2,
+          isCorrect: true,
+          wasSelected: false
+        }),
+        expect.objectContaining({
+          slotKey: "slot:2",
+          slotIndex: 2,
+          label: "фвфывфв",
+          correctness: 0,
+          isCorrect: false,
+          wasSelected: true
+        })
+      ])
+    );
+  });
+
+  it("saves gapselect hidden review as unknown per-slot statistics only", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("gapselect", "review-hidden");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    expect(question.questionId).toBe("3699");
+    expect(question.questionType).toBe("gapselect");
+    expect(answers).toMatchObject([
+      {
+        slotKey: "slot:1",
+        slotIndex: 1,
+        label: "фвфывфы",
+        correctness: 1,
+        isCorrect: false,
+        wasSelected: true
+      },
+      {
+        slotKey: "slot:2",
+        slotIndex: 2,
+        label: "фвфывфв",
+        correctness: 1,
+        isCorrect: false,
+        wasSelected: true
+      }
+    ]);
   });
 
   it("prefers Russian right-answer text for shortanswer open review", async () => {
@@ -448,5 +635,104 @@ describe("Moodle review payload builder", () => {
     });
     expect(attemptSummary.answerLabels).toEqual(expect.arrayContaining(["ядро", "митохондрия", "рибосома", "мембрана"]));
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
+  });
+
+  it("saves ordering open review as exact positions when Moodle marks the answer correct", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("ordering", "review-open");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    expect(question.questionId).toBe("3698");
+    expect(question.questionType).toBe("ordering");
+    expect(question.questionHash).toBeTruthy();
+    expect(answers).toMatchObject([
+      {
+        slotKey: "position:1",
+        slotIndex: 1,
+        label: "asdas",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: true
+      },
+      {
+        slotKey: "position:2",
+        slotIndex: 2,
+        label: "asdsa",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: true
+      },
+      {
+        slotKey: "position:3",
+        slotIndex: 3,
+        label: "adaa",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: true
+      }
+    ]);
+  });
+
+  it("saves ordering hidden review as unknown statistics when correct answers are not revealed", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("ordering", "review-hidden");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    expect(question.questionId).toBe("3698");
+    expect(question.questionType).toBe("ordering");
+    expect(answers).toMatchObject([
+      {
+        slotKey: "position:1",
+        slotIndex: 1,
+        label: "asdsa",
+        correctness: 1,
+        isCorrect: false,
+        wasSelected: true
+      },
+      {
+        slotKey: "position:2",
+        slotIndex: 2,
+        label: "asdas",
+        correctness: 1,
+        isCorrect: false,
+        wasSelected: true
+      },
+      {
+        slotKey: "position:3",
+        slotIndex: 3,
+        label: "adaa",
+        correctness: 1,
+        isCorrect: false,
+        wasSelected: true
+      }
+    ]);
+  });
+
+  it("keeps ordering attempt and review hashes aligned", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("ordering", "attempt");
+    const [attemptSummary] = api.collectQuestionSummaries();
+
+    loadQuestionFixture("ordering", "review-hidden");
+    const [hiddenReviewSummary] = api.collectQuestionSummaries();
+
+    loadQuestionFixture("ordering", "review-open");
+    const [openReviewSummary] = api.collectQuestionSummaries();
+
+    expect(attemptSummary).toMatchObject({
+      questionId: "3698",
+      questionType: "ordering",
+      questionText: "dsadasd {{1}} adad {{2}} aaa {{3}}"
+    });
+    expect(attemptSummary.answerLabels).toEqual(["asdas", "asdsa", "adaa"]);
+    expect(hiddenReviewSummary.questionHash).toBe(attemptSummary.questionHash);
+    expect(openReviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
 });

@@ -83,7 +83,7 @@ function setAmpereMatchQuestionHtml() {
 }
 
 describe("AI quiz behavior", () => {
-  it("builds AI payload controls for choice, text, textarea, select, ordering, drop, and marker questions", async () => {
+  it("builds AI payload controls for choice, text, select, ordering, drop, and marker questions", async () => {
     const api = await getQuizAttemptTestApi();
 
     expect(getControlKinds(api.buildAiAnswerRequestPayload(loadQuestionFixture("multichoice", "attempt"), "1385"))).toEqual([
@@ -94,9 +94,6 @@ describe("AI quiz behavior", () => {
     ]);
     expect(getControlKinds(api.buildAiAnswerRequestPayload(loadQuestionFixture("shortanswer", "attempt"), "2011"))).toEqual([
       "text"
-    ]);
-    expect(getControlKinds(api.buildAiAnswerRequestPayload(loadQuestionFixture("essay", "attempt"), "2001"))).toEqual([
-      "textarea"
     ]);
     expect(
       getControlKinds(
@@ -249,26 +246,6 @@ describe("AI quiz behavior", () => {
     expect(prompt).toContain("Allowed options by control");
     expect(prompt).toContain("\"сила тока\"");
     expect(prompt).toContain("\"ампер\"");
-  });
-
-  it("applies AI essay answers to textarea and rich-editor fallback", async () => {
-    const api = await getQuizAttemptTestApi();
-    const questionNode = loadQuestionFixture("essay", "attempt");
-    const textarea = document.getElementById("q200:1_answer") as HTMLTextAreaElement;
-
-    expect(api.applyAiAnswerForQuestion(questionNode, successState("Mindfulness keeps attention in the present."))).toBe(true);
-    expect(textarea.value).toBe("Mindfulness keeps attention in the present.");
-
-    const editable = document.createElement("div");
-    editable.id = "q200:1_answereditable";
-    editable.setAttribute("contenteditable", "true");
-    Object.defineProperty(editable, "isContentEditable", { configurable: true, value: true });
-    textarea.dataset.fieldtype = "editor";
-    textarea.after(editable);
-
-    expect(api.applyAiAnswerForQuestion(questionNode, successState("First paragraph.\n\nSecond paragraph."))).toBe(true);
-    expect(textarea.value).toBe("<p>First paragraph.</p><p>Second paragraph.</p>");
-    expect(editable.innerHTML).toBe("<p>First paragraph.</p><p>Second paragraph.</p>");
   });
 
   it("applies AI shortanswer and choice answers to Moodle controls", async () => {
@@ -585,54 +562,6 @@ describe("AI quiz behavior", () => {
       { label: "Килограмм", slotIndex: 2 },
       { label: "ньютон", slotIndex: 3 }
     ]);
-  });
-
-  it("sends AI requests from the R menu and applies the returned essay answer", async () => {
-    const api = await getQuizAttemptTestApi();
-    const questionNode = loadQuestionFixture("essay", "attempt");
-    const answerNode = questionNode.querySelector(".answer")!;
-    const host = api.createAnswerWidgetHost(
-      "#76d982",
-      "2001",
-      api.createEmptyVariantCounts(),
-      api.createEmptySourceAnswerData(),
-      null,
-      false
-    );
-    answerNode.append(host);
-
-    getSendMessageMock().mockImplementation((message: unknown, callback?: (response: unknown) => void) => {
-      callback?.({
-        ok: true,
-        answer: "AI generated essay.",
-        confidence: 88,
-        actions: [{ label: "AI generated essay." }]
-      });
-    });
-
-    host.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
-    const portal = document.querySelector('[data-reduxshare-answer-menu-portal="true"]')!;
-    const root = portal.shadowRoot!;
-    root.querySelector<HTMLButtonElement>('[data-ai-action="send"]')!.click();
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(getSendMessageMock()).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: GENERATE_AI_ANSWER_MESSAGE,
-        payload: expect.objectContaining({
-          questionId: "2001",
-          questionType: "essay",
-          questionText: "Explain mindfulness in two sentences.",
-          controls: expect.arrayContaining([expect.objectContaining({ kind: "textarea" })])
-        })
-      }),
-      expect.any(Function)
-    );
-
-    root.querySelector<HTMLElement>('[data-ai-answer-action="apply"]')!.click();
-
-    expect((document.getElementById("q200:1_answer") as HTMLTextAreaElement).value).toBe("AI generated essay.");
   });
 
   it("does not expose AI controls or send requests for disabled drag/drop question types", async () => {
