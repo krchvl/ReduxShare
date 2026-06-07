@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 
+vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
 type ChromeStorageArea = {
   get: ReturnType<typeof vi.fn>;
   set: ReturnType<typeof vi.fn>;
@@ -68,4 +70,3 @@ beforeEach(() => {
   localStorageArea.set.mockClear();
   localStorageArea.remove.mockClear();
 });
-

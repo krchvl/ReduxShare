@@ -459,6 +459,86 @@ describe("Moodle review payload builder", () => {
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
 
+  it("saves image match open review by image prompt identity", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("match", "review-openwithimage");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const bySlot = getAnswersBySlot(question);
+
+    expect(question.questionId).toBe("1349");
+    expect(question.questionType).toBe("match");
+    expect(bySlot).toMatchObject([
+      {
+        slotKey: "image:qtype_match/subquestion/96/icon5.png",
+        label: "Snapchat",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: true
+      },
+      {
+        slotKey: "image:qtype_match/subquestion/95/icon3.png",
+        label: "Instagram",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
+      },
+      {
+        slotKey: "image:qtype_match/subquestion/97/icon66.png",
+        label: "Yelp",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
+      },
+      {
+        slotKey: "image:qtype_match/subquestion/99/icon1.png",
+        label: "Twitter",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
+      },
+      {
+        slotKey: "image:qtype_match/subquestion/98/icon22.png",
+        label: "LinkedIn",
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
+      }
+    ]);
+  });
+
+  it("keeps image match attempt and review hashes aligned", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("match", "attemptwithimage");
+    const [attemptSummary] = api.collectQuestionSummaries();
+
+    loadQuestionFixture("match", "review-openwithimage");
+    const [reviewSummary] = api.collectQuestionSummaries();
+
+    expect(attemptSummary).toMatchObject({
+      questionId: "1349",
+      questionType: "match",
+      questionText: "Match the icons to their sites."
+    });
+    expect(attemptSummary.answerLabels).toEqual(
+      expect.arrayContaining([
+        "image:qtype_match/subquestion/96/icon5.png",
+        "image:qtype_match/subquestion/95/icon3.png",
+        "image:qtype_match/subquestion/97/icon66.png",
+        "image:qtype_match/subquestion/99/icon1.png",
+        "image:qtype_match/subquestion/98/icon22.png",
+        "Snapchat",
+        "Instagram",
+        "Yelp",
+        "Twitter",
+        "LinkedIn"
+      ])
+    );
+    expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
+  });
+
   it("saves randomsamatch open review by prompt label", async () => {
     const api = await getQuizAttemptTestApi();
 

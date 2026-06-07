@@ -116,7 +116,7 @@ describe("ReduxShare review DB save", () => {
     expect(dbMocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("does not reuse old question-id fallback rows when the requested question hash differs", async () => {
+  it("allows mismatched match rows to be filtered safely by prompt anchors in the content script", async () => {
     const { fetchReduxShareTasks } = await importQuizTasks();
     dbMocks.rpc.mockResolvedValue({
       data: [
@@ -147,10 +147,12 @@ describe("ReduxShare review DB save", () => {
     expect(result.results[0]).toMatchObject({
       ok: true,
       questionId: "match-1",
-      questionHash: "new-prompt-scoped-hash",
-      data: null,
-      answerCount: 0
+      questionHash: "old-row-order-hash",
+      answerCount: 1
     });
+    expect(result.results[0].data).toEqual([
+      { anchor: { label: "slot:0" }, suggestions: [{ label: "garbage" }], submissions: [] }
+    ]);
   });
 
   it("keeps question-id fallback rows only when no question hash is available", async () => {

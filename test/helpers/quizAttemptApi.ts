@@ -35,7 +35,8 @@ type QuizAttemptTestApi = {
     answerData: SourceAnswerData,
     aiSettingsSaved: boolean,
     aiAnswerState: AiAnswerState,
-    aiToolsEnabled?: boolean
+    aiToolsEnabled?: boolean,
+    externalOnly?: boolean
   ) => string;
   positionAnswerMenuPortal: (menuPortal: HTMLElement, trigger: HTMLElement) => void;
   updateAnswerMenuFlyoutSide: (menuPortal: HTMLElement) => void;

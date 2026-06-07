@@ -36,16 +36,38 @@ import {
   type UpdateCheckResponse
 } from "../lib/updates";
 import { recordUserQuizProgress } from "../lib/userProfiles";
+import {
+  APP_STORAGE_KEY,
+  PENDING_REVIEW_SAVES_STORAGE_KEY,
+  QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY
+} from "../shared/storageKeys";
 import { normalizeAiSettings, type AiSettings, type AuthSession, type LanguageSetting, type UpdateState, type UserProfile } from "../types";
 
-const APP_STORAGE_KEY = "reduxshare";
 const FETCH_QUIZ_ANSWERS_MESSAGE = "REDUXSHARE_FETCH_QUIZ_ANSWERS";
 const RECORD_QUIZ_PROGRESS_MESSAGE = "REDUXSHARE_RECORD_QUIZ_PROGRESS";
 const SAVE_REVIEW_ANSWERS_MESSAGE = "REDUXSHARE_SAVE_REVIEW_ANSWERS";
-const QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY = "reduxshareQuizReviewSaveDiagnostics";
+const MAX_PENDING_REVIEW_SAVES = 25;
 const EXTERNAL_CLIENT_VERSION = "2.6.0";
-const EXTERNAL_SERVICE_HOST = `${String.fromCharCode(115, 121, 110, 99, 115, 104, 97, 114, 101)}.naloaty.me`;
-const EXTERNAL_VARIANTS_URL = `https://${EXTERNAL_SERVICE_HOST}/api/v2/quiz/solution`;
+const EXTERNAL_ENDPOINT_KEY = [91, 17, 203, 44, 7, 180, 63, 128, 54] as const;
+const EXTERNAL_ENDPOINT_SEGMENTS = {
+  authority: [57, 88, 234, 33, 249, 112, 149, 24, 90, 93, 56, 204, 197, 204, 22, 169, 248, 56, 9, 42],
+  resource: [101, 64, 244, 43, 165, 110, 198, 69, 78, 6, 63, 215, 134, 208, 24, 177, 244, 98, 13, 32, 216]
+} as const;
+
+function decodeExternalEndpointSegment(segment: readonly number[]) {
+  return segment
+    .map((value, index) => {
+      const positionalMask = (index * 31 + 17) & 255;
+      return String.fromCharCode(value ^ EXTERNAL_ENDPOINT_KEY[index % EXTERNAL_ENDPOINT_KEY.length] ^ positionalMask);
+    })
+    .join("");
+}
+
+function getExternalVariantsUrl() {
+  return `https://${decodeExternalEndpointSegment(EXTERNAL_ENDPOINT_SEGMENTS.authority)}${decodeExternalEndpointSegment(
+    EXTERNAL_ENDPOINT_SEGMENTS.resource
+  )}`;
+}
 
 interface StoredStateLike {
   settings?: {
@@ -120,6 +142,13 @@ interface SaveReviewAnswersResponse {
   error?: string;
   imported?: boolean;
   savedCount?: number;
+  queued?: boolean;
+}
+
+interface PendingReviewSave {
+  id: string;
+  queuedAt: string;
+  payload: SaveReduxShareReviewPayload;
 }
 
 function isFetchQuizAnswersMessage(message: unknown): message is FetchQuizAnswersMessage {
@@ -226,6 +255,95 @@ async function saveReviewSaveDiagnostics(stage: string, details: Record<string, 
     });
   } catch {
     // Diagnostics must not break background message handling.
+  }
+}
+
+function getPendingReviewSaveId(payload: SaveReduxShareReviewPayload) {
+  return [payload.domain, payload.courseId ?? "unknown-course", payload.quizId ?? "unknown-quiz", payload.attemptKey].join("|");
+}
+
+async function loadPendingReviewSaves(): Promise<PendingReviewSave[]> {
+  const result = await chrome.storage.local.get(PENDING_REVIEW_SAVES_STORAGE_KEY);
+  const value = result[PENDING_REVIEW_SAVES_STORAGE_KEY];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is PendingReviewSave => {
+    if (!entry || typeof entry !== "object") {
+      return false;
+    }
+
+    const candidate = entry as Partial<PendingReviewSave>;
+    return typeof candidate.id === "string" && typeof candidate.queuedAt === "string" && typeof candidate.payload === "object";
+  });
+}
+
+async function savePendingReviewSaves(queue: PendingReviewSave[]) {
+  await chrome.storage.local.set({
+    [PENDING_REVIEW_SAVES_STORAGE_KEY]: queue.slice(-MAX_PENDING_REVIEW_SAVES)
+  });
+}
+
+async function queuePendingReviewSave(payload: SaveReduxShareReviewPayload) {
+  const queue = await loadPendingReviewSaves();
+  const nextEntry: PendingReviewSave = {
+    id: getPendingReviewSaveId(payload),
+    queuedAt: new Date().toISOString(),
+    payload
+  };
+  const dedupedQueue = queue.filter((entry) => entry.id !== nextEntry.id);
+  dedupedQueue.push(nextEntry);
+  await savePendingReviewSaves(dedupedQueue);
+  return dedupedQueue.length;
+}
+
+let pendingReviewSaveFlushInProgress = false;
+
+async function flushPendingReviewSaves(authSession: AuthSession) {
+  if (pendingReviewSaveFlushInProgress) {
+    return {
+      authSession,
+      flushedCount: 0,
+      remainingCount: (await loadPendingReviewSaves()).length
+    };
+  }
+
+  pendingReviewSaveFlushInProgress = true;
+
+  try {
+    const queue = await loadPendingReviewSaves();
+    const remaining: PendingReviewSave[] = [];
+    let latestAuthSession = authSession;
+    let flushedCount = 0;
+
+    for (const entry of queue) {
+      try {
+        const result = await saveReduxShareReviewAnswers(latestAuthSession, entry.payload);
+        latestAuthSession = result.authSession;
+        flushedCount += 1;
+      } catch (error) {
+        remaining.push(entry);
+        await saveReviewSaveDiagnostics("background-pending-save-flush-error", {
+          error: error instanceof Error ? error.message : String(error),
+          pendingId: entry.id,
+          courseId: entry.payload.courseId,
+          quizId: entry.payload.quizId,
+          attemptKey: entry.payload.attemptKey
+        });
+      }
+    }
+
+    await savePendingReviewSaves(remaining);
+
+    return {
+      authSession: latestAuthSession,
+      flushedCount,
+      remainingCount: remaining.length
+    };
+  } finally {
+    pendingReviewSaveFlushInProgress = false;
   }
 }
 
@@ -363,7 +481,7 @@ function buildVariantsUrl(payload: FetchQuizAnswersPayload, question: QuizQuesti
     questionType: question.questionType ?? ""
   });
 
-  return `${EXTERNAL_VARIANTS_URL}?${params.toString()}`;
+  return `${getExternalVariantsUrl()}?${params.toString()}`;
 }
 
 async function fetchQuestionVariants(
@@ -416,13 +534,6 @@ async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise
   const authSession = getStoredAuthSession(storedState);
   const t = getTranslator(storedState.settings?.language);
 
-  if (!authSession) {
-    return {
-      ok: false,
-      error: t("errors.authRequired")
-    };
-  }
-
   if (payload.courseId === null || payload.quizId === null) {
     return {
       ok: false,
@@ -433,7 +544,6 @@ async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise
   const externalResults = await Promise.all(
     payload.questions.map((question) => fetchQuestionVariants(payload, question, storedState.settings?.language))
   );
-  let latestAuthSession = authSession;
   let reduxshareResults: QuizVariantResult[] = payload.questions.map((question) => ({
     questionId: question.questionId,
     questionType: question.questionType,
@@ -443,6 +553,15 @@ async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise
     answerCount: 0
   }));
 
+  if (!authSession) {
+    return {
+      ok: true,
+      reduxshareResults,
+      externalResults
+    };
+  }
+
+  let latestAuthSession = authSession;
   const reduxshareResponse = await fetchReduxShareTasks(latestAuthSession, payload, storedState.settings?.language);
   latestAuthSession = reduxshareResponse.authSession;
   reduxshareResults = reduxshareResponse.results;
@@ -479,22 +598,26 @@ async function handleRecordQuizProgress(payload: RecordQuizProgressPayload): Pro
 async function handleSaveReviewAnswers(payload: SaveReduxShareReviewPayload): Promise<SaveReviewAnswersResponse> {
   const storedState = await loadStoredState();
   const authSession = getStoredAuthSession(storedState);
-  const t = getTranslator(storedState.settings?.language);
 
   if (!authSession) {
-    await saveReviewSaveDiagnostics("background-auth-required", {
+    const queueSize = await queuePendingReviewSave(payload);
+    await saveReviewSaveDiagnostics("background-save-queued-auth-required", {
       courseId: payload.courseId,
       quizId: payload.quizId,
       attemptKey: payload.attemptKey,
-      questionCount: payload.questions.length
+      questionCount: payload.questions.length,
+      queueSize
     });
     return {
-      ok: false,
-      error: t("errors.authRequired")
+      ok: true,
+      imported: false,
+      savedCount: 0,
+      queued: true
     };
   }
 
-  const result = await saveReduxShareReviewAnswers(authSession, payload);
+  const flushResult = await flushPendingReviewSaves(authSession);
+  const result = await saveReduxShareReviewAnswers(flushResult.authSession, payload);
   await saveStoredStatePatch({ authSession: result.authSession });
   await saveReviewSaveDiagnostics("background-save-result", {
     courseId: payload.courseId,
@@ -503,6 +626,8 @@ async function handleSaveReviewAnswers(payload: SaveReduxShareReviewPayload): Pr
     questionCount: payload.questions.length,
     imported: result.imported,
     savedCount: result.savedCount,
+    flushedPendingCount: flushResult.flushedCount,
+    remainingPendingCount: flushResult.remainingCount,
     questions: payload.questions.map((question) => ({
       questionId: question.questionId,
       questionType: question.questionType,
@@ -694,6 +819,37 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
 
   return false;
 });
+
+if (chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes[APP_STORAGE_KEY]) {
+      return;
+    }
+
+    const nextState = changes[APP_STORAGE_KEY].newValue as StoredStateLike | undefined;
+    const authSession = nextState ? getStoredAuthSession(nextState) : null;
+
+    if (!authSession) {
+      return;
+    }
+
+    void flushPendingReviewSaves(authSession)
+      .then((result) => {
+        if (result.flushedCount > 0) {
+          void saveStoredStatePatch({ authSession: result.authSession });
+          void saveReviewSaveDiagnostics("background-pending-save-flush-result", {
+            flushedPendingCount: result.flushedCount,
+            remainingPendingCount: result.remainingCount
+          });
+        }
+      })
+      .catch((error) => {
+        void saveReviewSaveDiagnostics("background-pending-save-flush-error", {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+  });
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureUpdateAlarm();

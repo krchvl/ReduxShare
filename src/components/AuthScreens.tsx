@@ -50,7 +50,7 @@ export function LoginScreen({ isLoading, errorMessage, onLogin, onOpenRegister }
         <Button className="auth-button" type="submit" disabled={isLoading}>
           {isLoading ? t("auth.login.loading") : t("auth.login.submit")}
         </Button>
-        <Button className="auth-button" variant="outline" disabled={isLoading} onClick={onOpenRegister}>
+        <Button className="auth-button" type="button" variant="outline" disabled={isLoading} onClick={onOpenRegister}>
           {t("auth.register.open")}
         </Button>
       </div>
@@ -113,7 +113,7 @@ export function RegisterScreen({ isLoading, message, onRegister, onOpenLogin }: 
         <Button className="auth-button" type="submit" disabled={isLoading}>
           {isLoading ? t("auth.register.loading") : t("auth.register.submit")}
         </Button>
-        <Button className="auth-button" variant="outline" disabled={isLoading} onClick={onOpenLogin}>
+        <Button className="auth-button" type="button" variant="outline" disabled={isLoading} onClick={onOpenLogin}>
           {t("auth.login.open")}
         </Button>
       </div>

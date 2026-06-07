@@ -1,23 +1,15 @@
 import {
-  AI_DISABLED_QUESTION_TYPES,
-  AI_ONLY_QUESTION_TYPES,
   ANSWER_MENU_PORTAL_ATTR,
   ANSWER_WIDGET_ATTR,
   APP_STORAGE_KEY,
   CHOICE_QUESTION_TYPES,
-  COMPOUND_QUESTION_TYPES,
   DEFAULT_ACCENT_COLOR,
   DEFAULT_HOTKEY,
   DEFAULT_HOTKEY_CODE,
-  DRAG_IMAGE_OR_TEXT_QUESTION_TYPES,
-  DRAG_MARKER_QUESTION_TYPES,
-  DRAG_TEXT_QUESTION_TYPES,
-  ESSAY_QUESTION_TYPES,
   FETCH_QUIZ_ANSWERS_MESSAGE,
   FULL_PAGE_LOAD_MAX_WAIT_MS,
   GENERATE_AI_ANSWER_MESSAGE,
   LEGACY_THEME_ACCENTS,
-  MATCHING_QUESTION_TYPES,
   MAX_METADATA_WAIT_MS,
   METADATA_POLL_MS,
   QUIZ_CONTEXT_STORAGE_KEY,
@@ -26,10 +18,8 @@ import {
   QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY,
   RECORD_QUIZ_PROGRESS_MESSAGE,
   SAVE_REVIEW_ANSWERS_MESSAGE,
-  SELECTABLE_QUESTION_TYPES,
   STEALTH_MESSAGE_SOURCE,
   STEALTH_MODE_MESSAGE,
-  SUPPORTED_AUTO_SELECT_QUESTION_TYPES,
   SUPPORTED_REVIEW_QUESTION_TYPES,
   SUPPORTED_WIDGET_QUESTION_TYPES,
   TEXT_INPUT_QUESTION_TYPES,
@@ -45,7 +35,6 @@ import {
   type AnswerSlotData,
   type AnswerVariantCounts,
   type AnswerWidgetState,
-  type MoodleConfig,
   type QuizAnswersResponse,
   type QuizAttemptContext,
   type QuizProgressReports,
@@ -80,6 +69,49 @@ import {
   getVariantCounts,
   hasAnswerData
 } from "./quizAttempt/answerData";
+import {
+  cleanReviewDisplayedTextAnswer,
+  getRightAnswerBodyText,
+  parseReviewMatchPairs,
+  splitReviewAnswerText
+} from "./quizAttempt/reviewText";
+import {
+  getAnswerLabelMatchKeys,
+  getClassNumber,
+  getImageIdentityLabel,
+  getMoodleAnswerLabelText,
+  getMoodleAnswerLabelTextOrImageIdentity,
+  getQuestionText,
+  getSelectOptionLabel,
+  getUniqueTexts,
+  isPlaceholderSelectOption,
+  itemLabelMatches,
+  labelsMatch,
+  normalizeAnswerLabel,
+  normalizeFingerprintText,
+  stableHashText,
+  stripMoodleAnswerPrefix
+} from "./quizAttempt/questionDom";
+import {
+  getSecondQuestionClass,
+  getSupportedAutoSelectQuestionType,
+  isAiDisabledQuestionTypeName,
+  isAiOnlyQuestionTypeName,
+  isChoiceQuestionType,
+  isCompoundQuestionType,
+  isDragImageOrTextQuestionType,
+  isDragMarkerQuestionType,
+  isDragTextQuestionType,
+  isEssayQuestionType,
+  isMatchingQuestionNode,
+  isMatchingQuestionTypeName,
+  isOrderingQuestionType,
+  isSelectableQuestionType,
+  isTextInputQuestionType
+} from "./quizAttempt/questionTypes";
+import { findMoodleConfig, getReviewSaveMoodleConfig } from "./quizAttempt/moodleContext";
+import { getQuestionId, getQuestionPostData } from "./quizAttempt/questionIdentity";
+import { setTextAnswerValue, setTextareaAnswerValue } from "./quizAttempt/textControls";
 
 let currentT: TranslateFn = getContentTranslator(undefined);
 
@@ -163,7 +195,11 @@ function isLoggedInToExtension(storedState: StoredStateLike | undefined) {
 }
 
 function canUseQuizFeatures(storedState: StoredStateLike | undefined) {
-  return storedState?.settings?.extensionEnabled !== false && isLoggedInToExtension(storedState);
+  return storedState?.settings?.extensionEnabled !== false;
+}
+
+function canUseAuthenticatedQuizFeatures(storedState: StoredStateLike | undefined) {
+  return canUseQuizFeatures(storedState) && isLoggedInToExtension(storedState);
 }
 
 function syncStealthMode(storedState: StoredStateLike | undefined) {
@@ -211,319 +247,6 @@ async function saveQuizReviewSaveDiagnostics(stage: string, details: Record<stri
 
 function isHTMLElement(value: Element | null): value is HTMLElement {
   return value instanceof HTMLElement;
-}
-
-function getSecondQuestionClass(questionNode: Element) {
-  const classNames = Array.from(questionNode.classList);
-  const queIndex = classNames.indexOf("que");
-
-  if (queIndex >= 0) {
-    return classNames[queIndex + 1] ?? null;
-  }
-
-  return classNames[1] ?? null;
-}
-
-function extractBalancedObject(source: string, startIndex: number) {
-  let depth = 0;
-  let inString = false;
-  let stringQuote = "";
-  let escaped = false;
-
-  for (let index = startIndex; index < source.length; index += 1) {
-    const char = source[index];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === stringQuote) {
-        inString = false;
-      }
-
-      continue;
-    }
-
-    if (char === "\"" || char === "'") {
-      inString = true;
-      stringQuote = char;
-      continue;
-    }
-
-    if (char === "{") {
-      depth += 1;
-    }
-
-    if (char === "}") {
-      depth -= 1;
-
-      if (depth === 0) {
-        return source.slice(startIndex, index + 1);
-      }
-    }
-  }
-
-  return null;
-}
-
-function findMoodleConfig(): MoodleConfig | null {
-  const scripts = Array.from(document.scripts);
-
-  for (const script of scripts) {
-    const scriptText = script.textContent ?? "";
-    const cfgIndex = scriptText.indexOf("M.cfg");
-
-    if (cfgIndex < 0 || (!scriptText.includes("courseId") && !scriptText.includes("contextInstanceId"))) {
-      continue;
-    }
-
-    const objectStart = scriptText.indexOf("{", cfgIndex);
-
-    if (objectStart < 0) {
-      continue;
-    }
-
-    const objectSource = extractBalancedObject(scriptText, objectStart);
-
-    if (!objectSource) {
-      continue;
-    }
-
-    try {
-      const parsedConfig = JSON.parse(objectSource) as Record<string, unknown>;
-      const courseId =
-        typeof parsedConfig.courseId === "number" ? parsedConfig.courseId : parseMoodleNumericId(String(parsedConfig.courseId ?? ""));
-      const contextInstanceId =
-        typeof parsedConfig.contextInstanceId === "number"
-          ? parsedConfig.contextInstanceId
-          : parseMoodleNumericId(String(parsedConfig.contextInstanceId ?? ""));
-
-      return {
-        courseId,
-        contextInstanceId
-      };
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-function parseMoodleNumericId(value: string | null | undefined) {
-  const normalizedValue = value?.trim() ?? "";
-
-  if (!/^\d+$/.test(normalizedValue)) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(normalizedValue, 10);
-  return Number.isFinite(parsedValue) ? parsedValue : null;
-}
-
-function findMoodleModuleIdFromPage() {
-  try {
-    const url = new URL(window.location.href);
-    const urlModuleId = parseMoodleNumericId(url.searchParams.get("cmid") ?? url.searchParams.get("id"));
-
-    if (urlModuleId !== null) {
-      return urlModuleId;
-    }
-  } catch {
-    // Continue with DOM fallback.
-  }
-
-  for (const link of Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="cmid="], a[href*="/mod/quiz/"]'))) {
-    try {
-      const linkUrl = new URL(link.href, window.location.href);
-      const linkModuleId = parseMoodleNumericId(linkUrl.searchParams.get("cmid") ?? linkUrl.searchParams.get("id"));
-
-      if (linkModuleId !== null) {
-        return linkModuleId;
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-function getReviewSaveMoodleConfig(storedState: StoredStateLike | undefined): MoodleConfig {
-  const moodleConfig = findMoodleConfig();
-  const latestContext = storedState?.latestQuizAttemptContext;
-
-  return {
-    courseId: moodleConfig?.courseId ?? latestContext?.courseId ?? null,
-    contextInstanceId: moodleConfig?.contextInstanceId ?? latestContext?.contextInstanceId ?? findMoodleModuleIdFromPage()
-  };
-}
-
-function getQuestionPostData(questionNode: Element) {
-  const postDataInput = questionNode.querySelector(".questionflagpostdata");
-
-  if (!(postDataInput instanceof HTMLInputElement)) {
-    return null;
-  }
-
-  return postDataInput.value || postDataInput.getAttribute("value")?.replace(/&amp;/g, "&") || null;
-}
-
-function getQuestionIdFromEditLink(questionNode: Element) {
-  const editLink = questionNode.querySelector<HTMLAnchorElement>(
-    '.editquestion a[href*="question.php"], a[href*="/question/bank/editquestion/question.php"]'
-  );
-
-  if (!editLink) {
-    return null;
-  }
-
-  try {
-    return new URL(editLink.href, window.location.href).searchParams.get("id");
-  } catch {
-    return null;
-  }
-}
-
-function getQuestionId(questionNode: Element) {
-  const dataQuestionId =
-    questionNode.getAttribute("data-questionid") ??
-    questionNode.getAttribute("data-qid") ??
-    questionNode.querySelector("[data-questionid]")?.getAttribute("data-questionid") ??
-    questionNode.querySelector("[data-qid]")?.getAttribute("data-qid");
-
-  if (dataQuestionId && /^\d+$/.test(dataQuestionId.trim())) {
-    return dataQuestionId.trim();
-  }
-
-  const postData = getQuestionPostData(questionNode);
-
-  if (postData) {
-    const postDataQuestionId = new URLSearchParams(postData).get("qid");
-
-    if (postDataQuestionId) {
-      return postDataQuestionId;
-    }
-  }
-
-  return getQuestionIdFromEditLink(questionNode);
-}
-
-function normalizeFingerprintText(value: string) {
-  return value
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function stableHashText(value: string) {
-  let hash = 0x811c9dc5;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
-
-function getUniqueTexts(values: string[]) {
-  const seen = new Set<string>();
-  const uniqueValues: string[] = [];
-
-  for (const value of values) {
-    const trimmedValue = value.replace(/\s+/g, " ").trim();
-    const key = normalizeFingerprintText(trimmedValue);
-
-    if (!key || seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    uniqueValues.push(trimmedValue);
-  }
-
-  return uniqueValues;
-}
-
-function getQuestionText(questionNode: Element) {
-  const qTextNode = questionNode.querySelector(".qtext");
-
-  if (qTextNode) {
-    if (questionNode.classList.contains("ordering")) {
-      const clonedQtext = qTextNode.cloneNode(true);
-
-      if (clonedQtext instanceof Element) {
-        clonedQtext.querySelectorAll(
-          [
-            ".ablock",
-            ".answer",
-            ".sortablelist",
-            "input",
-            "select",
-            "textarea",
-            "button",
-            `[${ANSWER_WIDGET_ATTR}="true"]`
-          ].join(",")
-        ).forEach((node) => {
-          node.remove();
-        });
-
-        return getMoodleAnswerLabelText(clonedQtext).replace(/\s+/g, " ").trim();
-      }
-    }
-
-    return getMoodleAnswerLabelText(qTextNode).replace(/\s+/g, " ").trim();
-  }
-
-  if (questionNode.classList.contains("multianswer")) {
-    const formulationNode = questionNode.querySelector(".formulation");
-    const clonedFormulation = formulationNode?.cloneNode(true);
-
-    if (clonedFormulation instanceof Element) {
-      clonedFormulation.querySelectorAll(
-        [
-          "input",
-          "select",
-          "textarea",
-          "button",
-          ".feedbacktrigger",
-          ".validationerror",
-          `[${ANSWER_WIDGET_ATTR}="true"]`
-        ].join(",")
-      ).forEach((node) => node.remove());
-      clonedFormulation.querySelectorAll("br").forEach((node) => node.replaceWith(" "));
-      clonedFormulation.querySelectorAll("p, div").forEach((node) => node.append(document.createTextNode(" ")));
-
-      return getMoodleAnswerLabelText(clonedFormulation).replace(/\s+/g, " ").trim();
-    }
-  }
-
-  return getMoodleAnswerLabelText(questionNode).replace(/\s+/g, " ").trim();
-}
-
-function getSelectOptionLabel(option: HTMLOptionElement) {
-  return (option.textContent ?? option.label).replace(/\s+/g, " ").trim();
-}
-
-function isPlaceholderSelectOption(option: HTMLOptionElement) {
-  const optionLabel = getSelectOptionLabel(option).toLowerCase();
-
-  if (!option.value) {
-    return true;
-  }
-
-  return option.value === "0" && /^(choose|choose\.{3}|select|select\.{3}|выберите|выберите\.{3}|-+)$/.test(optionLabel);
-}
-
-function isMatchingQuestionTypeName(questionType: string | null | undefined) {
-  return questionType !== null && questionType !== undefined && MATCHING_QUESTION_TYPES.has(questionType);
-}
-
-function isMatchingQuestionNode(questionNode: Element | null | undefined) {
-  return isMatchingQuestionTypeName(questionNode ? getSecondQuestionClass(questionNode) : null);
 }
 
 function getQuestionAnswerLabels(
@@ -823,7 +546,7 @@ async function reportSolvedQuestions(questionProgressIds: string[]) {
   const context = currentQuizAttemptContext;
   const uniqueQuestionProgressIds = Array.from(new Set(questionProgressIds.filter(Boolean)));
 
-  if (!context || uniqueQuestionProgressIds.length === 0) {
+  if (!context || uniqueQuestionProgressIds.length === 0 || !canUseAuthenticatedQuizFeatures(currentStoredState)) {
     return;
   }
 
@@ -971,58 +694,6 @@ function findQuestionBoundsNodeForTrigger(trigger: HTMLElement): HTMLElement | n
   return questionNode;
 }
 
-function isSelectableQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && SELECTABLE_QUESTION_TYPES.has(questionType);
-}
-
-function isOrderingQuestionType(questionNode: Element) {
-  return questionNode.classList.contains("ordering");
-}
-
-function isCompoundQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && COMPOUND_QUESTION_TYPES.has(questionType);
-}
-
-function isDragTextQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && DRAG_TEXT_QUESTION_TYPES.has(questionType);
-}
-
-function isDragMarkerQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && DRAG_MARKER_QUESTION_TYPES.has(questionType);
-}
-
-function isDragImageOrTextQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && DRAG_IMAGE_OR_TEXT_QUESTION_TYPES.has(questionType);
-}
-
-function isTextInputQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && TEXT_INPUT_QUESTION_TYPES.has(questionType);
-}
-
-function isEssayQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && ESSAY_QUESTION_TYPES.has(questionType);
-}
-
-function isAiOnlyQuestionTypeName(questionType: string | null | undefined) {
-  return questionType !== null && questionType !== undefined && AI_ONLY_QUESTION_TYPES.has(questionType);
-}
-
-function isAiDisabledQuestionTypeName(questionType: string | null | undefined) {
-  return questionType !== null && questionType !== undefined && AI_DISABLED_QUESTION_TYPES.has(questionType);
-}
-
-function isChoiceQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType !== null && CHOICE_QUESTION_TYPES.has(questionType);
-}
-
 function getChoiceAnswerInputs(questionNode: Element) {
   return Array.from(
     questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
@@ -1031,46 +702,6 @@ function getChoiceAnswerInputs(questionNode: Element) {
 
 function isMultiAnswerMultichoiceQuestion(questionNode: Element) {
   return isChoiceQuestionType(questionNode) && getChoiceAnswerInputs(questionNode).some((input) => input.type === "checkbox");
-}
-
-function getSupportedAutoSelectQuestionType(questionNode: Element) {
-  const questionType = getSecondQuestionClass(questionNode);
-  return questionType && SUPPORTED_AUTO_SELECT_QUESTION_TYPES.has(questionType) ? questionType : null;
-}
-
-function normalizeAnswerLabel(label: string) {
-  return label
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function stripMoodleAnswerPrefix(label: string) {
-  return label.replace(/^(?:[a-zа-яё]|\d{1,3})\s*[\.)]\s+/iu, "");
-}
-
-function getAnswerLabelMatchKeys(label: string) {
-  const normalizedLabel = normalizeAnswerLabel(label);
-  const normalizedWithoutPrefix = normalizeAnswerLabel(stripMoodleAnswerPrefix(normalizedLabel));
-
-  return new Set([normalizedLabel, normalizedWithoutPrefix].filter(Boolean));
-}
-
-function getMoodleAnswerLabelText(container: Element) {
-  const clonedContainer = container.cloneNode(true);
-
-  if (!(clonedContainer instanceof Element)) {
-    return container.textContent ?? "";
-  }
-
-  clonedContainer.querySelectorAll(
-    ".answernumber, .sr-only, .accesshide, .visually-hidden, [data-reduxshare-answer-widget]"
-  ).forEach((node) => {
-    node.remove();
-  });
-
-  return clonedContainer.textContent ?? "";
 }
 
 function getOrderingList(questionNode: Element) {
@@ -1103,18 +734,6 @@ function getOrderingPositionObservation(position: number, label: string): Review
     slotKey: `position:${position}`,
     slotIndex: position
   };
-}
-
-function getClassNumber(element: Element, prefix: string) {
-  for (const className of Array.from(element.classList)) {
-    const match = new RegExp(`^${prefix}(\\d+)$`).exec(className);
-
-    if (match) {
-      return Number.parseInt(match[1], 10);
-    }
-  }
-
-  return null;
 }
 
 function getDdwtosDrops(questionNode: Element) {
@@ -1902,20 +1521,6 @@ function getChoiceSlotIndex(input: HTMLInputElement, answerData: AnswerData) {
   return answerData.slots.some((slot) => slot.index === 0) ? choiceIndex : choiceIndex + 1;
 }
 
-function labelsMatch(left: string, right: string) {
-  if (!left || !right) {
-    return false;
-  }
-
-  const leftKeys = getAnswerLabelMatchKeys(left);
-  const rightKeys = getAnswerLabelMatchKeys(right);
-  return [...leftKeys].some((key) => rightKeys.has(key));
-}
-
-function itemLabelMatches<T extends { label: string }>(item: T, label: string) {
-  return labelsMatch(item.label, label);
-}
-
 function answerSlotMatchesLabel(slot: AnswerSlotData, label: string) {
   return (
     slot.anchors.some((anchor) => labelsMatch(anchor, label)) ||
@@ -2390,179 +1995,6 @@ function getEssayAnswerTextareas(questionNode: Element) {
   });
 }
 
-function setNativeInputValue(input: HTMLInputElement, value: string) {
-  const InputConstructor = input.ownerDocument.defaultView?.HTMLInputElement ?? window.HTMLInputElement;
-  const ownSetter = Object.getOwnPropertyDescriptor(input, "value")?.set;
-  const prototypeSetter = Object.getOwnPropertyDescriptor(InputConstructor.prototype, "value")?.set;
-  const setter = prototypeSetter && ownSetter !== prototypeSetter ? prototypeSetter : ownSetter;
-
-  if (setter) {
-    setter.call(input, value);
-    return;
-  }
-
-  input.value = value;
-}
-
-function setTextAnswerValue(input: HTMLInputElement, label: string) {
-  const nextValue = label.trim();
-
-  if (!nextValue) {
-    return false;
-  }
-
-  const previousValue = input.value;
-  setNativeInputValue(input, nextValue);
-
-  if (input.getAttribute("value") !== nextValue) {
-    input.setAttribute("value", nextValue);
-  }
-
-  dispatchTextControlEvents(input);
-  return previousValue !== nextValue;
-}
-
-function escapeEditorHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function plainTextToEditorHtml(value: string) {
-  const paragraphs = value
-    .replace(/\r\n?/g, "\n")
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-
-  if (paragraphs.length === 0) {
-    return "";
-  }
-
-  return paragraphs
-    .map((paragraph) => {
-      const lines = paragraph.split(/\n/).map((line) => escapeEditorHtml(line.trim()));
-      return `<p>${lines.join("<br>")}</p>`;
-    })
-    .join("");
-}
-
-function getTextareaEditorContainer(textarea: HTMLTextAreaElement) {
-  return textarea.closest(".qtype_essay_editor, .qtype_essay_response, .editor_atto, .editor_tiny") ?? textarea.parentElement;
-}
-
-function getTinyMceIframeForTextarea(textarea: HTMLTextAreaElement) {
-  if (textarea.id) {
-    const iframe = document.getElementById(`${textarea.id}_ifr`);
-
-    if (iframe instanceof HTMLIFrameElement) {
-      return iframe;
-    }
-  }
-
-  const container = getTextareaEditorContainer(textarea);
-  return container?.querySelector<HTMLIFrameElement>("iframe.tox-edit-area__iframe, iframe[id$='_ifr']") ?? null;
-}
-
-function getTinyMceBodyForTextarea(textarea: HTMLTextAreaElement) {
-  const iframe = getTinyMceIframeForTextarea(textarea);
-
-  if (!iframe) {
-    return null;
-  }
-
-  try {
-    const body = iframe.contentDocument?.body ?? iframe.contentWindow?.document.body ?? null;
-
-    if (!body) {
-      return null;
-    }
-
-    if (textarea.id && body.dataset.id && body.dataset.id !== textarea.id) {
-      return null;
-    }
-
-    return body;
-  } catch {
-    return null;
-  }
-}
-
-function getContentEditableForTextarea(textarea: HTMLTextAreaElement) {
-  if (textarea.id) {
-    const attoEditable = document.getElementById(`${textarea.id}editable`);
-
-    if (attoEditable instanceof HTMLElement && attoEditable.isContentEditable) {
-      return attoEditable;
-    }
-  }
-
-  const container = getTextareaEditorContainer(textarea);
-
-  if (!container) {
-    return null;
-  }
-
-  return Array.from(container.querySelectorAll<HTMLElement>("[contenteditable='true']")).find((node) => {
-    return node.isContentEditable && node.closest(`[${ANSWER_WIDGET_ATTR}="true"]`) === null;
-  }) ?? null;
-}
-
-function createControlEvent(control: HTMLElement, type: string) {
-  const EventConstructor = control.ownerDocument.defaultView?.Event ?? Event;
-  return new EventConstructor(type, { bubbles: true });
-}
-
-function dispatchTextControlEvents(control: HTMLElement) {
-  control.dispatchEvent(createControlEvent(control, "input"));
-  control.dispatchEvent(createControlEvent(control, "change"));
-}
-
-function setRichEditorContent(editorElement: HTMLElement, html: string) {
-  if (editorElement.innerHTML === html) {
-    return false;
-  }
-
-  editorElement.innerHTML = html;
-  dispatchTextControlEvents(editorElement);
-  return true;
-}
-
-function setTextareaAnswerValue(textarea: HTMLTextAreaElement, label: string) {
-  const nextValue = label.trim();
-
-  if (!nextValue) {
-    return false;
-  }
-
-  const tinyMceBody = getTinyMceBodyForTextarea(textarea);
-  const contentEditable = tinyMceBody ? null : getContentEditableForTextarea(textarea);
-  const usesRichEditor = textarea.dataset.fieldtype === "editor" || Boolean(tinyMceBody || contentEditable);
-  const textareaValue = usesRichEditor ? plainTextToEditorHtml(nextValue) : nextValue;
-  let changed = false;
-
-  if (tinyMceBody) {
-    changed = setRichEditorContent(tinyMceBody, textareaValue) || changed;
-  }
-
-  if (contentEditable) {
-    changed = setRichEditorContent(contentEditable, textareaValue) || changed;
-  }
-
-  if (textarea.value !== textareaValue) {
-    textarea.value = textareaValue;
-    changed = true;
-  }
-
-  if (changed) {
-    dispatchTextControlEvents(textarea);
-  }
-
-  return changed;
-}
-
 function selectTextAnswerByLabel(questionNode: Element, label: string) {
   const input = getTextAnswerInputs(questionNode)[0];
   return input ? setTextAnswerValue(input, label) : false;
@@ -2607,7 +2039,7 @@ function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement,
     const labelElement = document.getElementById(labelId);
 
     if (labelElement && questionNode.contains(labelElement)) {
-      const label = getMoodleAnswerLabelText(labelElement).replace(/\s+/g, " ").trim();
+      const label = getMoodleAnswerLabelTextOrImageIdentity(labelElement);
 
       if (label) {
         return label;
@@ -2618,7 +2050,7 @@ function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement,
   const rowTextCell = select.closest("tr")?.querySelector<HTMLElement>("td.text, th.text, .text");
 
   if (rowTextCell && questionNode.contains(rowTextCell)) {
-    const label = getMoodleAnswerLabelText(rowTextCell).replace(/\s+/g, " ").trim();
+    const label = getMoodleAnswerLabelTextOrImageIdentity(rowTextCell);
 
     if (label) {
       return label;
@@ -2679,6 +2111,10 @@ function getAnswerSlotForSelect(answerData: AnswerData, select: HTMLSelectElemen
 
     if (labelMatchedSlot) {
       return labelMatchedSlot;
+    }
+
+    if (answerData.slots.length > 0) {
+      return null;
     }
   }
 
@@ -3564,7 +3000,11 @@ function autoSelectCompoundAnswers(questionNode: Element, answerData: AnswerData
   return changed;
 }
 
-function getPreferredAutoSelectAnswerData(answerData: SourceAnswerData) {
+function getPreferredAutoSelectAnswerData(answerData: SourceAnswerData, allowReduxShareSource = true) {
+  if (!allowReduxShareSource) {
+    return answerData.external;
+  }
+
   return getExactAnswerLabels(answerData.reduxshare).length > 0 ? answerData.reduxshare : answerData.external;
 }
 
@@ -3572,7 +3012,15 @@ function hasExactAutoSelectData(answerData: AnswerData) {
   return getExactAnswerLabels(answerData).length > 0;
 }
 
-function getPreferredAutoSelectAnswerDataForQuestion(questionNode: Element, answerData: SourceAnswerData) {
+function getPreferredAutoSelectAnswerDataForQuestion(
+  questionNode: Element,
+  answerData: SourceAnswerData,
+  allowReduxShareSource = true
+) {
+  if (!allowReduxShareSource) {
+    return answerData.external;
+  }
+
   if (questionNode.classList.contains("ordering")) {
     return getOrderingExactOrder(answerData.reduxshare, questionNode).length > 0 ? answerData.reduxshare : answerData.external;
   }
@@ -3589,7 +3037,7 @@ function getPreferredAutoSelectAnswerDataForQuestion(questionNode: Element, answ
     return hasExactAutoSelectData(answerData.reduxshare) ? answerData.reduxshare : answerData.external;
   }
 
-  return getPreferredAutoSelectAnswerData(answerData);
+  return getPreferredAutoSelectAnswerData(answerData, allowReduxShareSource);
 }
 
 function autoSelectChoiceQuestionAnswers(questionNode: Element, exactAnswerLabels: string[]) {
@@ -3744,49 +3192,58 @@ async function clearQuizReviewPendingMarker(attemptKey: string) {
   }
 }
 
-function splitReviewAnswerText(answerText: string) {
-  return answerText
-    .split(/\r?\n+|\s*\|\s*|\s*;\s*|\s*,\s*/g)
-    .map((part) => part.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
+type ReviewMatchToken = {
+  kind: "image" | "text";
+  value: string;
+};
 
-function splitReviewMatchPairText(answerText: string) {
-  return answerText
-    .split(/\r?\n+|\s*\|\s*|\s*;\s*|\s*,\s*/g)
-    .map((part) => part.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
-
-function parseReviewMatchPairs(answerText: string) {
-  return splitReviewMatchPairText(answerText)
-    .map((part) => {
-      const pieces = part.split(/\s*(?:→|->|=>|=)\s*/).map((piece) => piece.trim()).filter(Boolean);
-
-      return pieces.length >= 2
-        ? {
-            prompt: pieces[0],
-            answer: pieces.slice(1).join(" ")
-          }
-        : null;
-    })
-    .filter((pair): pair is { prompt: string; answer: string } => pair !== null);
-}
-
-function getRightAnswerBodyText(rawText: string) {
-  const normalizedText = rawText.replace(/\s+/g, " ").trim();
-  const prefixedAnswerMatch =
-    /^(?:the\s+correct\s+answers?\s+(?:is|are)|correct\s+answers?|правильн(?:ый|ые)\s+ответ(?:ы)?|верн(?:ый|ые)\s+ответ(?:ы)?)\s*[:：]\s*(.+)$/i.exec(
-      normalizedText
-    );
-
-  if (prefixedAnswerMatch) {
-    return prefixedAnswerMatch[1].trim();
+function collectReviewMatchTokens(node: Node): ReviewMatchToken[] {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const value = (node.textContent ?? "").replace(/\s+/g, " ").trim();
+    return value ? [{ kind: "text", value }] : [];
   }
 
-  const colonIndex = normalizedText.indexOf(":");
+  if (!(node instanceof Element)) {
+    return [];
+  }
 
-  return colonIndex >= 0 ? normalizedText.slice(colonIndex + 1).trim() : normalizedText;
+  if (node instanceof HTMLImageElement) {
+    const value = getImageIdentityLabel(node);
+    return value ? [{ kind: "image", value }] : [];
+  }
+
+  return Array.from(node.childNodes).flatMap(collectReviewMatchTokens);
+}
+
+function parseReviewMatchImagePairs(rightAnswerNode: Element) {
+  const pairs: Array<{ prompt: string; answer: string }> = [];
+  let pendingPrompt: string | null = null;
+
+  for (const token of collectReviewMatchTokens(rightAnswerNode)) {
+    if (token.kind === "image") {
+      pendingPrompt = token.value;
+      continue;
+    }
+
+    if (!pendingPrompt) {
+      continue;
+    }
+
+    const answerText = getRightAnswerBodyText(token.value);
+    const answerMatch = /(?:→|->|=>|=)\s*([^,;|]+)/.exec(answerText);
+
+    if (!answerMatch) {
+      continue;
+    }
+
+    pairs.push({
+      prompt: pendingPrompt,
+      answer: answerMatch[1].replace(/\s+/g, " ").trim()
+    });
+    pendingPrompt = null;
+  }
+
+  return pairs;
 }
 
 function matchAnswerTextToOptions(answerText: string, optionLabels: string[]) {
@@ -3833,8 +3290,13 @@ function getReviewCorrectLabels(questionNode: Element) {
 }
 
 function getReviewMatchCorrectObservations(questionNode: Element): ReviewObservation[] {
-  const pairs = Array.from(questionNode.querySelectorAll(".rightanswer"))
-    .flatMap((rightAnswerNode) => parseReviewMatchPairs(getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode))));
+  const rightAnswerNodes = Array.from(questionNode.querySelectorAll(".rightanswer"));
+  const imagePairs = rightAnswerNodes.flatMap(parseReviewMatchImagePairs);
+  const pairs = imagePairs.length > 0
+    ? imagePairs
+    : rightAnswerNodes.flatMap((rightAnswerNode) => {
+        return parseReviewMatchPairs(getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)));
+      });
 
   if (pairs.length === 0) {
     return [];
@@ -4196,17 +3658,6 @@ function getReviewOrderingCorrectObservations(questionNode: Element): ReviewObse
 
 function getReviewTextInputValue(input: HTMLInputElement) {
   return (input.value || input.getAttribute("value") || "").replace(/\s+/g, " ").trim();
-}
-
-function cleanReviewDisplayedTextAnswer(value: string) {
-  const cleaned = getRightAnswerBodyText(value)
-    .replace(/^(?:answer|response|your answer|ответ|ваш ответ)\s*[:：]\s*/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return /^(?:answer|response|your answer|ответ|ваш ответ|not answered|не отвечено|нет ответа)$/i.test(cleaned)
-    ? ""
-    : cleaned;
 }
 
 function getReviewDisplayedTextAnswer(questionNode: Element) {
@@ -5255,7 +4706,8 @@ function openAnswerMenuPortal(
   const initialQuestionType = initialQuestionNode ? getSecondQuestionClass(initialQuestionNode) : null;
   const aiQuestionKey = getAiQuestionKey(initialQuestionNode, questionId);
   const aiSettingsSaved = isAiSettingsSaved(currentStoredState?.settings);
-  const aiToolsEnabled = !isAiDisabledQuestionTypeName(initialQuestionType);
+  const externalOnly = !isLoggedInToExtension(currentStoredState);
+  const aiToolsEnabled = !externalOnly && !isAiDisabledQuestionTypeName(initialQuestionType);
   const menuAnswerData =
     initialQuestionNode && isAiOnlyQuestionTypeName(initialQuestionType)
       ? createEmptySourceAnswerData()
@@ -5267,7 +4719,8 @@ function openAnswerMenuPortal(
     menuAnswerData,
     aiSettingsSaved,
     getAiAnswerState(aiQuestionKey),
-    aiToolsEnabled
+    aiToolsEnabled,
+    externalOnly
   );
 
   const menuTabsContainer = shadowRoot.querySelector<HTMLElement>(".menu-tabs");
@@ -5713,6 +5166,15 @@ function getVariantCountsForQuestion(questionId: string | null) {
 
 function getAnswerDataForQuestion(questionId: string | null): SourceAnswerData {
   return questionId ? (answerDataByQuestionId.get(questionId) ?? createEmptySourceAnswerData()) : createEmptySourceAnswerData();
+}
+
+function clearReduxShareAnswerData() {
+  for (const [questionId, answerData] of answerDataByQuestionId) {
+    answerDataByQuestionId.set(questionId, {
+      ...answerData,
+      reduxshare: createEmptyAnswerData()
+    });
+  }
 }
 
 function hasSourceAnswerData(answerData: SourceAnswerData) {
@@ -6568,12 +6030,13 @@ function mountAnswerWidgets(accentColor: string) {
   }
 }
 
-function autoSelectExactAnswers(settings: StoredStateLike["settings"] | undefined) {
-  if (!isAutoSelectEnabled(settings)) {
+function autoSelectExactAnswers(storedState: StoredStateLike | undefined) {
+  if (!isAutoSelectEnabled(storedState?.settings)) {
     return;
   }
 
   const changedQuestionIds: string[] = [];
+  const allowReduxShareSource = isLoggedInToExtension(storedState);
 
   for (const { questionId, questionNode } of getAnswerEntries()) {
     if (!questionNode) {
@@ -6583,7 +6046,7 @@ function autoSelectExactAnswers(settings: StoredStateLike["settings"] | undefine
     if (
       autoSelectQuestionAnswers(
         questionNode,
-        getPreferredAutoSelectAnswerDataForQuestion(questionNode, getAnswerDataForQuestion(questionId))
+        getPreferredAutoSelectAnswerDataForQuestion(questionNode, getAnswerDataForQuestion(questionId), allowReduxShareSource)
       )
     ) {
       changedQuestionIds.push(getQuestionProgressId(questionNode, questionId));
@@ -6642,10 +6105,14 @@ function watchStoredSettingsChanges() {
       return;
     }
 
+    if (!isLoggedInToExtension(nextState)) {
+      clearReduxShareAnswerData();
+    }
+
     const accentColor = getAccentColor(nextState?.settings);
     setAnswerWidgetAccent(accentColor);
     mountAnswerWidgets(accentColor);
-    autoSelectExactAnswers(nextState?.settings);
+    autoSelectExactAnswers(nextState);
   });
 }
 
@@ -6735,6 +6202,7 @@ async function loadQuizAnswers(context: QuizAttemptContext) {
     }
 
     const currentState = await loadStoredState();
+    currentStoredState = currentState;
     syncLanguage(currentState);
 
     if (!canUseQuizFeatures(currentState)) {
@@ -6744,11 +6212,13 @@ async function loadQuizAnswers(context: QuizAttemptContext) {
 
     variantCountsByQuestionId.clear();
     answerDataByQuestionId.clear();
-    applyQuizAnswerResults(response.reduxshareResults, "reduxshare");
+    if (isLoggedInToExtension(currentState)) {
+      applyQuizAnswerResults(response.reduxshareResults, "reduxshare");
+    }
     applyQuizAnswerResults(response.externalResults, "external");
 
     mountAnswerWidgets(getAccentColor(currentState.settings));
-    autoSelectExactAnswers(currentState.settings);
+    autoSelectExactAnswers(currentState);
   } catch (error) {
     logReduxShareWarning("ReduxShare: quiz answers request failed", error);
   }
@@ -6756,6 +6226,7 @@ async function loadQuizAnswers(context: QuizAttemptContext) {
 
 async function initializeQuizAttemptFeatures() {
   let storedState = await loadStoredState();
+  currentStoredState = storedState;
   syncLanguage(storedState);
   syncStealthMode(storedState);
   syncAnswerWidgetHotkey(storedState);
@@ -6772,6 +6243,7 @@ async function initializeQuizAttemptFeatures() {
   }
 
   storedState = await loadStoredState();
+  currentStoredState = storedState;
   syncLanguage(storedState);
   syncStealthMode(storedState);
   syncAnswerWidgetHotkey(storedState);
@@ -6785,6 +6257,7 @@ async function initializeQuizAttemptFeatures() {
 
   const context = await waitForQuizAttemptContext();
   storedState = await loadStoredState();
+  currentStoredState = storedState;
   syncLanguage(storedState);
   syncStealthMode(storedState);
   syncAnswerWidgetHotkey(storedState);
@@ -6810,6 +6283,7 @@ async function initializeQuizAttemptFeatures() {
 
 async function initializeQuizSummaryTracking() {
   const storedState = await loadStoredState();
+  currentStoredState = storedState;
   syncLanguage(storedState);
   syncStealthMode(storedState);
 
@@ -6838,6 +6312,7 @@ async function initializeQuizSummaryTracking() {
 
 async function initializeQuizReviewSave() {
   let storedState = await loadStoredState();
+  currentStoredState = storedState;
   syncLanguage(storedState);
   syncStealthMode(storedState);
 
@@ -6857,6 +6332,7 @@ async function initializeQuizReviewSave() {
   }
 
   storedState = await loadStoredState();
+  currentStoredState = storedState;
   syncLanguage(storedState);
   syncStealthMode(storedState);
 
@@ -6915,7 +6391,7 @@ async function initializeQuizReviewSave() {
     logReduxShareInfo(
       "ReduxShare: review answers processed",
       response.imported ? response.savedCount ?? 0 : 0,
-      response.imported === false ? "duplicate" : "saved"
+      response.queued ? "queued" : response.imported === false ? "duplicate" : "saved"
     );
   } catch (error) {
     await saveQuizReviewSaveDiagnostics("content-exception", {

@@ -24,6 +24,21 @@ function getPortalRoot() {
   return portal!.shadowRoot!;
 }
 
+function getInlineWidgetHostForSelect(select: HTMLSelectElement) {
+  const hosts = Array.from(select.parentElement?.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]') ?? []);
+  const hostWithShadow = hosts.find((candidate) => candidate.shadowRoot);
+  expect(hostWithShadow).toBeInstanceOf(HTMLElement);
+  return hostWithShadow as HTMLElement;
+}
+
+function removeFixtureWidgetPlaceholders() {
+  document.querySelectorAll('[data-reduxshare-answer-widget="true"]').forEach((node) => {
+    if (!(node as HTMLElement).shadowRoot) {
+      node.remove();
+    }
+  });
+}
+
 function mountChoiceWidget(api: Awaited<ReturnType<typeof getQuizAttemptTestApi>>, inputId: string, answerData: SourceAnswerData) {
   const input = getInput(inputId);
   const label = document.getElementById(`${inputId}_label`);
@@ -45,6 +60,44 @@ function mountChoiceWidget(api: Awaited<ReturnType<typeof getQuizAttemptTestApi>
 }
 
 describe("R-menu widget interactions", () => {
+  it("opens for unauthenticated users with external sources only", async () => {
+    const api = await getQuizAttemptTestApi();
+    api.setStoredState({
+      settings: {
+        extensionEnabled: true,
+        stealthMode: true,
+        language: "ru"
+      },
+      authSession: null
+    });
+    loadQuestionFixture("multichoice", "attempt");
+    mountChoiceWidget(
+      api,
+      "q125:1_choice1",
+      sourceAnswerData({
+        reduxshare: {
+          anchors: [],
+          suggestions: [exactSuggestion("false")],
+          submissions: [],
+          slots: []
+        },
+        external: {
+          anchors: [],
+          suggestions: [exactSuggestion("true")],
+          submissions: [],
+          slots: []
+        }
+      })
+    );
+
+    const root = getPortalRoot();
+    expect(root.querySelector('[data-menu-tab="internal"]')).toBeNull();
+    expect(root.querySelector('[data-menu-tab="ai"]')).toBeNull();
+    expect(root.querySelector('[data-menu-tab="external"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(root.querySelector('[data-answer-menu="external-exact"] [data-answer-label="true"]')).toBeInstanceOf(HTMLElement);
+    expect(root.querySelector('[data-answer-menu="reduxshare-exact"] [data-answer-label="false"]')).toBeNull();
+  });
+
   it("opens from the R trigger, switches to external sources, and applies true to that specific checkbox", async () => {
     const api = await getQuizAttemptTestApi();
     loadQuestionFixture("multichoice", "attempt");
@@ -242,6 +295,195 @@ describe("R-menu widget interactions", () => {
     expect((document.getElementById("menuq126:12_sub0") as HTMLSelectElement).value).toBe("2");
     expect((document.getElementById("menuq126:12_sub1") as HTMLSelectElement).value).toBe("1");
     expect((document.getElementById("menuq126:12_sub2") as HTMLSelectElement).value).toBe("3");
+  });
+
+  it("scopes match R-menu suggestions by prompt anchor instead of slot index", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attempt");
+    removeFixtureWidgetPlaceholders();
+    api.setSourceAnswerData(
+      "3699",
+      "external",
+      slottedAnswerData([
+        answerSlot(1, { anchors: ["сила"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+        answerSlot(2, { anchors: ["Масса"], suggestions: [slottedExactSuggestion("Килограмм", 2)] }),
+        answerSlot(3, { anchors: ["Напряжение"], suggestions: [slottedExactSuggestion("Вольт", 3)] })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    const host = getInlineWidgetHostForSelect(select);
+
+    host!.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    const root = getPortalRoot();
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="Вольт"]')).toBeInstanceOf(HTMLElement);
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="ньютон"]')).toBeNull();
+  });
+
+  it("does not fall back to positional match R-menu suggestions when prompt anchors disagree", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attempt");
+    removeFixtureWidgetPlaceholders();
+    api.setSourceAnswerData(
+      "3699",
+      "external",
+      slottedAnswerData([
+        answerSlot(1, { anchors: ["unmatched force"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+        answerSlot(2, { anchors: ["unmatched mass"], suggestions: [slottedExactSuggestion("Килограмм", 2)] }),
+        answerSlot(3, { anchors: ["unmatched voltage"], suggestions: [slottedExactSuggestion("Вольт", 3)] })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    const host = getInlineWidgetHostForSelect(select);
+
+    host!.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    const root = getPortalRoot();
+    expect(root.querySelector<HTMLElement>('[data-answer-label="ньютон"]')).toBeNull();
+    expect(root.querySelector<HTMLElement>('[data-answer-label="Килограмм"]')).toBeNull();
+    expect(root.querySelector<HTMLElement>('[data-answer-label="Вольт"]')).toBeNull();
+  });
+
+  it("does not auto-select match answers from positional slots when prompt anchors disagree", async () => {
+    const api = await getQuizAttemptTestApi();
+    const questionNode = loadQuestionFixture("match", "attempt");
+    const answerData = slottedAnswerData([
+      answerSlot(1, { anchors: ["unmatched force"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+      answerSlot(2, { anchors: ["unmatched mass"], suggestions: [slottedExactSuggestion("Килограмм", 2)] }),
+      answerSlot(3, { anchors: ["unmatched voltage"], suggestions: [slottedExactSuggestion("Вольт", 3)] })
+    ]);
+
+    expect(api.autoSelectQuestionAnswers(questionNode, answerData)).toBe(false);
+
+    expect((document.getElementById("menuq126:12_sub0") as HTMLSelectElement).value).toBe("0");
+    expect((document.getElementById("menuq126:12_sub1") as HTMLSelectElement).value).toBe("0");
+    expect((document.getElementById("menuq126:12_sub2") as HTMLSelectElement).value).toBe("0");
+  });
+
+  it("auto-selects image match answers by image prompt identity", async () => {
+    const api = await getQuizAttemptTestApi();
+    const questionNode = loadQuestionFixture("match", "attemptwithimage");
+    const answerData = slottedAnswerData([
+      answerSlot(1, {
+        anchors: ["image:qtype_match/subquestion/96/icon5.png"],
+        suggestions: [slottedExactSuggestion("Snapchat", 1)]
+      }),
+      answerSlot(2, {
+        anchors: ["image:qtype_match/subquestion/95/icon3.png"],
+        suggestions: [slottedExactSuggestion("Instagram", 2)]
+      }),
+      answerSlot(3, {
+        anchors: ["image:qtype_match/subquestion/97/icon66.png"],
+        suggestions: [slottedExactSuggestion("Yelp", 3)]
+      }),
+      answerSlot(4, {
+        anchors: ["image:qtype_match/subquestion/99/icon1.png"],
+        suggestions: [slottedExactSuggestion("Twitter", 4)]
+      }),
+      answerSlot(5, {
+        anchors: ["image:qtype_match/subquestion/98/icon22.png"],
+        suggestions: [slottedExactSuggestion("LinkedIn", 5)]
+      })
+    ]);
+
+    expect(api.autoSelectQuestionAnswers(questionNode, answerData)).toBe(true);
+
+    expect((document.getElementById("menuq130:4_sub0") as HTMLSelectElement).value).toBe("6");
+    expect((document.getElementById("menuq130:4_sub1") as HTMLSelectElement).value).toBe("2");
+    expect((document.getElementById("menuq130:4_sub2") as HTMLSelectElement).value).toBe("1");
+    expect((document.getElementById("menuq130:4_sub3") as HTMLSelectElement).value).toBe("3");
+    expect((document.getElementById("menuq130:4_sub4") as HTMLSelectElement).value).toBe("5");
+  });
+
+  it("scopes image match R-menu suggestions by image prompt identity", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attemptwithimage");
+    removeFixtureWidgetPlaceholders();
+    api.setSourceAnswerData(
+      "1349",
+      "external",
+      slottedAnswerData([
+        answerSlot(1, {
+          anchors: ["image:qtype_match/subquestion/96/icon5.png"],
+          suggestions: [slottedExactSuggestion("Snapchat", 1)]
+        }),
+        answerSlot(2, {
+          anchors: ["image:qtype_match/subquestion/95/icon3.png"],
+          suggestions: [slottedExactSuggestion("Instagram", 2)]
+        }),
+        answerSlot(3, {
+          anchors: ["image:qtype_match/subquestion/97/icon66.png"],
+          suggestions: [slottedExactSuggestion("Yelp", 3)]
+        }),
+        answerSlot(4, {
+          anchors: ["image:qtype_match/subquestion/99/icon1.png"],
+          suggestions: [slottedExactSuggestion("Twitter", 4)]
+        }),
+        answerSlot(5, {
+          anchors: ["image:qtype_match/subquestion/98/icon22.png"],
+          suggestions: [slottedExactSuggestion("LinkedIn", 5)]
+        })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const firstSelect = document.getElementById("menuq130:4_sub0") as HTMLSelectElement;
+    expect(firstSelect).toBeInstanceOf(HTMLSelectElement);
+    const firstHost = getInlineWidgetHostForSelect(firstSelect);
+
+    firstHost.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    let root = getPortalRoot();
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="Snapchat"]')).toBeInstanceOf(HTMLElement);
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="Instagram"]')).toBeNull();
+
+    firstHost.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    const secondSelect = document.getElementById("menuq130:4_sub1") as HTMLSelectElement;
+    expect(secondSelect).toBeInstanceOf(HTMLSelectElement);
+    const secondHost = getInlineWidgetHostForSelect(secondSelect);
+
+    secondHost.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    root = getPortalRoot();
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="Instagram"]')).toBeInstanceOf(HTMLElement);
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="Snapchat"]')).toBeNull();
+  });
+
+  it("matches legacy full-path image match anchors by filename", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attemptwithimage");
+    removeFixtureWidgetPlaceholders();
+    api.setSourceAnswerData(
+      "1349",
+      "external",
+      slottedAnswerData([
+        answerSlot(1, {
+          anchors: ["image:/pluginfile.php/2354/qtype_match/subquestion/130/4/96/icon5.png"],
+          suggestions: [slottedExactSuggestion("Snapchat", 1)]
+        })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const firstSelect = document.getElementById("menuq130:4_sub0") as HTMLSelectElement;
+    expect(firstSelect).toBeInstanceOf(HTMLSelectElement);
+    const firstHost = getInlineWidgetHostForSelect(firstSelect);
+
+    firstHost.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+
+    const root = getPortalRoot();
+    expect(root.querySelector<HTMLElement>('[data-answer-menu="external-exact"] [data-answer-label="Snapchat"]')).toBeInstanceOf(HTMLElement);
   });
 
   it("auto-selects randomsamatch answers by prompt anchor", async () => {
