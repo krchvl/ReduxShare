@@ -21,7 +21,7 @@ export const AI_PROVIDER_OPTIONS = [
   { value: "mistral", label: "Mistral" },
   { value: "xai", label: "xAI" },
   { value: "deepseek", label: "DeepSeek" },
-  { value: "custom", label: "Кастомный" }
+  { value: "custom", label: "Custom" }
 ] as const;
 
 export type AiProvider = (typeof AI_PROVIDER_OPTIONS)[number]["value"];

@@ -177,7 +177,11 @@ function getUpdateLines(updateState: UpdateState, locale: string, t: TranslateFn
   return [t("updates.idle.line1"), t("updates.idle.line2")];
 }
 
-function getAiProviderLabel(provider: AiSettings["provider"]) {
+function getAiProviderLabel(provider: AiSettings["provider"], t: TranslateFn) {
+  if (provider === "custom") {
+    return t("settings.ai.provider.custom");
+  }
+
   return AI_PROVIDER_OPTIONS.find((option) => option.value === provider)?.label ?? provider;
 }
 
@@ -555,7 +559,8 @@ export function MainScreen({
                 {hasSavedAiKey && (
                   <>
                     <span>
-                      {t("settings.ai.provider")}: <span className="ai-settings-summary__name">{getAiProviderLabel(settings.ai.provider)}</span>
+                      {t("settings.ai.provider")}:{" "}
+                      <span className="ai-settings-summary__name">{getAiProviderLabel(settings.ai.provider, t)}</span>
                     </span>
                     <span>
                       {t("settings.ai.model")}:{" "}
@@ -579,7 +584,7 @@ export function MainScreen({
                 >
                   {AI_PROVIDER_OPTIONS.map((provider) => (
                     <option key={provider.value} value={provider.value}>
-                      {provider.label}
+                      {getAiProviderLabel(provider.value, t)}
                     </option>
                   ))}
                 </select>
@@ -706,7 +711,7 @@ export function MainScreen({
             <Button className="secondary-wide-button" variant="outline" onClick={onLogout}>
               {t("settings.actions.logout")}
             </Button>
-            <a href="https://github.com/" target="_blank">
+            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
             <button className="social-button" type="button" aria-label={t("settings.social.github")}>
               <img src={githubIcon} alt="" />
             </button>

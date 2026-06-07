@@ -50,6 +50,7 @@
   "settings.ai.line1": "Используйте инструменты искусственного интеллекта для помощи в решении сложных задач",
   "settings.ai.line2": "Ключ сохраняется локально в хранилище расширения",
   "settings.ai.provider": "Провайдер",
+  "settings.ai.provider.custom": "Кастомный",
   "settings.ai.model": "Модель",
   "settings.ai.apiKey": "API ключ",
   "settings.ai.apiKeyPlaceholder": "API ключ...",

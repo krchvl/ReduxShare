@@ -50,6 +50,7 @@
   "settings.ai.line1": "Use AI tools to help you solve complex problems",
   "settings.ai.line2": "The key is stored locally in extension storage",
   "settings.ai.provider": "Provider",
+  "settings.ai.provider.custom": "Custom",
   "settings.ai.model": "Model",
   "settings.ai.apiKey": "API key",
   "settings.ai.apiKeyPlaceholder": "Api key...",
