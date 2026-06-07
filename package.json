@@ -9,6 +9,8 @@
     "build:chrome": "node scripts/build-extension.mjs chrome",
     "build:firefox": "node scripts/build-extension.mjs firefox",
     "build:all": "node scripts/build-extension.mjs all",
+    "lint:firefox": "npx --yes web-ext@latest lint --source-dir dist/firefox",
+    "sign:firefox": "npx --yes web-ext@latest sign --source-dir dist/firefox --artifacts-dir dist --channel unlisted",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:db": "RUN_SUPABASE_LIVE_TESTS=1 vitest run --config vitest.config.ts test/supabaseLiveSave.test.ts",
