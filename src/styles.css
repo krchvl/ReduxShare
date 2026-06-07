@@ -32,12 +32,31 @@ html,
 body,
 #root {
   width: var(--popup-width);
-  height: var(--popup-height);
+  min-height: var(--popup-height);
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+}
 
-  scrollbar-width: none;
+html,
+body {
+  height: auto;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   -ms-overflow-style: none;
+}
+
+body::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--border-strong);
 }
 
 body {
@@ -67,8 +86,8 @@ button:focus-visible {
 .popup-shell {
   position: relative;
   width: var(--popup-width);
-  height: var(--popup-height);
-  overflow: hidden;
+  min-height: var(--popup-height);
+  overflow-x: hidden;
   background:
     linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 34%),
     linear-gradient(240deg, rgba(255, 255, 255, 0.025), transparent 38%),
