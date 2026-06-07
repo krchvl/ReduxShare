@@ -316,10 +316,10 @@ function renderAiRequestButton(isLoading: boolean) {
 
 type AnswerMenuTabKey = "internal" | "external" | "ai";
 
-function getVisibleAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: boolean): AnswerMenuTabKey[] {
+function getVisibleAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: boolean, externalOnly = false): AnswerMenuTabKey[] {
   const tabs: AnswerMenuTabKey[] = [];
 
-  if (hasMenuAnswerData(answerData.reduxshare)) {
+  if (!externalOnly && hasMenuAnswerData(answerData.reduxshare)) {
     tabs.push("internal");
   }
 
@@ -327,11 +327,15 @@ function getVisibleAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: 
     tabs.push("external");
   }
 
-  if (aiToolsEnabled) {
+  if (!externalOnly && aiToolsEnabled) {
     tabs.push("ai");
   }
 
-  return tabs.length > 0 ? tabs : ["internal"];
+  if (tabs.length > 0) {
+    return tabs;
+  }
+
+  return externalOnly ? ["external"] : ["internal"];
 }
 
 function getAnswerMenuTabLabel(tabKey: AnswerMenuTabKey) {
@@ -390,9 +394,9 @@ function renderAiMenuPanel(aiSettingsSaved: boolean, aiAnswerState: AiAnswerStat
   `;
 }
 
-function renderAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: boolean) {
-  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled);
-  const activeTab = tabs[0] ?? "internal";
+function renderAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: boolean, externalOnly = false) {
+  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
+  const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
   return `
     <div
@@ -422,10 +426,11 @@ function renderAnswerMenuPanels(
   answerData: SourceAnswerData,
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
-  aiToolsEnabled: boolean
+  aiToolsEnabled: boolean,
+  externalOnly = false
 ) {
-  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled);
-  const activeTab = tabs[0] ?? "internal";
+  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
+  const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
   return `
     ${tabs.includes("internal") ? renderSourceMenuPanel("internal", "reduxshare", answerData.reduxshare, activeTab === "internal") : ""}
@@ -510,7 +515,8 @@ export function getAnswerMenuMarkup(
   answerData: SourceAnswerData,
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
-  aiToolsEnabled = true
+  aiToolsEnabled = true,
+  externalOnly = false
 ) {
   return `
     <style>
@@ -1021,8 +1027,8 @@ export function getAnswerMenuMarkup(
     </style>
 
     <div class="menu" role="dialog" aria-label="ReduxShare">
-      ${renderAnswerMenuTabs(answerData, aiToolsEnabled)}
-      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled)}
+      ${renderAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly)}
+      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled, externalOnly)}
     </div>
   `;
 }

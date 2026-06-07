@@ -250,6 +250,7 @@ export interface SaveReviewAnswersResponse {
   error?: string;
   imported?: boolean;
   savedCount?: number;
+  queued?: boolean;
 }
 
 export interface AiAnswerResponse {

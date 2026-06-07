@@ -24,6 +24,23 @@ import {
   type ViewName
 } from "./types";
 
+export async function getAuthenticatedUserState(authSession: AuthSession, moodleDomain: string | null) {
+  try {
+    return await touchUserProfile(authSession, moodleDomain);
+  } catch (error) {
+    console.warn("ReduxShare auth: profile sync failed", {
+      userId: authSession.user.id,
+      moodleDomain,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      authSession,
+      userProfile: null
+    };
+  }
+}
+
 export function App() {
   const [view, setView] = useState<ViewName>("login");
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -122,16 +139,11 @@ export function App() {
     }
 
     setIsLoginLoading(true);
-    setAuthSession(null);
-    setUserProfile(null);
 
     try {
       const nextSession = await loginWithSupabase(credentials);
       const moodleDomain = await getActiveTabHostname();
-      const { authSession: refreshedSession, userProfile: nextProfile } = await touchUserProfile(
-        nextSession,
-        moodleDomain
-      );
+      const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(nextSession, moodleDomain);
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
@@ -152,8 +164,6 @@ export function App() {
     }
 
     setIsRegisterLoading(true);
-    setAuthSession(null);
-    setUserProfile(null);
 
     try {
       const result = await registerWithSupabase(credentials);
@@ -164,7 +174,7 @@ export function App() {
       }
 
       const moodleDomain = await getActiveTabHostname();
-      const { authSession: refreshedSession, userProfile: nextProfile } = await touchUserProfile(
+      const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(
         result.authSession,
         moodleDomain
       );
