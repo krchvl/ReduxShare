@@ -76,10 +76,6 @@ function getTaskKey(questionId: string | null, questionHash: string | null) {
   return `${questionId ?? ""}|${questionHash ?? ""}`;
 }
 
-function requiresExactTaskHash(question: QuizTaskQuestionRequest) {
-  return question.questionType === "match" && Boolean(question.questionHash);
-}
-
 type ReduxShareTaskDataRow = {
   anchor?: unknown;
   suggestions?: unknown;
@@ -237,7 +233,7 @@ export async function fetchReduxShareTasks(
     results: payload.questions.map((question) => {
       const row =
         rowsByQuestion.get(getTaskKey(question.questionId, question.questionHash)) ??
-        (requiresExactTaskHash(question) ? undefined : question.questionId ? rowsByQuestionId.get(question.questionId) : undefined);
+        (question.questionId ? rowsByQuestionId.get(question.questionId) : undefined);
 
       const hasHashMismatch =
         Boolean(question.questionHash) &&

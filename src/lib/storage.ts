@@ -1,6 +1,5 @@
 import type { StoredState } from "../types";
-
-const STORAGE_KEY = "reduxshare";
+import { APP_STORAGE_KEY } from "../shared/storageKeys";
 
 const hasChromeStorage = () =>
   typeof chrome !== "undefined" &&
@@ -9,11 +8,11 @@ const hasChromeStorage = () =>
 
 export async function loadStoredState(): Promise<Partial<StoredState>> {
   if (hasChromeStorage()) {
-    const result = await chrome.storage.local.get(STORAGE_KEY);
-    return (result[STORAGE_KEY] as Partial<StoredState> | undefined) ?? {};
+    const result = await chrome.storage.local.get(APP_STORAGE_KEY);
+    return (result[APP_STORAGE_KEY] as Partial<StoredState> | undefined) ?? {};
   }
 
-  const rawState = window.localStorage.getItem(STORAGE_KEY);
+  const rawState = window.localStorage.getItem(APP_STORAGE_KEY);
 
   if (!rawState) {
     return {};
@@ -22,7 +21,7 @@ export async function loadStoredState(): Promise<Partial<StoredState>> {
   try {
     return JSON.parse(rawState) as Partial<StoredState>;
   } catch {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(APP_STORAGE_KEY);
     return {};
   }
 }
@@ -51,7 +50,7 @@ export async function saveStoredState(state: StoredStateSaveInput): Promise<void
     const userProfile = mergeUserProfile(state.userProfile, currentState.userProfile);
 
     await chrome.storage.local.set({
-      [STORAGE_KEY]: {
+      [APP_STORAGE_KEY]: {
         ...currentState,
         ...state,
         userProfile,
@@ -66,7 +65,7 @@ export async function saveStoredState(state: StoredStateSaveInput): Promise<void
   const userProfile = mergeUserProfile(state.userProfile, currentState.userProfile);
 
   window.localStorage.setItem(
-    STORAGE_KEY,
+    APP_STORAGE_KEY,
     JSON.stringify({
       ...currentState,
       ...state,

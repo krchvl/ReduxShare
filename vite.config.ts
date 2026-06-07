@@ -17,7 +17,23 @@ export default defineConfig({
         quizAttempt: resolve(__dirname, "src/content/quizAttempt.ts")
       },
       output: {
-        entryFileNames: "assets/[name].js"
+        entryFileNames: "assets/[name].js",
+        manualChunks(id) {
+          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) {
+            return "vendor-react";
+          }
+
+          if (id.includes("node_modules/@supabase")) {
+            return "vendor-supabase";
+          }
+
+          if (
+            (id.includes("src/i18n/") && !id.endsWith("src/i18n/react.tsx")) ||
+            id.endsWith("src/types.ts")
+          ) {
+            return "shared-app";
+          }
+        }
       }
     }
   }
