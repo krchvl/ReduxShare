@@ -130,6 +130,60 @@ create trigger reduxshare_tasks_set_updated_at
 before update on public.reduxshare_tasks
 for each row execute function public.set_reduxshare_updated_at();
 
+create or replace function public.generate_unique_reduxshare_username(
+  requested_username text,
+  fallback_email text,
+  fallback_user_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  base_username text;
+  normalized_base text;
+  candidate_username text;
+  suffix integer := 0;
+begin
+  base_username := nullif(trim(requested_username), '');
+
+  if base_username is null then
+    base_username := nullif(split_part(lower(coalesce(fallback_email, '')), '@', 1), '');
+  end if;
+
+  if base_username is null then
+    base_username := replace(fallback_user_id::text, '-', '');
+  end if;
+
+  normalized_base := regexp_replace(base_username, '\s+', ' ', 'g');
+  normalized_base := left(normalized_base, 32);
+
+  if char_length(normalized_base) < 3 then
+    normalized_base := rpad(normalized_base, 3, '0');
+  end if;
+
+  loop
+    candidate_username :=
+      case
+        when suffix = 0 then normalized_base
+        else left(normalized_base, greatest(1, 32 - char_length(suffix::text) - 1)) || '_' || suffix::text
+      end;
+
+    exit when not exists (
+      select 1
+      from public.reduxshare_users ru
+      where lower(ru.username) = lower(candidate_username)
+        and ru.id <> fallback_user_id
+    );
+
+    suffix := suffix + 1;
+  end loop;
+
+  return candidate_username;
+end;
+$$;
+
 create or replace function public.handle_new_auth_user()
 returns trigger
 language plpgsql
@@ -140,22 +194,12 @@ declare
   requested_username text;
 begin
   requested_username = nullif(trim(new.raw_user_meta_data ->> 'username'), '');
-
-  if requested_username is null then
-    requested_username = nullif(split_part(new.email, '@', 1), '');
-  end if;
-
-  if requested_username is null then
-    requested_username = replace(new.id::text, '-', '');
-  end if;
+  requested_username = public.generate_unique_reduxshare_username(requested_username, new.email, new.id);
 
   insert into public.reduxshare_users (id, email, username)
   values (new.id, lower(new.email), requested_username);
 
   return new;
-exception
-  when unique_violation then
-    raise exception 'Username already exists' using errcode = '23505';
 end;
 $$;
 
@@ -193,13 +237,7 @@ begin
     where au.id = current_user_id;
   end if;
 
-  if current_username is null then
-    current_username = nullif(split_part(current_email, '@', 1), '');
-  end if;
-
-  if current_username is null then
-    current_username = replace(current_user_id::text, '-', '');
-  end if;
+  current_username = public.generate_unique_reduxshare_username(current_username, current_email, current_user_id);
 
   insert into public.reduxshare_users as ru (
     id,
@@ -343,11 +381,6 @@ begin
         rq.requested_question_type is null
         or rt.question_type is null
         or rt.question_type = rq.requested_question_type
-      )
-      and not (
-        lower(coalesce(rq.requested_question_type, '')) = 'match'
-        and rq.requested_question_hash is not null
-        and rt.question_hash <> rq.requested_question_hash
       )
   ),
   hash_groups as (
