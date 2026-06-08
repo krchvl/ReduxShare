@@ -783,31 +783,6 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.accent-picker__hex {
-  width: 118px;
-  height: 34px;
-  border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border-color));
-  border-radius: 8px;
-  padding: 0 11px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--white);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  text-align: center;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    background 160ms ease;
-}
-
-.accent-picker__hex:focus-visible {
-  border-color: var(--accent);
-  outline: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
-  background: rgba(255, 255, 255, 0.06);
-}
-
 .accent-picker__presets {
   display: flex;
   align-items: center;

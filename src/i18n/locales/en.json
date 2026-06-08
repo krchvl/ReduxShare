@@ -31,7 +31,6 @@
   "settings.accent.line1": "Choose your favorite interface color",
   "settings.accent.line2": "It is saved locally and applied to the Moodle menu",
   "settings.accent.aria": "Extension accent color",
-  "settings.accent.hex": "Accent color HEX code",
   "settings.accent.presets": "Quick colors",
   "settings.language.title": "Extension language",
   "settings.language.line1": "Changes the extension interface language",

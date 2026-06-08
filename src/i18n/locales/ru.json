@@ -31,7 +31,6 @@
   "settings.accent.line1": "Выберите любимый цвет интерфейса",
   "settings.accent.line2": "Он сохранится локально и применится к Moodle-меню",
   "settings.accent.aria": "Акцентный цвет расширения",
-  "settings.accent.hex": "HEX-код акцентного цвета",
   "settings.accent.presets": "Быстрые цвета",
   "settings.language.title": "Язык расширения",
   "settings.language.line1": "Меняет язык интерфейса расширения",
