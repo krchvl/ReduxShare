@@ -727,7 +727,7 @@ button:focus-visible {
   display: grid;
   min-width: 220px;
   justify-items: end;
-  gap: 9px;
+  gap: 15px;
 }
 
 .accent-picker__trigger {

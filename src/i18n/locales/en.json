@@ -29,7 +29,7 @@
 
   "settings.accent.title": "Accent color",
   "settings.accent.line1": "Choose your favorite interface color",
-  "settings.accent.line2": "It is saved locally and applied to the Moodle menu",
+  "settings.accent.line2": "It is saved locally and applied to the answer menu",
   "settings.accent.aria": "Extension accent color",
   "settings.accent.presets": "Quick colors",
   "settings.language.title": "Extension language",
