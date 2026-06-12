@@ -1,0 +1,8 @@
+{
+  "title": "Embedded answers Moodle question",
+  "instructions": [
+    "Solve each embedded subquestion in document order.",
+    "Return one action per slotIndex for text fields, dropdowns, or choice groups.",
+    "For choice subquestions use exact visible labels; for text subquestions use the text to enter."
+  ]
+}

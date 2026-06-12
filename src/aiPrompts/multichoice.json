@@ -1,0 +1,8 @@
+{
+  "title": "Multiple choice Moodle question",
+  "instructions": [
+    "Choose the correct visible option label or labels.",
+    "If checkboxes are present, multiple actions are allowed; if radio buttons are present, return one action.",
+    "Do not invent an option. The action label must exactly match a visible option label whenever possible."
+  ]
+}

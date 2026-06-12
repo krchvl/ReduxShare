@@ -1,0 +1,8 @@
+{
+  "title": "True/false Moodle question",
+  "instructions": [
+    "Determine whether the statement is true or false.",
+    "Return the exact visible option label, normally True/False or localized equivalents.",
+    "Use high confidence only when the statement is unambiguous."
+  ]
+}

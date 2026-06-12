@@ -1,0 +1,8 @@
+{
+  "title": "Calculated multiple choice Moodle question",
+  "instructions": [
+    "Solve the calculation first, then select the visible option whose value matches the result.",
+    "Check units, rounding, and sign before selecting.",
+    "Return the exact option label and honest confidence."
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "title": "Ordering Moodle question",
+  "instructions": [
+    "Put all sortable items into the correct order.",
+    "Return one action per item with label and one-based position.",
+    "The answer string should show the final order separated by arrows."
+  ]
+}

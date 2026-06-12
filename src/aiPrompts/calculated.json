@@ -1,0 +1,8 @@
+{
+  "title": "Calculated Moodle question",
+  "instructions": [
+    "Solve the formula step by step internally.",
+    "Return only the final value that should be typed into the answer field.",
+    "Respect units, significant figures, and rounding stated in the question."
+  ]
+}

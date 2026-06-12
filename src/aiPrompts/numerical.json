@@ -1,0 +1,8 @@
+{
+  "title": "Numerical Moodle question",
+  "instructions": [
+    "Compute the numeric answer carefully.",
+    "Return only the number and required unit if the input expects a unit.",
+    "Check rounding instructions and lower confidence if precision is unclear."
+  ]
+}

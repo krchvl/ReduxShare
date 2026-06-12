@@ -1,0 +1,35 @@
+{
+  "name": "reduxshare",
+  "private": true,
+  "version": "0.7.5",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "node scripts/build-extension.mjs chrome",
+    "build:chrome": "node scripts/build-extension.mjs chrome",
+    "build:firefox": "node scripts/build-extension.mjs firefox",
+    "build:all": "node scripts/build-extension.mjs all",
+    "lint:firefox": "npx --yes web-ext@latest lint --source-dir dist/firefox",
+    "sign:firefox": "npx --yes web-ext@latest sign --source-dir dist/firefox --artifacts-dir dist --channel unlisted",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "test:db": "RUN_SUPABASE_LIVE_TESTS=1 vitest run --config vitest.config.ts test/supabaseLiveSave.test.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.3"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.315",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "happy-dom": "^20.9.0",
+    "vitest": "^4.1.5"
+  }
+}
