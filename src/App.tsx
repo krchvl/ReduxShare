@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
-import { MainScreen } from "./components/MainScreen";
 import { Shell } from "./components/Shell";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
@@ -23,6 +22,12 @@ import {
   type UserProfile,
   type ViewName
 } from "./types";
+
+// Экран настроек (самый тяжёлый компонент popup) загружается лениво отдельным
+// чанком, чтобы не попадать в начальный бандл экранов входа/регистрации.
+const MainScreen = lazy(() =>
+  import("./components/MainScreen").then((module) => ({ default: module.MainScreen }))
+);
 
 export async function getAuthenticatedUserState(authSession: AuthSession, moodleDomain: string | null) {
   try {
@@ -242,15 +247,17 @@ export function App() {
           />
         )}
         {view === "main" && (
-          <MainScreen
-            settings={settings}
-            updateState={updateState}
-            isCheckingUpdates={isCheckingUpdates}
-            onSettingsChange={setSettings}
-            onCheckUpdates={handleCheckUpdates}
-            onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
-            onLogout={handleLogout}
-          />
+          <Suspense fallback={null}>
+            <MainScreen
+              settings={settings}
+              updateState={updateState}
+              isCheckingUpdates={isCheckingUpdates}
+              onSettingsChange={setSettings}
+              onCheckUpdates={handleCheckUpdates}
+              onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
+              onLogout={handleLogout}
+            />
+          </Suspense>
         )}
       </Shell>
     </I18nProvider>
