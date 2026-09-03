@@ -4,7 +4,6 @@ import { getTranslator, I18nError } from "../i18n";
 import type { LanguageSetting } from "../types";
 import { ensurePocketBaseSession } from "./auth";
 import {
-  REVIEW_ANSWER_IMPORTS_COLLECTION,
   REVIEW_IMPORTS_COLLECTION,
   TASKS_COLLECTION,
   USERS_COLLECTION,
@@ -56,20 +55,13 @@ interface TaskRecord {
   updated: string;
 }
 
-interface ReviewAnswerImportRecord {
-  id: string;
-  question_id: string;
-  question_hash: string;
-  slot_key: string;
-  answer_key: string;
-}
-
 interface ReviewImportRecord {
   id: string;
   course_id: number | null;
   quiz_id: number | null;
   page_url: string;
   imported_question_count: number | null;
+  imported_question_hashes: Record<string, string> | null;
 }
 
 export interface FetchReduxShareTasksResult {
@@ -549,8 +541,35 @@ function normalizeReviewQuestions(questions: ReviewQuestionPayload[]): Normalize
   return normalized;
 }
 
-function getAnswerDedupKey(questionId: string, questionHash: string, slotKey: string, answerKey: string) {
-  return [questionId, questionHash, slotKey, answerKey].join("\n");
+function fnv1aHex(value: string) {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function getQuestionImportKey(questionId: string, questionHash: string) {
+  return [questionId, questionHash].join("\n");
+}
+
+/**
+ * Content hash of one normalized review question. Identical re-imports of the
+ * same attempt produce identical hashes and are skipped; a changed question
+ * (e.g. after a regrade) produces a new hash and is counted again.
+ */
+export function getReviewQuestionContentHash(question: NormalizedReviewQuestion) {
+  const fingerprint = question.answers
+    .map((answer) =>
+      [answer.label, answer.key, answer.slotKey, answer.slotIndex ?? "", answer.correctness, answer.wasSelected ? 1 : 0].join("\n")
+    )
+    .sort()
+    .join("\n\n");
+
+  return fnv1aHex(`${question.questionId}\n${question.questionHash}\n${fingerprint}`);
 }
 
 function getTaskIdentityKey(entry: {
@@ -584,7 +603,7 @@ async function upsertReviewImport(
     pageUrl: string;
     questionCount: number;
   }
-) {
+): Promise<{ id: string; questionHashes: Record<string, string> }> {
   const filter = pb.filter("user = {:user} && moodle_domain = {:domain} && attempt_key = {:attempt}", {
     user: entry.userId,
     domain: entry.domain,
@@ -599,20 +618,25 @@ async function upsertReviewImport(
       page_url: entry.pageUrl || existing.page_url,
       imported_question_count: Math.max(existing.imported_question_count ?? 0, entry.questionCount)
     });
+
+    return { id: existing.id, questionHashes: existing.imported_question_hashes ?? {} };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
     }
 
-    await pb.collection(REVIEW_IMPORTS_COLLECTION).create({
+    const created = await pb.collection(REVIEW_IMPORTS_COLLECTION).create<ReviewImportRecord>({
       user: entry.userId,
       moodle_domain: entry.domain,
       attempt_key: entry.attemptKey,
       course_id: entry.courseId,
       quiz_id: entry.quizId,
       page_url: entry.pageUrl,
-      imported_question_count: entry.questionCount
+      imported_question_count: entry.questionCount,
+      imported_question_hashes: {}
     });
+
+    return { id: created.id, questionHashes: {} };
   }
 }
 
@@ -654,7 +678,7 @@ export async function saveReduxShareReviewAnswers(
           throw error;
         }
 
-        await upsertReviewImport(pb, {
+        const { id: reviewImportId, questionHashes: importedQuestionHashes } = await upsertReviewImport(pb, {
           userId,
           domain: payload.domain,
           attemptKey: payload.attemptKey,
@@ -663,21 +687,6 @@ export async function saveReduxShareReviewAnswers(
           pageUrl: payload.pageUrl,
           questionCount: questions.length
         });
-
-        const existingImports = await pb
-          .collection(REVIEW_ANSWER_IMPORTS_COLLECTION)
-          .getFullList<ReviewAnswerImportRecord>({
-            filter: pb.filter("user = {:user} && moodle_domain = {:domain} && attempt_key = {:attempt}", {
-              user: userId,
-              domain: payload.domain,
-              attempt: payload.attemptKey
-            })
-          });
-        const importedKeys = new Set(
-          existingImports.map((entry) =>
-            getAnswerDedupKey(entry.question_id, entry.question_hash, entry.slot_key, entry.answer_key)
-          )
-        );
 
         const existingTasks = await pb.collection(TASKS_COLLECTION).getFullList<TaskRecord>({
           filter: pb.filter("moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz}", {
@@ -703,38 +712,17 @@ export async function saveReduxShareReviewAnswers(
         );
 
         let savedEntries = 0;
+        let hashesChanged = false;
 
         for (const question of questions) {
-          for (const answer of question.answers) {
-            const dedupKey = getAnswerDedupKey(question.questionId, question.questionHash, answer.slotKey, answer.key);
+          const importKey = getQuestionImportKey(question.questionId, question.questionHash);
+          const contentHash = getReviewQuestionContentHash(question);
 
-            if (importedKeys.has(dedupKey)) {
-              continue;
-            }
+          if (importedQuestionHashes[importKey] === contentHash) {
+            continue;
+          }
 
-            try {
-              await pb.collection(REVIEW_ANSWER_IMPORTS_COLLECTION).create({
-                user: userId,
-                moodle_domain: payload.domain,
-                attempt_key: payload.attemptKey,
-                question_id: question.questionId,
-                question_hash: question.questionHash,
-                slot_key: answer.slotKey,
-                answer_key: answer.key
-              });
-            } catch (error) {
-              // A concurrent tab imported the same answer first: skip it.
-              if (isValidationError(error)) {
-                importedKeys.add(dedupKey);
-                continue;
-              }
-
-              throw error;
-            }
-
-            importedKeys.add(dedupKey);
-
-            const correctDelta = answer.correctness === 2 ? 1 : 0;
+          for (const answer of question.answers) {            const correctDelta = answer.correctness === 2 ? 1 : 0;
             const selectedCorrectDelta = answer.correctness === 2 && answer.wasSelected ? 1 : 0;
             const selectedIncorrectDelta = answer.correctness <= 0 && answer.wasSelected ? 1 : 0;
             const selectedUnknownDelta = answer.correctness === 1 && answer.wasSelected ? 1 : 0;
@@ -826,6 +814,15 @@ export async function saveReduxShareReviewAnswers(
 
             savedEntries += 1;
           }
+
+          importedQuestionHashes[importKey] = contentHash;
+          hashesChanged = true;
+        }
+
+        if (hashesChanged) {
+          await pb.collection(REVIEW_IMPORTS_COLLECTION).update(reviewImportId, {
+            imported_question_hashes: importedQuestionHashes
+          });
         }
 
         return savedEntries;

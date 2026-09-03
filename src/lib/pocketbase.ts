@@ -6,7 +6,6 @@ import { ensurePocketBaseSession, restorePocketBaseSession } from "./auth";
 export const USERS_COLLECTION = "users";
 export const TASKS_COLLECTION = "reduxshare_tasks";
 export const REVIEW_IMPORTS_COLLECTION = "reduxshare_review_imports";
-export const REVIEW_ANSWER_IMPORTS_COLLECTION = "reduxshare_review_answer_imports";
 
 export function getPocketBaseUrl() {
   const rawUrl = (import.meta.env.VITE_POCKETBASE_URL as string | undefined)?.trim().replace(/\/+$/, "");

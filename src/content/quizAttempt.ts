@@ -76,6 +76,7 @@ import {
   splitReviewAnswerText
 } from "./quizAttempt/reviewText";
 import {
+  findClosestLabel,
   getAnswerLabelMatchKeys,
   getClassNumber,
   getImageIdentityLabel,
@@ -84,8 +85,10 @@ import {
   getQuestionText,
   getSelectOptionLabel,
   getUniqueTexts,
+  hashQuestionImage,
   isPlaceholderSelectOption,
   itemLabelMatches,
+  javaStringHashCode,
   labelsMatch,
   normalizeAnswerLabel,
   normalizeFingerprintText,
@@ -109,7 +112,7 @@ import {
   isSelectableQuestionType,
   isTextInputQuestionType
 } from "./quizAttempt/questionTypes";
-import { findMoodleConfig, getReviewSaveMoodleConfig } from "./quizAttempt/moodleContext";
+import { findMoodleAttemptIdFromPage, findMoodleConfig, findMoodleUserIdFromPage, getReviewSaveMoodleConfig } from "./quizAttempt/moodleContext";
 import { getQuestionId, getQuestionPostData } from "./quizAttempt/questionIdentity";
 import { setTextAnswerValue, setTextareaAnswerValue } from "./quizAttempt/textControls";
 
@@ -1823,6 +1826,8 @@ function collectQuizAttemptContext(): QuizAttemptContext | null {
     detectedAt: new Date().toISOString(),
     courseId: moodleConfig?.courseId ?? null,
     contextInstanceId: moodleConfig?.contextInstanceId ?? null,
+    attemptId: findMoodleAttemptIdFromPage(),
+    moodleUserId: findMoodleUserIdFromPage(),
     questionCount: questions.length,
     questions
   };
@@ -1835,6 +1840,8 @@ function createBareQuizAttemptContext(): QuizAttemptContext {
     detectedAt: new Date().toISOString(),
     courseId: null,
     contextInstanceId: null,
+    attemptId: findMoodleAttemptIdFromPage(),
+    moodleUserId: findMoodleUserIdFromPage(),
     questionCount: 0,
     questions: []
   };
@@ -3115,9 +3122,56 @@ function getChoiceSlotIndex(input: HTMLInputElement, answerData: AnswerData) {
   return answerData.slots.some((slot) => slot.index === 0) ? choiceIndex : choiceIndex + 1;
 }
 
+function isOpaqueMatchAnchor(value: string) {
+  return /^-?\d+$/.test(value.trim());
+}
+
+function getPromptHashCandidates(label: string) {
+  const collapsed = label.replace(/\s+/g, " ").trim();
+  return Array.from(
+    new Set([collapsed, normalizeFingerprintText(label), normalizeFingerprintText(stripMoodleAnswerPrefix(label))].filter(Boolean))
+  );
+}
+
+function hashAnchorMatchesPrompt(anchor: string, label: string) {
+  // Some external providers send opaque integer anchors (e.g. ["", "-1510145339"])
+  // that look like Java-style prompt hashes. They can never match prompt labels
+  // by text, but they match exactly when the provider hashed the same prompt.
+  if (!isOpaqueMatchAnchor(anchor)) {
+    return false;
+  }
+
+  const target = Number.parseInt(anchor.trim(), 10);
+
+  if (!Number.isSafeInteger(target)) {
+    return false;
+  }
+
+  return getPromptHashCandidates(label).some((candidate) => javaStringHashCode(candidate) === target);
+}
+
+function anchorMatchesPrompt(anchor: string, label: string) {
+  if (labelsMatch(anchor, label)) {
+    return true;
+  }
+
+  if (hashAnchorMatchesPrompt(anchor, label)) {
+    return true;
+  }
+
+  // Machine identifiers (paths, URLs, image identities) must match exactly:
+  // fuzzy-matching them binds near-identical wrong variants (".../icon5.png"
+  // vs ".../icon3.png"). Typo tolerance applies to human text only.
+  if (/[/:]/.test(anchor)) {
+    return false;
+  }
+
+  return findClosestLabel(label, [anchor]) !== null;
+}
+
 function answerSlotMatchesLabel(slot: AnswerSlotData, label: string) {
   return (
-    slot.anchors.some((anchor) => labelsMatch(anchor, label)) ||
+    slot.anchors.some((anchor) => anchorMatchesPrompt(anchor, label)) ||
     slot.suggestions.some((suggestion) => itemLabelMatches(suggestion, label)) ||
     slot.submissions.some((submission) => itemLabelMatches(submission, label))
   );
@@ -3553,16 +3607,23 @@ function getSelectableAnswerControls(questionNode: Element) {
 }
 
 function findSelectOptionByLabel(select: HTMLSelectElement, label: string) {
+  const options = Array.from(select.options).filter((option) => option.value);
   const targetKeys = getAnswerLabelMatchKeys(label);
-
-  return Array.from(select.options).find((option) => {
-    if (!option.value) {
-      return false;
-    }
-
+  const exact = options.find((option) => {
     const optionKeys = getAnswerLabelMatchKeys(option.textContent ?? option.label);
     return [...targetKeys].some((key) => optionKeys.has(key));
   });
+
+  if (exact) {
+    return exact;
+  }
+
+  const closest = findClosestLabel(
+    label,
+    options.map((option) => option.textContent ?? option.label)
+  );
+
+  return closest ? options[closest.index] : undefined;
 }
 
 function setSelectValue(select: HTMLSelectElement, value: string) {
@@ -3621,7 +3682,8 @@ function getSelectQuestionNode(select: HTMLSelectElement) {
   return select.closest(".que");
 }
 
-function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement, index: number) {
+function getSelectControlLabelElements(questionNode: Element, select: HTMLSelectElement): HTMLElement[] {
+  const elements: HTMLElement[] = [];
   const labelledByIds = (select.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean);
   const describedByIds = (select.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
   const labelIds = [
@@ -3632,19 +3694,42 @@ function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement,
   for (const labelId of labelIds) {
     const labelElement = document.getElementById(labelId);
 
-    if (labelElement && questionNode.contains(labelElement)) {
-      const label = getMoodleAnswerLabelTextOrImageIdentity(labelElement);
-
-      if (label) {
-        return label;
-      }
+    if (labelElement && questionNode.contains(labelElement) && !elements.includes(labelElement)) {
+      elements.push(labelElement);
     }
   }
 
   const rowTextCell = select.closest("tr")?.querySelector<HTMLElement>("td.text, th.text, .text");
 
-  if (rowTextCell && questionNode.contains(rowTextCell)) {
-    const label = getMoodleAnswerLabelTextOrImageIdentity(rowTextCell);
+  if (rowTextCell && questionNode.contains(rowTextCell) && !elements.includes(rowTextCell)) {
+    elements.push(rowTextCell);
+  }
+
+  return elements;
+}
+
+function getSelectPromptImageHashes(questionNode: Element, select: HTMLSelectElement): string[] {
+  const hashes = new Set<string>();
+
+  for (const labelElement of getSelectControlLabelElements(questionNode, select)) {
+    for (const image of Array.from(labelElement.querySelectorAll("img"))) {
+      const rawSrc = image.currentSrc || image.getAttribute("src") || "";
+      const src = rawSrc.startsWith("data:") ? javaStringHashCode(rawSrc).toString() : rawSrc;
+
+      if (!src.trim()) {
+        continue;
+      }
+
+      hashes.add(hashQuestionImage(src, image.alt ?? ""));
+    }
+  }
+
+  return [...hashes];
+}
+
+function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement, index: number) {
+  for (const labelElement of getSelectControlLabelElements(questionNode, select)) {
+    const label = getMoodleAnswerLabelTextOrImageIdentity(labelElement);
 
     if (label) {
       return label;
@@ -3652,6 +3737,21 @@ function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement,
   }
 
   return `Select ${index + 1}`;
+}
+
+function canMatchOpaqueMatchSlotsPositionally(answerData: AnswerData, selectCount: number) {
+  // Some external providers send opaque anchors such as ["", "-1510145339"]: no
+  // prompt text at all, only internal row ids. No client — including the
+  // provider's own — can bind such rows by content; the only possible binding
+  // is row order against DOM order (Moodle renders match stems in author-fixed
+  // order). Allow it only when every select maps to exactly one slot.
+  // Text anchors that disagree keep the strict behavior (no match) so answers
+  // from a wrong variant are never applied positionally.
+  return (
+    selectCount > 0 &&
+    answerData.slots.length === selectCount &&
+    answerData.slots.every((slot) => slot.anchors.length > 0 && slot.anchors.every(isOpaqueMatchAnchor))
+  );
 }
 
 function getSelectPlaceIndex(select: HTMLSelectElement) {
@@ -3707,7 +3807,20 @@ function getAnswerSlotForSelect(answerData: AnswerData, select: HTMLSelectElemen
       return labelMatchedSlot;
     }
 
-    if (answerData.slots.length > 0) {
+    // Image prompts carry no matchable text, but external providers hash the
+    // prompt image the same way (see hashQuestionImage): an exact hash match
+    // binds the row to its subquestion precisely.
+    const promptImageHashes = getSelectPromptImageHashes(questionNode, select);
+    const imageMatchedSlot =
+      promptImageHashes.length > 0
+        ? answerData.slots.find((slot) => slot.anchors.some((anchor) => promptImageHashes.includes(anchor.trim())))
+        : null;
+
+    if (imageMatchedSlot) {
+      return imageMatchedSlot;
+    }
+
+    if (answerData.slots.length > 0 && !canMatchOpaqueMatchSlotsPositionally(answerData, selects.length)) {
       return null;
     }
   }
@@ -4279,7 +4392,7 @@ function applyAiAnswerForQuestion(questionNode: Element, state: AiAnswerState) {
     return applyAiDdimageOrTextAnswers(questionNode, actions);
   }
 
-  if (questionType === "gapselect") {
+  if (questionType === "gapselect" || questionType === "gapfill") {
     return applyAiSelectAnswers(questionNode, actions);
   }
 
@@ -4704,7 +4817,7 @@ function autoSelectQuestionAnswers(questionNode: Element, answerData: AnswerData
     return false;
   }
 
-  if (questionType === "gapselect" || isMatchingQuestionTypeName(questionType)) {
+  if (questionType === "gapselect" || questionType === "gapfill" || isMatchingQuestionTypeName(questionType)) {
     return autoSelectGapSelectAnswers(questionNode, answerData);
   }
 
@@ -5668,7 +5781,7 @@ function getReviewCorrectObservations(questionNode: Element, questionType: strin
     return getReviewDdimageOrTextCorrectObservations(questionNode);
   }
 
-  if (questionType === "gapselect") {
+  if (questionType === "gapselect" || questionType === "gapfill") {
     const gapselectObservations = getReviewGapSelectCorrectObservations(questionNode);
 
     if (gapselectObservations.length > 0) {
@@ -5692,7 +5805,10 @@ function getReviewCorrectObservations(questionNode: Element, questionType: strin
     }
   }
 
-  if ((questionType === "gapselect" || isMatchingQuestionTypeName(questionType)) && correctLabels.length > 0) {
+  if (
+    (questionType === "gapselect" || questionType === "gapfill" || isMatchingQuestionTypeName(questionType)) &&
+    correctLabels.length > 0
+  ) {
     const selects = Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select"));
 
     if (selects.length === correctLabels.length) {
@@ -5720,7 +5836,7 @@ function reviewObservationsMatch(
 }
 
 function buildReviewAnswersForQuestion(questionNode: Element, questionType: string | null) {
-  if (questionType === "multichoice") {
+  if (questionType === "multichoice" || questionType === "multichoiceset") {
     const booleanAnswers = buildReviewMultichoiceBooleanAnswers(questionNode);
 
     if (booleanAnswers.length > 0) {
@@ -5733,7 +5849,8 @@ function buildReviewAnswersForQuestion(questionNode: Element, questionType: stri
     questionType === "ddwtos" ||
     questionType === "ddmarker" ||
     questionType === "ddimageortext" ||
-    questionType === "gapselect"
+    questionType === "gapselect" ||
+    questionType === "gapfill"
       ? []
       : getReviewCorrectLabels(questionNode);
   const correctObservations = getReviewCorrectObservations(questionNode, questionType, correctLabels);
@@ -6817,6 +6934,32 @@ function scopeSourceAnswerDataToChoice(answerData: SourceAnswerData, input: HTML
   };
 }
 
+function getUnboundExternalMatchStats(external: AnswerData, select: HTMLSelectElement): AnswerData {
+  const questionNode = getSelectQuestionNode(select);
+
+  if (!questionNode || !isMatchingQuestionNode(questionNode) || external.submissions.length === 0) {
+    return createEmptyAnswerData();
+  }
+
+  // Opaque (hashed) anchors cannot be bound to prompts, but the aggregated
+  // statistics are still useful — including known-incorrect answers.
+  // Text anchors that disagree mean a wrong variant: keep those hidden entirely.
+  const allAnchorsOpaque =
+    external.slots.length > 0 &&
+    external.slots.every((slot) => slot.anchors.length > 0 && slot.anchors.every(isOpaqueMatchAnchor));
+
+  if (!allAnchorsOpaque) {
+    return createEmptyAnswerData();
+  }
+
+  return {
+    anchors: [],
+    suggestions: [],
+    submissions: external.submissions,
+    slots: []
+  };
+}
+
 function scopeSourceAnswerDataToSelect(answerData: SourceAnswerData, select: HTMLSelectElement) {
   const reduxShareSlot = getAnswerSlotForSelect(answerData.reduxshare, select);
   const externalSlot = getAnswerSlotForSelect(answerData.external, select);
@@ -6839,7 +6982,7 @@ function scopeSourceAnswerDataToSelect(answerData: SourceAnswerData, select: HTM
             submissions: externalSlot.submissions,
             slots: [externalSlot]
           }
-        : createEmptyAnswerData()
+        : getUnboundExternalMatchStats(answerData.external, select)
     },
     slotIndex: reduxShareSlot?.index ?? externalSlot?.index ?? fallbackSlotIndex
   };
@@ -7765,6 +7908,8 @@ function requestQuizAnswers(context: QuizAttemptContext): Promise<QuizAnswersRes
           domain: context.domain,
           courseId: context.courseId,
           quizId: context.contextInstanceId,
+          attemptId: context.attemptId,
+          moodleUserId: context.moodleUserId,
           questions: sourceQuestions
         }
       },

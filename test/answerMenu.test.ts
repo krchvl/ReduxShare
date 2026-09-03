@@ -147,6 +147,44 @@ describe("R-menu source rendering", () => {
     expect(textOf(root, '[data-answer-menu="external-exact"]')).toContain("Нет ответов");
   });
 
+  it("strikes through known-incorrect statistics answers", async () => {
+    const api = await getQuizAttemptTestApi();
+    const root = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          external: {
+            anchors: [],
+            suggestions: [],
+            submissions: [
+              { correctness: -1, count: 1, label: "Facetime" },
+              { correctness: 2, count: 1, label: "Yelp" }
+            ],
+            slots: []
+          }
+        }),
+        false,
+        {
+          status: "idle",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: null
+        },
+        false
+      )
+    );
+
+    const wrongLabel = Array.from(root.querySelectorAll('[data-answer-menu="external-stats"] .flyout-label')).find(
+      (node) => node.textContent?.trim() === "Facetime"
+    );
+    expect(wrongLabel?.className).toContain("flyout-label--wrong");
+
+    const correctLabel = Array.from(root.querySelectorAll('[data-answer-menu="external-stats"] .flyout-label')).find(
+      (node) => node.textContent?.trim() === "Yelp"
+    );
+    expect(correctLabel?.className).not.toContain("flyout-label--wrong");
+  });
+
   it("hides AI tools when the question type disables AI", async () => {
     const api = await getQuizAttemptTestApi();
     const root = renderMenu(

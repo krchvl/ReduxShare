@@ -133,9 +133,10 @@ function renderSubmissionFlyout(submissions: SubmissionItem[]): string {
   }
   return submissions
     .map((s) => {
+      const wrongClass = s.correctness <= 0 ? " flyout-label--wrong" : "";
       return `
       <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}>
-        <span class="flyout-label">${escapeHtml(s.displayLabel ?? s.label)}</span>
+        <span class="flyout-label${wrongClass}">${escapeHtml(s.displayLabel ?? s.label)}</span>
         <span class="flyout-pct" style="color:${correctnessColor(s.correctness)}">${s.count}</span>
       </div>`;
     })
@@ -906,6 +907,12 @@ export function getAnswerMenuMarkup(
         font-weight: 400;
         line-height: 1.3;
         word-break: break-word;
+      }
+
+      .flyout-label--wrong {
+        color: #f87171;
+        text-decoration: line-through;
+        text-decoration-thickness: 1px;
       }
 
       .flyout-pct {

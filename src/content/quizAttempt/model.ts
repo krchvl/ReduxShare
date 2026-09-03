@@ -24,9 +24,9 @@ export const METADATA_POLL_MS = 250;
 export const FULL_PAGE_LOAD_MAX_WAIT_MS = 8_000;
 
 export const TEXT_INPUT_QUESTION_TYPES = new Set(["shortanswer", "numerical", "calculated", "calculatedsimple"]);
-export const CHOICE_QUESTION_TYPES = new Set(["multichoice", "truefalse", "calculatedmulti"]);
+export const CHOICE_QUESTION_TYPES = new Set(["multichoice", "multichoiceset", "truefalse", "calculatedmulti"]);
 export const MATCHING_QUESTION_TYPES = new Set(["match", "randomsamatch"]);
-export const SELECTABLE_QUESTION_TYPES = new Set(["gapselect", ...MATCHING_QUESTION_TYPES]);
+export const SELECTABLE_QUESTION_TYPES = new Set(["gapselect", "gapfill", ...MATCHING_QUESTION_TYPES]);
 export const COMPOUND_QUESTION_TYPES = new Set(["multianswer"]);
 export const DRAG_TEXT_QUESTION_TYPES = new Set(["ddwtos"]);
 export const DRAG_MARKER_QUESTION_TYPES = new Set(["ddmarker"]);
@@ -121,6 +121,8 @@ export interface QuizAttemptContext {
   detectedAt: string;
   courseId: number | null;
   contextInstanceId: number | null;
+  attemptId: string | null;
+  moodleUserId: string | null;
   questionCount: number;
   questions: QuizQuestionSummary[];
 }

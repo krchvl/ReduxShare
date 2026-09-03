@@ -19,7 +19,6 @@ vi.mock("../src/lib/pocketbase", () => ({
   USERS_COLLECTION: "users",
   TASKS_COLLECTION: "reduxshare_tasks",
   REVIEW_IMPORTS_COLLECTION: "reduxshare_review_imports",
-  REVIEW_ANSWER_IMPORTS_COLLECTION: "reduxshare_review_answer_imports",
   isNotFoundError: (error: { isNotFound?: boolean } | null | undefined) => error?.isNotFound === true,
   isValidationError: (error: { isValidation?: boolean } | null | undefined) => error?.isValidation === true,
   toI18nError: (error: unknown, messageKey: "errors.reduxAnswersFetchFailed" | "errors.reduxReviewSaveFailed") => {
@@ -143,10 +142,8 @@ describe("ReduxShare review DB save (PocketBase)", () => {
         getOne: vi.fn().mockResolvedValue({ id: "user-1", moodle_domain: null })
       }),
       reduxshare_review_imports: mockCollection({
-        getFirstListItem: vi.fn().mockRejectedValue(notFoundError())
-      }),
-      reduxshare_review_answer_imports: mockCollection({
-        getFullList: vi.fn().mockResolvedValue([])
+        getFirstListItem: vi.fn().mockRejectedValue(notFoundError()),
+        create: vi.fn().mockResolvedValue({ id: "ri-1" })
       }),
       reduxshare_tasks: mockCollection({
         getFullList: vi.fn().mockResolvedValue([])
@@ -157,7 +154,7 @@ describe("ReduxShare review DB save (PocketBase)", () => {
   it("sends calculated exact review answers to PocketBase collections", async () => {
     const { saveReduxShareReviewAnswers } = await importQuizTasks();
     const payload = calculatedSavePayload();
-    const answerImports = pbMocks.collections.reduxshare_review_answer_imports;
+    const imports = pbMocks.collections.reduxshare_review_imports;
     const tasks = pbMocks.collections.reduxshare_tasks;
     tasks.create.mockResolvedValue({ id: "task-new" });
 
@@ -168,15 +165,13 @@ describe("ReduxShare review DB save (PocketBase)", () => {
       imported: true,
       savedCount: 1
     });
-    expect(answerImports.create).toHaveBeenCalledWith({
-      user: "user-1",
-      moodle_domain: "school.moodledemo.net",
-      attempt_key: "attempt:94|cmid:1150",
-      question_id: "3699",
-      question_hash: "hash",
-      slot_key: "question",
-      answer_key: "20.10"
-    });
+    expect(imports.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: "user-1",
+        moodle_domain: "school.moodledemo.net",
+        attempt_key: "attempt:94|cmid:1150"
+      })
+    );
     expect(tasks.create).toHaveBeenCalledWith(
       expect.objectContaining({
         moodle_domain: "school.moodledemo.net",
@@ -190,6 +185,12 @@ describe("ReduxShare review DB save (PocketBase)", () => {
         selected_correct_count: 0,
         first_contributor: "user-1",
         last_contributor: "user-1"
+      })
+    );
+    expect(imports.update).toHaveBeenCalledWith(
+      "ri-1",
+      expect.objectContaining({
+        imported_question_hashes: { "3699\nhash": expect.stringMatching(/^[0-9a-f]{8}$/) }
       })
     );
   });
@@ -213,24 +214,57 @@ describe("ReduxShare review DB save (PocketBase)", () => {
     expect(pbMocks.withSessionRetry).not.toHaveBeenCalled();
   });
 
-  it("skips answers that were already imported for the attempt", async () => {
+  it("skips questions that were already imported for the attempt", async () => {
     const { saveReduxShareReviewAnswers } = await importQuizTasks();
-    pbMocks.collections.reduxshare_review_answer_imports.getFullList.mockResolvedValue([
+    const imports = pbMocks.collections.reduxshare_review_imports;
+    const tasks = pbMocks.collections.reduxshare_tasks;
+    tasks.create.mockResolvedValue({ id: "task-new" });
+
+    const firstSave = await saveReduxShareReviewAnswers(authSession, calculatedSavePayload());
+    expect(firstSave).toMatchObject({ imported: true, savedCount: 1 });
+
+    const storedHashes = imports.update.mock.calls[0][1].imported_question_hashes;
+    imports.getFirstListItem.mockReset();
+    imports.getFirstListItem.mockResolvedValue({ id: "ri-1", imported_question_hashes: storedHashes });
+    tasks.create.mockClear();
+
+    const secondSave = await saveReduxShareReviewAnswers(authSession, calculatedSavePayload());
+
+    expect(secondSave).toMatchObject({ imported: false, savedCount: 0 });
+    expect(tasks.create).not.toHaveBeenCalled();
+    expect(tasks.update).not.toHaveBeenCalled();
+  });
+
+  it("recounts a question imported again with changed content", async () => {
+    const { saveReduxShareReviewAnswers } = await importQuizTasks();
+    const imports = pbMocks.collections.reduxshare_review_imports;
+    const tasks = pbMocks.collections.reduxshare_tasks;
+    tasks.create.mockResolvedValue({ id: "task-new" });
+
+    await saveReduxShareReviewAnswers(authSession, calculatedSavePayload());
+
+    const storedHashes = imports.update.mock.calls[0][1].imported_question_hashes;
+    imports.getFirstListItem.mockReset();
+    imports.getFirstListItem.mockResolvedValue({ id: "ri-1", imported_question_hashes: storedHashes });
+    tasks.create.mockClear();
+
+    const changedPayload = calculatedSavePayload();
+    changedPayload.questions[0].answers = [
       {
-        id: "import-1",
-        question_id: "3699",
-        question_hash: "hash",
-        slot_key: "question",
-        answer_key: "20.10"
+        label: "20.11",
+        answerKey: "20.11",
+        slotKey: "question",
+        slotIndex: null,
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: false
       }
-    ]);
+    ];
 
-    const result = await saveReduxShareReviewAnswers(authSession, calculatedSavePayload());
+    const result = await saveReduxShareReviewAnswers(authSession, changedPayload);
 
-    expect(result).toMatchObject({ imported: false, savedCount: 0 });
-    expect(pbMocks.collections.reduxshare_review_answer_imports.create).not.toHaveBeenCalled();
-    expect(pbMocks.collections.reduxshare_tasks.create).not.toHaveBeenCalled();
-    expect(pbMocks.collections.reduxshare_tasks.update).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ imported: true, savedCount: 1 });
+    expect(tasks.create).toHaveBeenCalledWith(expect.objectContaining({ answer_key: "20.11" }));
   });
 
   it("increments counters on existing task rows instead of duplicating them", async () => {

@@ -126,6 +126,70 @@ export function findMoodleModuleIdFromPage() {
   return null;
 }
 
+export function findMoodleAttemptIdFromPage(pageUrl: string = window.location.href) {
+  try {
+    const attemptId = new URL(pageUrl).searchParams.get("attempt");
+
+    if (attemptId !== null && parseMoodleNumericId(attemptId) !== null) {
+      return attemptId;
+    }
+  } catch {
+    // Fall through to null below.
+  }
+
+  return null;
+}
+
+function parseMoodleUserId(value: string | null | undefined) {
+  const normalizedValue = value?.trim() ?? "";
+
+  if (!/^\d+$/.test(normalizedValue) || normalizedValue === "0") {
+    return null;
+  }
+
+  return normalizedValue;
+}
+
+export function findMoodleUserIdFromPage(root: ParentNode = document) {
+  const profileLink = root.querySelector<HTMLAnchorElement>('a[href*="profile.php"]');
+
+  if (profileLink) {
+    try {
+      const userId = parseMoodleUserId(new URL(profileLink.href).searchParams.get("id"));
+
+      if (userId !== null) {
+        return userId;
+      }
+    } catch {
+      // Continue with DOM fallbacks.
+    }
+  }
+
+  for (const attribute of ["data-userid", "data-user-id"] as const) {
+    const userId = parseMoodleUserId(root.querySelector(`[${attribute}]`)?.getAttribute(attribute));
+
+    if (userId !== null) {
+      return userId;
+    }
+  }
+
+  const userViewLink = root.querySelector<HTMLAnchorElement>('a[href*="user/view.php"]');
+
+  if (userViewLink) {
+    try {
+      const userId = parseMoodleUserId(new URL(userViewLink.href).searchParams.get("id"));
+
+      if (userId !== null) {
+        return userId;
+      }
+    } catch {
+      // Fall through to null below.
+    }
+  }
+
+  return null;
+}
+
 export function getReviewSaveMoodleConfig(storedState: StoredStateLike | undefined): MoodleConfig {
   const moodleConfig = findMoodleConfig();
   const latestContext = storedState?.latestQuizAttemptContext;

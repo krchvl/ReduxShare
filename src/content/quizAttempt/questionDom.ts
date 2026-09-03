@@ -218,6 +218,121 @@ export function labelsMatch(left: string, right: string) {
   return [...leftKeys].some((key) => rightKeys.has(key));
 }
 
+export function javaStringHashCode(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (Math.imul(31, hash) + value.charCodeAt(index)) | 0;
+  }
+
+  return hash;
+}
+
+export function cleanHashSource(value: string) {
+  return value.replace(/^ +| +$|\\n|\n/g, "");
+}
+
+export function getImageFileName(imageSrc: string) {
+  const separator = imageSrc.lastIndexOf("/");
+  return separator >= 0 ? imageSrc.slice(separator + 1) : imageSrc;
+}
+
+/**
+ * Mirrors the external provider's image anchor: a Java-style hash of the
+ * file name plus alt text, e.g. anchor ["", "-1510145339"] matches
+ * icon22.png with an empty alt. The JSON shape ({fn, alt}, no spaces)
+ * must stay byte-identical to the provider's computation.
+ */
+export function hashQuestionImage(imageSrc: string, imageAlt: string) {
+  return javaStringHashCode(
+    JSON.stringify({ fn: cleanHashSource(getImageFileName(imageSrc)), alt: imageAlt })
+  ).toString();
+}
+
+export function levenshteinDistance(left: string, right: string) {
+  const leftChars = Array.from(left);
+  const rightChars = Array.from(right);
+
+  if (leftChars.length === 0) {
+    return rightChars.length;
+  }
+
+  if (rightChars.length === 0) {
+    return leftChars.length;
+  }
+
+  let previousRow = [0, ...rightChars.map((_, index) => index + 1)];
+
+  for (let i = 0; i < leftChars.length; i += 1) {
+    let diagonal = i;
+    const currentRow: number[] = [i + 1];
+
+    for (let j = 0; j < rightChars.length; j += 1) {
+      const substitutionCost = leftChars[i] === rightChars[j] ? 0 : 1;
+      const next = Math.min(previousRow[j + 1] + 1, currentRow[j] + 1, diagonal + substitutionCost);
+      diagonal = previousRow[j + 1];
+      currentRow.push(next);
+    }
+
+    previousRow = currentRow;
+  }
+
+  return previousRow[rightChars.length];
+}
+
+export interface ClosestLabelMatch {
+  match: string;
+  index: number;
+  distance: number;
+}
+
+/**
+ * Typo-tolerant fallback mirroring the external provider rule: the closest
+ * candidate wins only when it is strictly closer than every other candidate
+ * and at most half-different. Pure numbers must match exactly ("1991" vs
+ * "1992" is a different answer, not a typo).
+ */
+export function findClosestLabel(target: string, candidates: readonly string[]): ClosestLabelMatch | null {
+  const normalizedTarget = normalizeAnswerLabel(target);
+
+  if (!normalizedTarget) {
+    return null;
+  }
+
+  const targetIsNumeric = /^\d+$/.test(normalizedTarget);
+  let best: ClosestLabelMatch | null = null;
+  let tied = false;
+
+  candidates.forEach((candidate, index) => {
+    const normalizedCandidate = normalizeAnswerLabel(candidate);
+
+    if (!normalizedCandidate) {
+      return;
+    }
+
+    if (targetIsNumeric || /^\d+$/.test(normalizedCandidate)) {
+      if (normalizedTarget !== normalizedCandidate) {
+        return;
+      }
+    }
+
+    const distance = levenshteinDistance(normalizedTarget, normalizedCandidate);
+
+    if (distance * 2 > Math.max(normalizedTarget.length, normalizedCandidate.length)) {
+      return;
+    }
+
+    if (best === null || distance < best.distance) {
+      best = { match: candidate, index, distance };
+      tied = false;
+    } else if (distance === best.distance) {
+      tied = true;
+    }
+  });
+
+  return tied ? null : best;
+}
+
 export function itemLabelMatches<T extends { label: string }>(item: T, label: string) {
   return labelsMatch(item.label, label);
 }

@@ -18,6 +18,11 @@ import {
   saveReduxShareReviewAnswers,
   type SaveReduxShareReviewPayload
 } from "../lib/quizTasks";
+import {
+  fetchQuestionVariants,
+  type ExternalQuestionRequest,
+  type ExternalVariantsPayload
+} from "../lib/externalProvider";
 import { getLocalizedErrorMessage, getTranslator, type TranslationKey } from "../i18n";
 import {
   CHECK_UPDATE_MESSAGE,
@@ -47,27 +52,6 @@ const FETCH_QUIZ_ANSWERS_MESSAGE = "REDUXSHARE_FETCH_QUIZ_ANSWERS";
 const RECORD_QUIZ_PROGRESS_MESSAGE = "REDUXSHARE_RECORD_QUIZ_PROGRESS";
 const SAVE_REVIEW_ANSWERS_MESSAGE = "REDUXSHARE_SAVE_REVIEW_ANSWERS";
 const MAX_PENDING_REVIEW_SAVES = 25;
-const EXTERNAL_CLIENT_VERSION = "2.6.0";
-const EXTERNAL_ENDPOINT_KEY = [91, 17, 203, 44, 7, 180, 63, 128, 54] as const;
-const EXTERNAL_ENDPOINT_SEGMENTS = {
-  authority: [57, 88, 234, 33, 249, 112, 149, 24, 90, 93, 56, 204, 197, 204, 22, 169, 248, 56, 9, 42],
-  resource: [101, 64, 244, 43, 165, 110, 198, 69, 78, 6, 63, 215, 134, 208, 24, 177, 244, 98, 13, 32, 216]
-} as const;
-
-function decodeExternalEndpointSegment(segment: readonly number[]) {
-  return segment
-    .map((value, index) => {
-      const positionalMask = (index * 31 + 17) & 255;
-      return String.fromCharCode(value ^ EXTERNAL_ENDPOINT_KEY[index % EXTERNAL_ENDPOINT_KEY.length] ^ positionalMask);
-    })
-    .join("");
-}
-
-function getExternalVariantsUrl() {
-  return `https://${decodeExternalEndpointSegment(EXTERNAL_ENDPOINT_SEGMENTS.authority)}${decodeExternalEndpointSegment(
-    EXTERNAL_ENDPOINT_SEGMENTS.resource
-  )}`;
-}
 
 interface StoredStateLike {
   settings?: {
@@ -79,17 +63,11 @@ interface StoredStateLike {
   updateState?: UpdateState | null;
 }
 
-interface QuizQuestionRequest {
-  questionId: string | null;
-  questionType: string | null;
-  questionHash: string | null;
-}
-
-interface FetchQuizAnswersPayload {
+interface FetchQuizAnswersPayload extends ExternalVariantsPayload {
   domain: string;
   courseId: number | null;
   quizId: number | null;
-  questions: QuizQuestionRequest[];
+  questions: ExternalQuestionRequest[];
 }
 
 interface FetchQuizAnswersMessage {
@@ -453,80 +431,6 @@ async function handleCheckUpdate(payload: CheckUpdatePayload = {}): Promise<Upda
 
 function getStoredAuthSession(storedState: StoredStateLike) {
   return storedState.authSession?.user.id ? storedState.authSession : null;
-}
-
-async function readResponseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
-
-  if (!text) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
-function buildVariantsUrl(payload: FetchQuizAnswersPayload, question: QuizQuestionRequest) {
-  const params = new URLSearchParams({
-    host: payload.domain,
-    courseId: String(payload.courseId),
-    quizId: String(payload.quizId),
-    moodleId: "1",
-    questionId: question.questionId ?? "",
-    attemptId: "1",
-    client: EXTERNAL_CLIENT_VERSION,
-    questionType: question.questionType ?? ""
-  });
-
-  return `${getExternalVariantsUrl()}?${params.toString()}`;
-}
-
-async function fetchQuestionVariants(
-  payload: FetchQuizAnswersPayload,
-  question: QuizQuestionRequest,
-  language?: LanguageSetting
-): Promise<QuizVariantResult> {
-  const t = getTranslator(language);
-
-  if (!question.questionId) {
-    return {
-      questionId: question.questionId,
-      questionType: question.questionType,
-      questionHash: question.questionHash,
-      ok: false,
-      error: t("errors.questionIdMissing")
-    };
-  }
-
-  try {
-    const response = await fetch(buildVariantsUrl(payload, question), {
-      method: "GET",
-      headers: {
-        Accept: "*/*",
-        // "X-Api-Key": accessToken
-      }
-    });
-
-    return {
-      questionId: question.questionId,
-      questionType: question.questionType,
-      questionHash: question.questionHash,
-      ok: response.ok,
-      status: response.status,
-      data: await readResponseBody(response)
-    };
-  } catch (error) {
-    return {
-      questionId: question.questionId,
-      questionType: question.questionType,
-      questionHash: question.questionHash,
-      ok: false,
-      error: getErrorMessage(error, language)
-    };
-  }
 }
 
 async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise<QuizAnswersResponse> {
