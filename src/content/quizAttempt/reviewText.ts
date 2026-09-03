@@ -5,6 +5,28 @@ export function splitReviewAnswerText(answerText: string) {
     .filter(Boolean);
 }
 
+/**
+ * Moodle wraps gapselect correct answers in square brackets inside the
+ * rightanswer block, in blank order: "...form [Great Britain] ...".
+ * Unlike substring search this is immune to option words occurring in the
+ * question intro, and it preserves duplicate answers.
+ */
+export function extractBracketedAnswers(answerText: string) {
+  const answers: string[] = [];
+  const bracketPattern = /\[([^\[\]]+)\]/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = bracketPattern.exec(answerText)) !== null) {
+    const label = match[1].replace(/\s+/g, " ").trim();
+
+    if (label) {
+      answers.push(label);
+    }
+  }
+
+  return answers;
+}
+
 export function splitReviewMatchPairText(answerText: string) {
   return answerText
     .split(/\r?\n+|\s*\|\s*|\s*;\s*|\s*,\s*/g)
@@ -27,8 +49,7 @@ export function parseReviewMatchPairs(answerText: string) {
     .filter((pair): pair is { prompt: string; answer: string } => pair !== null);
 }
 
-export function getRightAnswerBodyText(rawText: string) {
-  const normalizedText = rawText.replace(/\s+/g, " ").trim();
+export function getRightAnswerBodyText(rawText: string) {  const normalizedText = rawText.replace(/\s+/g, " ").trim();
   const prefixedAnswerMatch =
     /^(?:the\s+correct\s+answers?\s+(?:is|are)|correct\s+answers?|правильн(?:ый|ые)\s+ответ(?:ы)?|верн(?:ый|ые)\s+ответ(?:ы)?)\s*[:：]\s*(.+)$/i.exec(
       normalizedText

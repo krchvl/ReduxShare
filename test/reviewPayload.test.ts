@@ -217,8 +217,45 @@ describe("Moodle review payload builder", () => {
     );
   });
 
-  it("saves gapselect hidden review as unknown per-slot statistics only", async () => {
+  it("saves gapselect bracketed right answers in blank order despite intro matches", async () => {
     const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("gapselect", "review-open-brackets");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    expect(question.questionId).toBe("3701");
+    expect(question.questionType).toBe("gapselect");
+
+    const exactBySlot = new Map(
+      answers.filter((answer) => answer.correctness === 2).map((answer) => [answer.slotIndex, answer.label])
+    );
+
+    expect([...exactBySlot.entries()]).toEqual([
+      [1, "Wales"],
+      [2, "Great Britain"],
+      [3, "Northern Ireland"],
+      [4, "the United Kingdom"],
+      [5, "the United Kingdom"],
+      [6, "the Republic of Ireland"],
+      [7, "the Isle of Man"]
+    ]);
+
+    const selectedWrong = answers
+      .filter((answer) => answer.wasSelected && answer.correctness !== 2)
+      .map((answer) => [answer.slotIndex, answer.label]);
+
+    expect(selectedWrong).toEqual([
+      [2, "the Commonwealth"],
+      [4, "Great Britain"],
+      [5, "Great Britain"],
+      [6, "Wales"],
+      [7, "Northern Ireland"]
+    ]);
+  });
+
+  it("saves gapselect hidden review as unknown per-slot statistics only", async () => {    const api = await getQuizAttemptTestApi();
 
     loadQuestionFixture("gapselect", "review-hidden");
 

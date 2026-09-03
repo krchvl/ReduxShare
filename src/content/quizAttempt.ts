@@ -71,6 +71,7 @@ import {
 } from "./quizAttempt/answerData";
 import {
   cleanReviewDisplayedTextAnswer,
+  extractBracketedAnswers,
   getRightAnswerBodyText,
   parseReviewMatchPairs,
   splitReviewAnswerText
@@ -5657,6 +5658,12 @@ function getReviewGapSelectCorrectObservations(questionNode: Element): ReviewObs
   const optionLabels = getQuestionAnswerLabels(questionNode);
 
   for (const rightAnswerNode of Array.from(questionNode.querySelectorAll(".rightanswer"))) {
+    const bracketedLabels = extractBracketedAnswers(getMoodleAnswerLabelText(rightAnswerNode));
+
+    if (bracketedLabels.length >= selects.length) {
+      return selects.map((select, index) => getSelectSlotObservation(select, bracketedLabels[index]));
+    }
+
     const labels = matchAnswerTextToOptionsInTextOrder(
       getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)),
       optionLabels,
