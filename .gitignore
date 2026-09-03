@@ -11,3 +11,4 @@ supabase/.temp/
 *.log
 coverage/
 agents/
+docs/

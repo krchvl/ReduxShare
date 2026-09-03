@@ -25,8 +25,8 @@ export default defineConfig({
             return "vendor-react";
           }
 
-          if (id.includes("node_modules/@supabase")) {
-            return "vendor-supabase";
+          if (id.includes("node_modules/pocketbase")) {
+            return "vendor-pocketbase";
           }
 
           if (

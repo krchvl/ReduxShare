@@ -5,6 +5,17 @@ type ContentI18nParams = Record<string, string | number | boolean | null | undef
 
 const CONTENT_TRANSLATIONS = {
   ru: {
+    "quiz.panel.user": "Пользователь",
+    "quiz.panel.time": "До окончания теста",
+    "quiz.panel.total": "Всего заданий",
+    "quiz.panel.parsed": "Успешно спарсено",
+    "quiz.panel.withAnswers": "С ответами",
+    "quiz.panel.failed": "Без ответов",
+    "quiz.panel.guest": "Гость",
+    "quiz.panel.unlimited": "Не ограничено",
+    "quiz.panel.subtitle": "Обзор попытки",
+    "quiz.panel.collapse": "Свернуть панель",
+    "quiz.panel.expand": "Развернуть панель",
     "quiz.menu.internalSources": "Внутренние источники",
     "quiz.menu.externalSources": "Внешние источники",
     "quiz.menu.aiTools": "Инструменты ИИ",
@@ -19,6 +30,17 @@ const CONTENT_TRANSLATIONS = {
     "quiz.ordering.position": "Позиция {position}"
   },
   en: {
+    "quiz.panel.user": "User",
+    "quiz.panel.time": "Time left",
+    "quiz.panel.total": "Total tasks",
+    "quiz.panel.parsed": "Parsed successfully",
+    "quiz.panel.withAnswers": "With answers",
+    "quiz.panel.failed": "No answers",
+    "quiz.panel.guest": "Guest",
+    "quiz.panel.unlimited": "Unlimited",
+    "quiz.panel.subtitle": "Attempt overview",
+    "quiz.panel.collapse": "Collapse panel",
+    "quiz.panel.expand": "Expand panel",
     "quiz.menu.internalSources": "Internal sources",
     "quiz.menu.externalSources": "External sources",
     "quiz.menu.aiTools": "AI tools",

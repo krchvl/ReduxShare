@@ -17,6 +17,7 @@ for (const target of targets) {
 
 await removeDistRootArtifacts(targets);
 run("npx", ["tsc", "-b"]);
+await checkPocketBaseUrl(rootDir);
 
 for (const target of targets) {
   run("npx", ["vite", "build"], {
@@ -27,8 +28,37 @@ for (const target of targets) {
   await createTargetArchive(target, manifest.version);
 }
 
-function run(command, args, env = {}, cwd = rootDir) {
-  const result = spawnSync(command, args, {
+async function checkPocketBaseUrl(rootDir) {
+  let envFile = "";
+
+  try {
+    envFile = await readFile(resolve(rootDir, ".env"), "utf8");
+  } catch {
+    envFile = "";
+  }
+
+  const match = envFile.match(/^\s*VITE_POCKETBASE_URL\s*=\s*(.+?)\s*$/m);
+  const url = (match?.[1] ?? process.env.VITE_POCKETBASE_URL ?? "").trim().replace(/\/+$/, "");
+
+  if (!url) {
+    console.warn(
+      "WARNING: VITE_POCKETBASE_URL is not set. The built extension will show " +
+        '"PocketBase is not configured" and all backend features will fail. ' +
+        "Copy .env.example to .env and set your server URL, then rebuild."
+    );
+    return;
+  }
+
+  if (/^(https?:\/\/)?(localhost|127\.|0\.0\.0\.0|\[::1\])/i.test(url)) {
+    console.warn(
+      `WARNING: VITE_POCKETBASE_URL=${url} points at localhost. ` +
+        "This build will only work on the machine running PocketBase. " +
+        "Do not distribute it to other people."
+    );
+  }
+}
+
+function run(command, args, env = {}, cwd = rootDir) {  const result = spawnSync(command, args, {
     cwd,
     env: {
       ...process.env,

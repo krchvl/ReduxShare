@@ -56,6 +56,6 @@ describe("App auth helpers", () => {
       userProfile: null
     });
 
-    expect(appMocks.touchUserProfile).toHaveBeenCalledWith(authSession, "school.moodledemo.net");
+    expect(appMocks.touchUserProfile).toHaveBeenCalledWith(authSession, "school.moodledemo.net", {});
   });
 });

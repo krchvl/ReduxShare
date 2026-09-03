@@ -1,0 +1,643 @@
+/// <reference path="../pb_data/types.d.ts" />
+
+// ReduxShare initial schema (PocketBase port of neon/migrations/*_init_schema.sql).
+//
+// Collections:
+//   users (built-in auth collection, extended) - account + profile counters
+//   reduxshare_tasks                            - aggregated shared answers
+//   reduxshare_review_imports                   - per-attempt import bookkeeping
+//   reduxshare_review_answer_imports            - per-answer dedup bookkeeping
+//
+// Access model: every rule requires an authenticated user, except public
+// self-registration on users.create. Shared task rows are readable by any
+// signed-in user by design (that is how answer statistics are shared).
+// Per-user import rows are partitioned by the `user` relation in queries.
+//
+// NOTE on rollback: the down migration drops the three custom collections.
+// The extra `users.*` fields and rules are intentionally left in place so a
+// rollback never destroys account data.
+
+migrate(
+  (app) => {
+    const users = app.findCollectionByNameOrId("users");
+
+    users.fields.addMarshaledJSON(JSON.stringify({
+      autogeneratePattern: "",
+      hidden: false,
+      id: "text_rs_username",
+      max: 32,
+      min: 3,
+      name: "username",
+      pattern: "",
+      presentable: true,
+      primaryKey: false,
+      required: true,
+      system: false,
+      type: "text"
+    }));
+    users.fields.addMarshaledJSON(JSON.stringify({
+      autogeneratePattern: "",
+      hidden: false,
+      id: "text_rs_moodledomain",
+      max: 0,
+      min: 0,
+      name: "moodle_domain",
+      pattern: "",
+      presentable: false,
+      primaryKey: false,
+      required: false,
+      system: false,
+      type: "text"
+    }));
+    users.fields.addMarshaledJSON(JSON.stringify({
+      hidden: false,
+      id: "number_rs_tests",
+      max: null,
+      min: null,
+      name: "solved_tests_count",
+      onlyInt: true,
+      presentable: false,
+      required: false,
+      system: false,
+      type: "number"
+    }));
+    users.fields.addMarshaledJSON(JSON.stringify({
+      hidden: false,
+      id: "number_rs_tasks",
+      max: null,
+      min: null,
+      name: "solved_tasks_count",
+      onlyInt: true,
+      presentable: false,
+      required: false,
+      system: false,
+      type: "number"
+    }));
+
+    users.listRule = "@request.auth.id != ''";
+    users.viewRule = "@request.auth.id != ''";
+    users.createRule = "";
+    users.updateRule = "@request.auth.id = id";
+    users.deleteRule = null;
+    users.indexes = [...(users.indexes || []), 'CREATE UNIQUE INDEX "idx_reduxshare_users_username" ON "users" ("username")'];
+    app.save(users);
+
+    const tasks = new Collection({
+      createRule: "@request.auth.id != ''",
+      deleteRule: null,
+      fields: [
+        {
+          autogeneratePattern: "[a-z0-9]{15}",
+          hidden: false,
+          id: "text_rs_tasks_id",
+          max: 15,
+          min: 15,
+          name: "id",
+          pattern: "^[a-zA-Z0-9]+$",
+          presentable: false,
+          primaryKey: true,
+          required: true,
+          system: true,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_domain",
+          max: 0,
+          min: 0,
+          name: "moodle_domain",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_course",
+          max: null,
+          min: null,
+          name: "course_id",
+          onlyInt: true,
+          presentable: false,
+          required: true,
+          system: false,
+          type: "number"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_quiz",
+          max: null,
+          min: null,
+          name: "quiz_id",
+          onlyInt: true,
+          presentable: false,
+          required: true,
+          system: false,
+          type: "number"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_qid",
+          max: 0,
+          min: 0,
+          name: "question_id",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_qhash",
+          max: 0,
+          min: 0,
+          name: "question_hash",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_qtype",
+          max: 0,
+          min: 0,
+          name: "question_type",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: false,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_slotkey",
+          max: 0,
+          min: 0,
+          name: "slot_key",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_slotidx",
+          max: null,
+          min: null,
+          name: "slot_index",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_akey",
+          max: 0,
+          min: 0,
+          name: "answer_key",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_tasks_alabel",
+          max: 0,
+          min: 0,
+          name: "answer_label",
+          pattern: "",
+          presentable: true,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_cc",
+          max: null,
+          min: null,
+          name: "correct_count",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_scc",
+          max: null,
+          min: null,
+          name: "selected_correct_count",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_sic",
+          max: null,
+          min: null,
+          name: "selected_incorrect_count",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          hidden: false,
+          id: "number_rs_tasks_suc",
+          max: null,
+          min: null,
+          name: "selected_unknown_count",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          cascadeDelete: false,
+          collectionId: users.id,
+          hidden: false,
+          id: "rel_rs_tasks_first",
+          maxSelect: 1,
+          minSelect: 0,
+          name: "first_contributor",
+          presentable: false,
+          required: false,
+          system: false,
+          type: "relation"
+        },
+        {
+          cascadeDelete: false,
+          collectionId: users.id,
+          hidden: false,
+          id: "rel_rs_tasks_last",
+          maxSelect: 1,
+          minSelect: 0,
+          name: "last_contributor",
+          presentable: false,
+          required: false,
+          system: false,
+          type: "relation"
+        },
+        {
+          hidden: false,
+          id: "autodate_rs_tasks_created",
+          name: "created",
+          onCreate: true,
+          onUpdate: false,
+          presentable: false,
+          system: false,
+          type: "autodate"
+        },
+        {
+          hidden: false,
+          id: "autodate_rs_tasks_updated",
+          name: "updated",
+          onCreate: true,
+          onUpdate: true,
+          presentable: false,
+          system: false,
+          type: "autodate"
+        }
+      ],
+      id: "pbc_rs_tasks",
+      indexes: [
+        'CREATE UNIQUE INDEX "idx_reduxshare_tasks_identity" ON "reduxshare_tasks" ("moodle_domain", "course_id", "quiz_id", "question_id", "question_hash", "slot_key", "answer_key")',
+        'CREATE INDEX "idx_reduxshare_tasks_lookup" ON "reduxshare_tasks" ("moodle_domain", "course_id", "quiz_id", "question_id")'
+      ],
+      listRule: "@request.auth.id != ''",
+      name: "reduxshare_tasks",
+      system: false,
+      type: "base",
+      updateRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''"
+    });
+    app.save(tasks);
+
+    const reviewImports = new Collection({
+      createRule: "@request.auth.id != ''",
+      deleteRule: null,
+      fields: [
+        {
+          autogeneratePattern: "[a-z0-9]{15}",
+          hidden: false,
+          id: "text_rs_ri_id",
+          max: 15,
+          min: 15,
+          name: "id",
+          pattern: "^[a-zA-Z0-9]+$",
+          presentable: false,
+          primaryKey: true,
+          required: true,
+          system: true,
+          type: "text"
+        },
+        {
+          cascadeDelete: true,
+          collectionId: users.id,
+          hidden: false,
+          id: "rel_rs_ri_user",
+          maxSelect: 1,
+          minSelect: 0,
+          name: "user",
+          presentable: false,
+          required: true,
+          system: false,
+          type: "relation"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_ri_domain",
+          max: 0,
+          min: 0,
+          name: "moodle_domain",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_ri_attempt",
+          max: 0,
+          min: 0,
+          name: "attempt_key",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          hidden: false,
+          id: "number_rs_ri_course",
+          max: null,
+          min: null,
+          name: "course_id",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          hidden: false,
+          id: "number_rs_ri_quiz",
+          max: null,
+          min: null,
+          name: "quiz_id",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_ri_url",
+          max: 0,
+          min: 0,
+          name: "page_url",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: false,
+          system: false,
+          type: "text"
+        },
+        {
+          hidden: false,
+          id: "number_rs_ri_count",
+          max: null,
+          min: null,
+          name: "imported_question_count",
+          onlyInt: true,
+          presentable: false,
+          required: false,
+          system: false,
+          type: "number"
+        },
+        {
+          hidden: false,
+          id: "autodate_rs_ri_created",
+          name: "created",
+          onCreate: true,
+          onUpdate: false,
+          presentable: false,
+          system: false,
+          type: "autodate"
+        },
+        {
+          hidden: false,
+          id: "autodate_rs_ri_updated",
+          name: "updated",
+          onCreate: true,
+          onUpdate: true,
+          presentable: false,
+          system: false,
+          type: "autodate"
+        }
+      ],
+      id: "pbc_rs_review_imports",
+      indexes: [
+        'CREATE UNIQUE INDEX "idx_reduxshare_review_imports_identity" ON "reduxshare_review_imports" ("user", "moodle_domain", "attempt_key")'
+      ],
+      listRule: "@request.auth.id != ''",
+      name: "reduxshare_review_imports",
+      system: false,
+      type: "base",
+      updateRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''"
+    });
+    app.save(reviewImports);
+
+    const reviewAnswerImports = new Collection({
+      createRule: "@request.auth.id != ''",
+      deleteRule: null,
+      fields: [
+        {
+          autogeneratePattern: "[a-z0-9]{15}",
+          hidden: false,
+          id: "text_rs_rai_id",
+          max: 15,
+          min: 15,
+          name: "id",
+          pattern: "^[a-zA-Z0-9]+$",
+          presentable: false,
+          primaryKey: true,
+          required: true,
+          system: true,
+          type: "text"
+        },
+        {
+          cascadeDelete: true,
+          collectionId: users.id,
+          hidden: false,
+          id: "rel_rs_rai_user",
+          maxSelect: 1,
+          minSelect: 0,
+          name: "user",
+          presentable: false,
+          required: true,
+          system: false,
+          type: "relation"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_rai_domain",
+          max: 0,
+          min: 0,
+          name: "moodle_domain",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_rai_attempt",
+          max: 0,
+          min: 0,
+          name: "attempt_key",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_rai_qid",
+          max: 0,
+          min: 0,
+          name: "question_id",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_rai_qhash",
+          max: 0,
+          min: 0,
+          name: "question_hash",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_rai_slotkey",
+          max: 0,
+          min: 0,
+          name: "slot_key",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          autogeneratePattern: "",
+          hidden: false,
+          id: "text_rs_rai_akey",
+          max: 0,
+          min: 0,
+          name: "answer_key",
+          pattern: "",
+          presentable: false,
+          primaryKey: false,
+          required: true,
+          system: false,
+          type: "text"
+        },
+        {
+          hidden: false,
+          id: "autodate_rs_rai_created",
+          name: "created",
+          onCreate: true,
+          onUpdate: false,
+          presentable: false,
+          system: false,
+          type: "autodate"
+        },
+        {
+          hidden: false,
+          id: "autodate_rs_rai_updated",
+          name: "updated",
+          onCreate: true,
+          onUpdate: true,
+          presentable: false,
+          system: false,
+          type: "autodate"
+        }
+      ],
+      id: "pbc_rs_review_answer_imports",
+      indexes: [
+        'CREATE UNIQUE INDEX "idx_reduxshare_review_answer_imports_identity" ON "reduxshare_review_answer_imports" ("user", "moodle_domain", "attempt_key", "question_id", "question_hash", "slot_key", "answer_key")'
+      ],
+      listRule: "@request.auth.id != ''",
+      name: "reduxshare_review_answer_imports",
+      system: false,
+      type: "base",
+      updateRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''"
+    });
+    app.save(reviewAnswerImports);
+  },
+  (app) => {
+    app.delete(app.findCollectionByNameOrId("reduxshare_review_answer_imports"));
+    app.delete(app.findCollectionByNameOrId("reduxshare_review_imports"));
+    app.delete(app.findCollectionByNameOrId("reduxshare_tasks"));
+  }
+);

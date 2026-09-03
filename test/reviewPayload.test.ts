@@ -322,7 +322,7 @@ describe("Moodle review payload builder", () => {
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
 
-  it("builds a calculated Supabase save payload with courseId from M.cfg and quizId from review URL", async () => {
+  it("builds a calculated internal save payload with courseId from M.cfg and quizId from review URL", async () => {
     const api = await getQuizAttemptTestApi();
 
     window.history.pushState({}, "", "/mod/quiz/review.php?attempt=94&cmid=1150");

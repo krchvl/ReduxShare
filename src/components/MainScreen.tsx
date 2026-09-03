@@ -17,6 +17,7 @@ import { Button } from "./Button";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
+import { tryGetPocketBaseUrl } from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import githubIcon from "../assets/github.svg";
 import telegramIcon from "../assets/telegram.svg";
@@ -676,9 +677,31 @@ export function MainScreen({
     if (activeTab === "extra") {
       const releaseUrl = updateState.status === "available" ? updateState.releaseUrl : null;
       const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
+      const pocketBaseUrl = tryGetPocketBaseUrl();
 
       return (
         <div className="settings-panel__rows">
+          <SettingPanelRow
+            title={t("settings.server.title")}
+            lines={
+              pocketBaseUrl
+                ? [pocketBaseUrl, t("settings.server.line2")]
+                : [t("settings.server.missing"), t("settings.server.line2")]
+            }
+            control={
+              pocketBaseUrl ? (
+                <Button
+                  className="secondary-wide-button"
+                  variant="outline"
+                  onClick={() => openExternalUrl(pocketBaseUrl)}
+                >
+                  {t("settings.server.action.open")}
+                </Button>
+              ) : (
+                <></>
+              )
+            }
+          />
           <SettingPanelRow
             title={t("updates.title")}
             lines={getUpdateLines(updateState, resolvedLanguage, t)}

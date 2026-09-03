@@ -22,7 +22,8 @@
   "permissions": ["storage", "activeTab", "alarms"],
   "host_permissions": [
     "https://*.naloaty.me/*",
-    "https://*.supabase.co/*",
+    "https://*/*",
+    "http://*/*",
     "https://raw.githubusercontent.com/krchvl/ReduxShare/*",
     "https://generativelanguage.googleapis.com/*",
     "https://openrouter.ai/*",
@@ -62,6 +63,12 @@
       ],
       "js": ["assets/quizAttempt.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["https://*/*"]
     }
   ]
 }

@@ -169,7 +169,7 @@ export interface StoredState {
 
 export const DEFAULT_SETTINGS: Settings = {
   extensionEnabled: true,
-  stealthMode: true,
+  stealthMode: false,
   autoSelect: true,
   hotkey: DEFAULT_HOTKEY,
   hotkeyCode: DEFAULT_HOTKEY_CODE,

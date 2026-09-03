@@ -16,7 +16,7 @@
 
 
 <p align="center">
-  <img alt="Стек: TypeScript, React, Vite, Supabase" src="https://img.shields.io/badge/Stack-TypeScript%20%2B%20React%20%2B%20Vite%20%2B%20Supabase%20%2B%20Vitest-292a2a?style=for-the-badge&labelColor=242525">
+  <img alt="Стек: TypeScript, React, Vite, PocketBase" src="https://img.shields.io/badge/Stack-TypeScript%20%2B%20React%20%2B%20Vite%20%2B%20PocketBase%20%2B%20Vitest-292a2a?style=for-the-badge&labelColor=242525">
 </p>
 <p align="center">
   <a href="README.md">🇺🇸 English</a>
@@ -53,9 +53,9 @@
 
 **ReduxShare** — браузерное расширение для Moodle, которое помогает анализировать ответы в тестах. Оно показывает виджеты ответов рядом с вопросами, собирает общую статистику, импортирует данные со страниц проверки и поддерживает необязательные подсказки ИИ.
 
-Проект построен на **TypeScript**, **React**, **Vite** и **Supabase**.
+Проект построен на **TypeScript**, **React**, **Vite** и **PocketBase** (самохостинг).
 
-ReduxShare не связан с Moodle, Supabase, Google или какой-либо конкретной платформой Moodle.
+ReduxShare не связан с Moodle, Google или какой-либо конкретной платформой Moodle.
 
 ---
 
@@ -84,7 +84,7 @@ ReduxShare работает как расширение Manifest V3 на стр�
 
 2. **Поиск ответов**
    Расширение запрашивает подходящие варианты из двух источников:
-   - **Внутренние источники**: данные Supabase, импортированные с предыдущих страниц проверки.
+   - **Внутренние источники**: данные ReduxShare из PocketBase, импортированные с предыдущих страниц проверки.
    - **Внешние источники**: совместимые внешние данные из настроенного фонового обработчика.
 
 3. **Меню ReduxShare**
@@ -163,7 +163,7 @@ ReduxShare работает как расширение Manifest V3 на стр�
 - Node.js 20 или новее
 - npm
 - браузер на основе Chromium: Chrome, Edge, Brave или Chromium
-- данные доступа Supabase, если нужны внутренние источники ReduxShare
+- URL самохост-PocketBase, если нужны внутренние источники ReduxShare (см. `docs/SELFHOST_POCKETBASE.md`)
 
 Установите зависимости:
 
@@ -177,11 +177,10 @@ npm install
 cp .env.example .env
 ```
 
-Заполните значения Supabase в `.env`:
+Укажите URL PocketBase в `.env`:
 
 ```bash
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
+VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
 Не добавляйте `.env` в Git. В репозитории должен храниться только `.env.example`.
@@ -212,16 +211,17 @@ npm run dev
 
 ## Настройка
 
-### Supabase
+### PocketBase (самохостинг)
 
-ReduxShare использует Supabase для входа в аккаунт, состояния профиля, прогресса тестов и внутреннего хранилища ответов. На этапе сборки расширению нужны публичный URL проекта Supabase и публичный ключ проекта:
+ReduxShare использует самохост-инстанс PocketBase для входа и сессий, профиля, прогресса тестов и внутреннего хранилища ответов. На этапе сборки расширению нужен его публичный URL:
 
 ```bash
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
+VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
-Схема базы и описания RPC-функций находятся в `supabase/migrations/`. Во время работы расширение использует RPC-вызовы вместо прямой записи в таблицы с общими данными тестов.
+Описания коллекций находятся в `pocketbase/pb_migrations/`. Настройка VPS описана в `docs/SELFHOST_POCKETBASE.md`.
+
+Коллекции создаются автоматически из `pocketbase/pb_migrations/` при первом запуске сервера после копирования миграций рядом с бинарником PocketBase.
 
 ### ИИ
 
@@ -243,7 +243,7 @@ VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
 
 1. Установите или соберите расширение и загрузите директорию `dist` как распакованное расширение браузера.
 
-2. Откройте окно ReduxShare и войдите в аккаунт ReduxShare, подключённый к Supabase.
+2. Откройте окно ReduxShare и войдите в аккаунт на вашем инстансе PocketBase (при необходимости сначала зарегистрируйтесь).
 
 3. Откройте страницу попытки теста Moodle:
 
@@ -284,10 +284,17 @@ npm run test
 npm run build
 ```
 
-Для проверок сохранения в реальной базе Supabase задайте тестовые данные доступа в окружении и запустите:
+Для проверок сохранения в реальном PocketBase (в `.env` нужен `VITE_POCKETBASE_URL`) задайте тестовые данные доступа в окружении и запустите:
 
 ```bash
 npm run test:db
+```
+
+Ожидаемые переменные окружения:
+
+```bash
+POCKETBASE_TEST_EMAIL=you@example.com
+POCKETBASE_TEST_PASSWORD=your-password
 ```
 
 После каждой рабочей сборки проверяйте, что скрипт Moodle остаётся обычным собранным скриптом без импортов верхнего уровня:
@@ -318,7 +325,7 @@ ReduxShare не требует доступа к несвязанной исто
 
 В зависимости от включённых функций и настроек ReduxShare может обращаться к:
 
-- настроенному проекту Supabase;
+- настроенному инстансу PocketBase;
 - внешнему источнику ответов;
 - файлу `.VERSION` на GitHub для проверки обновлений;
 - Google Gemini или пользовательскому ИИ-адресу, если включены инструменты ИИ.

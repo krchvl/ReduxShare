@@ -1,21 +1,28 @@
+import type PocketBase from "pocketbase";
 import type { AuthSession, UserProfile } from "../types";
-import { I18nError } from "../i18n";
-import { getSupabaseClient } from "./supabaseClient";
-import { restoreSupabaseSession } from "./auth";
+import { USERS_COLLECTION, isNotFoundError, toI18nError, withPocketBaseSessionRetry } from "./pocketbase";
+import { AuthError } from "./auth";
 
-interface ReduxShareUserRow {
+export interface PocketBaseUserRecord {
   id: string;
   email: string;
   username: string;
-  moodle_domain: string | null;
-  solved_tests_count: number;
-  solved_tasks_count: number;
+  moodle_domain: string;
+  solved_tests_count: number | null;
+  solved_tasks_count: number | null;
+}
+
+interface UserProfileSeed {
+  email?: string | null;
+  username?: string | null;
 }
 
 interface UserProgressDelta {
   moodleDomain: string | null;
   solvedTestsDelta: number;
   solvedTasksDelta: number;
+  email?: string | null;
+  username?: string | null;
 }
 
 export interface AuthenticatedProfileResult {
@@ -23,65 +30,110 @@ export interface AuthenticatedProfileResult {
   userProfile: UserProfile;
 }
 
-function mapUserRow(row: ReduxShareUserRow): UserProfile {
+export function mapUserRecord(record: PocketBaseUserRecord): UserProfile {
   return {
-    id: row.id,
-    email: row.email,
-    username: row.username,
-    moodleDomain: row.moodle_domain,
-    solvedTestsCount: row.solved_tests_count,
-    solvedTasksCount: row.solved_tasks_count
+    id: record.id,
+    email: record.email,
+    username: record.username,
+    moodleDomain: record.moodle_domain || null,
+    solvedTestsCount: record.solved_tests_count ?? 0,
+    solvedTasksCount: record.solved_tasks_count ?? 0
   };
 }
 
-async function activateSession(authSession: AuthSession): Promise<AuthSession> {
-  return restoreSupabaseSession(authSession);
+async function getOwnUserRecord(pb: PocketBase, userId: string): Promise<PocketBaseUserRecord> {
+  try {
+    return await pb.collection(USERS_COLLECTION).getOne<PocketBaseUserRecord>(userId);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw new AuthError("errors.sessionExpired");
+    }
+
+    throw error;
+  }
 }
 
 export async function touchUserProfile(
   authSession: AuthSession,
-  moodleDomain: string | null
+  moodleDomain: string | null,
+  seed: UserProfileSeed = {}
 ): Promise<AuthenticatedProfileResult> {
-  const nextAuthSession = await activateSession(authSession);
-  const supabase = getSupabaseClient();
+  try {
+    const { authSession: nextAuthSession, result } = await withPocketBaseSessionRetry(
+      authSession,
+      async (pb, session) => {
+        const current = await getOwnUserRecord(pb, session.user.id);
+        const patch: Record<string, unknown> = {};
 
-  const { data, error } = await supabase
-    .rpc("touch_user_profile", {
-      profile_moodle_domain: moodleDomain
-    })
-    .single<ReduxShareUserRow>();
+        if (moodleDomain && moodleDomain !== current.moodle_domain) {
+          patch.moodle_domain = moodleDomain;
+        }
 
-  if (error) {
-    throw new I18nError("errors.profileSaveFailed", { message: error.message });
+        // Username is assigned at registration; only fill it when the stored
+        // record has none (defensive, mirrors the old touch_user_profile RPC).
+        if (seed.username && !current.username) {
+          patch.username = seed.username;
+        }
+
+        if (Object.keys(patch).length === 0) {
+          return current;
+        }
+
+        return pb.collection(USERS_COLLECTION).update<PocketBaseUserRecord>(session.user.id, patch);
+      }
+    );
+
+    return {
+      authSession: nextAuthSession,
+      userProfile: mapUserRecord(result)
+    };
+  } catch (error) {
+    throw toI18nError(error, "errors.profileSaveFailed");
   }
-
-  return {
-    authSession: nextAuthSession,
-    userProfile: mapUserRow(data)
-  };
 }
 
 export async function recordUserQuizProgress(
   authSession: AuthSession,
-  { moodleDomain, solvedTestsDelta, solvedTasksDelta }: UserProgressDelta
+  { moodleDomain, solvedTestsDelta, solvedTasksDelta, username }: UserProgressDelta
 ): Promise<AuthenticatedProfileResult> {
-  const nextAuthSession = await activateSession(authSession);
-  const supabase = getSupabaseClient();
+  try {
+    const { authSession: nextAuthSession, result } = await withPocketBaseSessionRetry(
+      authSession,
+      async (pb, session) => {
+        const current = await getOwnUserRecord(pb, session.user.id);
+        const testsDelta = Math.max(0, Math.trunc(solvedTestsDelta) || 0);
+        const tasksDelta = Math.max(0, Math.trunc(solvedTasksDelta) || 0);
+        const patch: Record<string, unknown> = {};
 
-  const { data, error } = await supabase
-    .rpc("record_quiz_progress", {
-      progress_moodle_domain: moodleDomain,
-      solved_tests_delta: solvedTestsDelta,
-      solved_tasks_delta: solvedTasksDelta
-    })
-    .single<ReduxShareUserRow>();
+        if (moodleDomain && moodleDomain !== current.moodle_domain) {
+          patch.moodle_domain = moodleDomain;
+        }
 
-  if (error) {
-    throw new I18nError("errors.progressUpdateFailed", { message: error.message });
+        if (username && !current.username) {
+          patch.username = username;
+        }
+
+        if (testsDelta > 0) {
+          patch.solved_tests_count = (current.solved_tests_count ?? 0) + testsDelta;
+        }
+
+        if (tasksDelta > 0) {
+          patch.solved_tasks_count = (current.solved_tasks_count ?? 0) + tasksDelta;
+        }
+
+        if (Object.keys(patch).length === 0) {
+          return current;
+        }
+
+        return pb.collection(USERS_COLLECTION).update<PocketBaseUserRecord>(session.user.id, patch);
+      }
+    );
+
+    return {
+      authSession: nextAuthSession,
+      userProfile: mapUserRecord(result)
+    };
+  } catch (error) {
+    throw toI18nError(error, "errors.progressUpdateFailed");
   }
-
-  return {
-    authSession: nextAuthSession,
-    userProfile: mapUserRow(data)
-  };
 }

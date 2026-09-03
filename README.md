@@ -13,7 +13,7 @@
   <img alt="GitHub License" src="https://img.shields.io/github/license/krchvl/reduxshare?style=for-the-badge&labelColor=242525&color=%234359e6">
 </p>
 <p align="center">
-  <img alt="Stack: Typescript & React & Vite & Supabase" src="https://img.shields.io/badge/Stack-TypeScript%20%2B%20React%20%2B%20Vite%20%2B%20Supabase%20%2B%20Vitest-292a2a?style=for-the-badge&labelColor=242525">
+  <img alt="Stack: Typescript & React & Vite & PocketBase" src="https://img.shields.io/badge/Stack-TypeScript%20%2B%20React%20%2B%20Vite%20%2B%20PocketBase%20%2B%20Vitest-292a2a?style=for-the-badge&labelColor=242525">
 </p>
 <p align="center">
   <strong>🇺🇸 English</strong>
@@ -50,9 +50,9 @@
 
 **ReduxShare** is a Moodle-focused browser extension for quiz review and answer analysis. It displays contextual answer widgets, aggregates shared answer statistics, imports quiz review data, and supports optional AI-assisted suggestions.
 
-Built with **TypeScript**, **React**, **Vite**, and **Supabase**.
+Built with **TypeScript**, **React**, **Vite**, and **PocketBase** (self-hosted).
 
-ReduxShare is not affiliated with Moodle, Supabase, Google, or any Moodle instance.
+ReduxShare is not affiliated with Moodle, Google, or any Moodle instance.
 
 ---
 
@@ -81,7 +81,7 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
 
 2. **Answer lookup**
    The extension asks two answer sources for matching variants:
-   - **Internal sources**: Supabase data imported from previous Moodle review pages.
+   - **Internal sources**: PocketBase-backed ReduxShare data imported from previous Moodle review pages.
    - **External sources**: external-compatible answer data from the configured background provider.
 
 3. **ReduxShare menu**
@@ -160,7 +160,7 @@ Requirements:
 - Node.js 20 or newer
 - npm
 - Chromium-based browser such as Chrome, Edge, Brave, or Chromium
-- Supabase project credentials if you want internal ReduxShare sources to work
+- Self-hosted PocketBase URL if you want internal ReduxShare sources to work (see `docs/SELFHOST_POCKETBASE.md`)
 
 Install dependencies:
 
@@ -174,11 +174,10 @@ Create a local environment file:
 cp .env.example .env
 ```
 
-Set your Supabase values in `.env`:
+Set your PocketBase URL in `.env`:
 
 ```bash
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
+VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
 Do not commit `.env`. Only `.env.example` should be stored in Git.
@@ -209,16 +208,17 @@ Use `npm run build` before loading or reloading the production extension from `d
 
 ## Configuration
 
-### Supabase
+### PocketBase (self-hosted)
 
-ReduxShare uses Supabase for authentication, user profile state, quiz progress, and internal answer storage. The extension expects the public Supabase URL and publishable/anon key at build time:
+ReduxShare uses a self-hosted PocketBase instance for authentication and sessions, profile state, quiz progress, and internal answer storage. The extension expects its public URL at build time:
 
 ```bash
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
+VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
-Database schema and RPC definitions live in `supabase/migrations/`. Runtime code uses RPC calls instead of direct table writes for shared quiz data.
+Collection definitions live in `pocketbase/pb_migrations/`. See `docs/SELFHOST_POCKETBASE.md` for VPS setup.
+
+Collections are created automatically from `pocketbase/pb_migrations/` on the first server start after copying them next to the PocketBase binary.
 
 ### AI
 
@@ -240,7 +240,7 @@ The extension checks the GitHub raw `.VERSION` file and links users to the lates
 
 1. Install or build the extension and load the `dist` directory as an unpacked browser extension.
 
-2. Open the ReduxShare popup and sign in with your Supabase-backed ReduxShare account.
+2. Open the ReduxShare popup and sign in with your account on your PocketBase instance (register first if needed).
 
 3. Open a Moodle quiz attempt page:
 
@@ -281,10 +281,17 @@ npm run test
 npm run build
 ```
 
-For live Supabase save checks, provide test credentials in the environment and run:
+For live PocketBase save checks (needs `VITE_POCKETBASE_URL` in `.env`), provide test credentials in the environment and run:
 
 ```bash
 npm run test:db
+```
+
+Expected test env vars:
+
+```bash
+POCKETBASE_TEST_EMAIL=you@example.com
+POCKETBASE_TEST_PASSWORD=your-password
 ```
 
 After every production build, verify that the Moodle content script remains a classic bundled script without top-level imports:
@@ -315,7 +322,7 @@ ReduxShare does not need access to unrelated browsing history to provide its cor
 
 Depending on enabled features and configuration, ReduxShare may contact:
 
-- your configured Supabase project;
+- your configured PocketBase instance;
 - the external answer provider;
 - GitHub raw content for update checks;
 - Google Gemini or a custom AI endpoint when AI tools are enabled.

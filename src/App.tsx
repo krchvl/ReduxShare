@@ -3,7 +3,7 @@ import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
 import { Shell } from "./components/Shell";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
-import { loginWithSupabase, logoutFromSupabase, registerWithSupabase } from "./lib/auth";
+import { loginWithPocketBase, logoutFromPocketBase, registerWithPocketBase } from "./lib/auth";
 import { loadStoredState, saveStoredState } from "./lib/storage";
 import { getActiveTabHostname } from "./lib/tabs";
 import { normalizeUpdateState, requestUpdateCheck } from "./lib/updates";
@@ -29,9 +29,18 @@ const MainScreen = lazy(() =>
   import("./components/MainScreen").then((module) => ({ default: module.MainScreen }))
 );
 
-export async function getAuthenticatedUserState(authSession: AuthSession, moodleDomain: string | null) {
+interface UserProfileSeed {
+  email?: string | null;
+  username?: string | null;
+}
+
+export async function getAuthenticatedUserState(
+  authSession: AuthSession,
+  moodleDomain: string | null,
+  seed: UserProfileSeed = {}
+) {
   try {
-    return await touchUserProfile(authSession, moodleDomain);
+    return await touchUserProfile(authSession, moodleDomain, seed);
   } catch (error) {
     console.warn("ReduxShare auth: profile sync failed", {
       userId: authSession.user.id,
@@ -146,9 +155,11 @@ export function App() {
     setIsLoginLoading(true);
 
     try {
-      const nextSession = await loginWithSupabase(credentials);
+      const nextSession = await loginWithPocketBase(credentials);
       const moodleDomain = await getActiveTabHostname();
-      const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(nextSession, moodleDomain);
+      const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(nextSession, moodleDomain, {
+        email: credentials.email
+      });
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
@@ -171,7 +182,7 @@ export function App() {
     setIsRegisterLoading(true);
 
     try {
-      const result = await registerWithSupabase(credentials);
+      const result = await registerWithPocketBase(credentials);
 
       if (!result.authSession) {
         setRegisterMessage(result.messageKey ? t(result.messageKey) : t("auth.register.created"));
@@ -181,7 +192,11 @@ export function App() {
       const moodleDomain = await getActiveTabHostname();
       const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(
         result.authSession,
-        moodleDomain
+        moodleDomain,
+        {
+          email: credentials.email,
+          username: credentials.username
+        }
       );
 
       setAuthSession(refreshedSession);
@@ -195,7 +210,7 @@ export function App() {
   }
 
   function handleLogout() {
-    void logoutFromSupabase(authSession);
+    void logoutFromPocketBase(authSession);
     setAuthSession(null);
     setUserProfile(null);
     setLoginError(null);
