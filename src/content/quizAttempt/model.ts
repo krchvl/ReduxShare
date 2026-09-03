@@ -76,6 +76,8 @@ export interface StoredStateLike {
     accentColor?: string;
     theme?: string;
     language?: LanguageSetting;
+    popupOpacity?: number;
+    pageOverlayOpacity?: number;
     hotkey?: string;
     hotkeyCode?: string;
     autoSelect?: boolean;

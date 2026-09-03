@@ -25,6 +25,52 @@ export function tryGetPocketBaseUrl(): string | null {
   }
 }
 
+export function getPocketBaseLabel() {
+  const rawLabel = (import.meta.env.VITE_POCKETBASE_LABEL as string | undefined)?.trim();
+  return rawLabel || "Основной [DE #1]";
+}
+
+export type PingStatus = "good" | "warn" | "bad" | "offline";
+
+export function pingStatusForLatency(latencyMs: number | null): PingStatus {
+  if (latencyMs === null) {
+    return "offline";
+  }
+
+  if (latencyMs <= 300) {
+    return "good";
+  }
+
+  if (latencyMs <= 800) {
+    return "warn";
+  }
+
+  return "bad";
+}
+
+export async function measurePocketBasePing(baseUrl: string, timeoutMs = 5000): Promise<number | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+
+  try {
+    const response = await fetch(`${baseUrl}/api/health`, {
+      method: "GET",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return Date.now() - startedAt;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function getJwtExpiresAt(token: string): number | null {
   try {
     const payloadSegment = token.split(".")[1];

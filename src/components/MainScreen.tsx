@@ -14,10 +14,11 @@ import {
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
 import { Button } from "./Button";
+import { ColorSchemeSelect } from "./ColorSchemeSelect";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
-import { tryGetPocketBaseUrl } from "../lib/pocketbase";
+import { getPocketBaseLabel, measurePocketBasePing, pingStatusForLatency, tryGetPocketBaseUrl } from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import githubIcon from "../assets/github.svg";
 import telegramIcon from "../assets/telegram.svg";
@@ -130,6 +131,53 @@ function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
       </div>
       <div className="settings-row__control">{control}</div>
     </section>
+  );
+}
+
+function ServerPicker() {
+  const { t } = useI18n();
+  const pocketBaseUrl = tryGetPocketBaseUrl();
+  const [latencyMs, setLatencyMs] = useState<number | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!pocketBaseUrl) {
+      return;
+    }
+
+    let cancelled = false;
+    setLatencyMs(undefined);
+
+    void measurePocketBasePing(pocketBaseUrl).then((latency) => {
+      if (!cancelled) {
+        setLatencyMs(latency);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pocketBaseUrl]);
+
+  if (!pocketBaseUrl) {
+    return <span className="server-picker__missing">{t("settings.server.missing")}</span>;
+  }
+
+  const status = latencyMs === undefined ? null : pingStatusForLatency(latencyMs);
+  const statusColor =
+    status === "good" ? "#4ade80" : status === "warn" ? "#ffd166" : status === "bad" ? "#f87171" : "#8a8f9e";
+  const pingText =
+    latencyMs === undefined ? "…" : latencyMs === null ? t("settings.server.offline") : `${latencyMs} ${t("settings.server.ms")}`;
+
+  return (
+    <div className="server-picker">
+      <select className="ai-select server-picker__select" defaultValue="primary" aria-label={t("settings.server.title")}>
+        <option value="primary">{getPocketBaseLabel()}</option>
+      </select>
+      <span className="server-picker__ping">
+        <span className="server-picker__dot" style={{ backgroundColor: statusColor }} />
+        <span>{pingText}</span>
+      </span>
+    </div>
   );
 }
 
@@ -312,7 +360,7 @@ export function MainScreen({
     aiDraft.provider !== "custom" &&
     (
       aiDraft.provider === "openrouter" ||
-      (Boolean(aiDraft.apiKey.trim()) && (aiTestState.status === "success" || aiTestState.status === "saved"))
+      Boolean(aiDraft.apiKey.trim())
     )
     ? `${aiDraft.provider}:${aiDraft.provider === "openrouter" ? "public" : aiDraft.apiKey.trim()}`
     : null;
@@ -473,6 +521,16 @@ export function MainScreen({
       return (
         <div className="settings-panel__rows">
           <SettingPanelRow
+            title={t("settings.theme.title")}
+            lines={[t("settings.theme.line1"), t("settings.theme.line2")]}
+            control={
+              <ColorSchemeSelect
+                value={settings.colorScheme}
+                onChange={(colorScheme) => updateSetting("colorScheme", colorScheme)}
+              />
+            }
+          />
+          <SettingPanelRow
             title={t("settings.accent.title")}
             lines={[t("settings.accent.line1"), t("settings.accent.line2")]}
             control={
@@ -490,6 +548,44 @@ export function MainScreen({
                 value={settings.language}
                 onChange={(language) => updateSetting("language", language)}
               />
+            }
+          />
+          <SettingPanelRow
+            title={t("settings.opacity.popup.title")}
+            lines={[t("settings.opacity.popup.line"), ""]}
+            control={
+              <div className="opacity-control">
+                <input
+                  className="opacity-slider"
+                  type="range"
+                  min={40}
+                  max={100}
+                  step={5}
+                  value={Math.round(settings.popupOpacity * 100)}
+                  aria-label={t("settings.opacity.popup.title")}
+                  onChange={(event) => updateSetting("popupOpacity", Number(event.target.value) / 100)}
+                />
+                <span className="opacity-value">{`${Math.round(settings.popupOpacity * 100)}%`}</span>
+              </div>
+            }
+          />
+          <SettingPanelRow
+            title={t("settings.opacity.overlay.title")}
+            lines={[t("settings.opacity.overlay.line"), ""]}
+            control={
+              <div className="opacity-control">
+                <input
+                  className="opacity-slider"
+                  type="range"
+                  min={40}
+                  max={100}
+                  step={5}
+                  value={Math.round(settings.pageOverlayOpacity * 100)}
+                  aria-label={t("settings.opacity.overlay.title")}
+                  onChange={(event) => updateSetting("pageOverlayOpacity", Number(event.target.value) / 100)}
+                />
+                <span className="opacity-value">{`${Math.round(settings.pageOverlayOpacity * 100)}%`}</span>
+              </div>
             }
           />
         </div>
@@ -623,6 +719,11 @@ export function MainScreen({
                     value={aiDraft.model}
                     onChange={(event) => updateAiDraft({ model: event.target.value })}
                   >
+                    {aiModelOptions.length === 0 && (
+                      <option value="" disabled>
+                        {t("settings.ai.modelEmpty")}
+                      </option>
+                    )}
                     {aiModelOptions.map((model) => (
                       <option key={model.value} value={model.value}>
                         {model.label}
@@ -677,30 +778,13 @@ export function MainScreen({
     if (activeTab === "extra") {
       const releaseUrl = updateState.status === "available" ? updateState.releaseUrl : null;
       const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
-      const pocketBaseUrl = tryGetPocketBaseUrl();
 
       return (
         <div className="settings-panel__rows">
           <SettingPanelRow
             title={t("settings.server.title")}
-            lines={
-              pocketBaseUrl
-                ? [pocketBaseUrl, t("settings.server.line2")]
-                : [t("settings.server.missing"), t("settings.server.line2")]
-            }
-            control={
-              pocketBaseUrl ? (
-                <Button
-                  className="secondary-wide-button"
-                  variant="outline"
-                  onClick={() => openExternalUrl(pocketBaseUrl)}
-                >
-                  {t("settings.server.action.open")}
-                </Button>
-              ) : (
-                <></>
-              )
-            }
+            lines={[t("settings.server.line1"), t("settings.server.line2")]}
+            control={<ServerPicker />}
           />
           <SettingPanelRow
             title={t("updates.title")}

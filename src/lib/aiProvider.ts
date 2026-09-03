@@ -1,4 +1,5 @@
 import type { AiModelOption, AiProvider, AiSettings } from "../types";
+import { isAbortError } from "./externalProvider";
 import calculatedPrompt from "../aiPrompts/calculated.json";
 import calculatedMultiPrompt from "../aiPrompts/calculatedmulti.json";
 import calculatedSimplePrompt from "../aiPrompts/calculatedsimple.json";
@@ -16,8 +17,11 @@ import truefalsePrompt from "../aiPrompts/truefalse.json";
 import type { AiAnswerAction, AiQuestionControl, AiQuestionImage, GenerateAiAnswerPayload } from "./ai";
 
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_MODELS_PAGE_SIZE = 100;
+const GEMINI_MODELS_MAX_PAGES = 5;
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
+const AI_MODEL_LIST_TIMEOUT_MS = 15_000;
 
 type OpenAiCompatibleProviderConfig = {
   name: string;
@@ -310,6 +314,9 @@ function getModelListHeaders(config: ModelListProviderConfig, apiKey: string) {
 
   if (config.auth === "anthropic") {
     headers["anthropic-version"] = ANTHROPIC_VERSION;
+    // Required for direct browser calls: without it the Anthropic API
+    // rejects requests carrying a browser Origin.
+    headers["anthropic-dangerous-direct-browser-access"] = "true";
     if (trimmedApiKey) {
       headers["x-api-key"] = trimmedApiKey;
     }
@@ -318,7 +325,79 @@ function getModelListHeaders(config: ModelListProviderConfig, apiKey: string) {
   return headers;
 }
 
-export async function fetchAiModelOptions(settings: AiSettings): Promise<AiModelOption[]> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchGoogleModelRecords(apiKey: string, timeoutMs: number): Promise<unknown[]> {
+  const models: unknown[] = [];
+  let pageToken: string | null = null;
+
+  for (let page = 0; page < GEMINI_MODELS_MAX_PAGES; page += 1) {
+    const url = pageToken
+      ? `${GEMINI_API_BASE_URL}?pageSize=${GEMINI_MODELS_PAGE_SIZE}&pageToken=${encodeURIComponent(pageToken)}`
+      : `${GEMINI_API_BASE_URL}?pageSize=${GEMINI_MODELS_PAGE_SIZE}`;
+    let response: Response;
+
+    try {
+      response = await fetchWithTimeout(
+        url,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "x-goog-api-key": apiKey
+          }
+        },
+        timeoutMs
+      );
+    } catch (error) {
+      throw toModelListError("Google", error);
+    }
+
+    const body = await readGeminiResponseBody(response);
+
+    if (!response.ok) {
+      throw new Error(getAiErrorMessage(body) ?? `Google model list request failed with status ${response.status}.`);
+    }
+
+    const bodyRecord = getRecord(body);
+
+    if (bodyRecord && Array.isArray(bodyRecord.models)) {
+      models.push(...bodyRecord.models);
+    }
+
+    const nextPageToken = bodyRecord && typeof bodyRecord.nextPageToken === "string" ? bodyRecord.nextPageToken : "";
+
+    if (!nextPageToken) {
+      break;
+    }
+
+    pageToken = nextPageToken;
+  }
+
+  return models;
+}
+
+function toModelListError(providerName: string, error: unknown) {
+  if (isAbortError(error)) {
+    return new Error(`${providerName} model list request timed out.`);
+  }
+
+  return error;
+}
+
+export async function fetchAiModelOptions(
+  settings: AiSettings,
+  timeoutMs: number = AI_MODEL_LIST_TIMEOUT_MS
+): Promise<AiModelOption[]> {
   if (settings.provider === "custom") {
     throw new Error("Custom AI does not expose a known model list endpoint.");
   }
@@ -333,10 +412,31 @@ export async function fetchAiModelOptions(settings: AiSettings): Promise<AiModel
     throw new Error(`${providerConfig.name} API key is missing.`);
   }
 
-  const response = await fetch(providerConfig.endpoint, {
-    method: "GET",
-    headers: getModelListHeaders(providerConfig, settings.apiKey)
-  });
+  if (settings.provider === "google") {
+    const models = normalizeListedModels(settings.provider, await fetchGoogleModelRecords(settings.apiKey.trim(), timeoutMs));
+
+    if (models.length === 0) {
+      throw new Error(`${providerConfig.name} did not return usable chat models.`);
+    }
+
+    return models;
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetchWithTimeout(
+      providerConfig.endpoint,
+      {
+        method: "GET",
+        headers: getModelListHeaders(providerConfig, settings.apiKey)
+      },
+      timeoutMs
+    );
+  } catch (error) {
+    throw toModelListError(providerConfig.name, error);
+  }
+
   const body = await readGeminiResponseBody(response);
 
   if (!response.ok) {
@@ -749,7 +849,8 @@ export async function generateAnthropicAiText(
     headers: {
       "Content-Type": "application/json",
       "x-api-key": settings.apiKey.trim(),
-      "anthropic-version": ANTHROPIC_VERSION
+      "anthropic-version": ANTHROPIC_VERSION,
+      "anthropic-dangerous-direct-browser-access": "true"
     },
     body: JSON.stringify({
       model: settings.model,

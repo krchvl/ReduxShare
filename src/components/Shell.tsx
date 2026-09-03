@@ -7,6 +7,7 @@ interface ShellProps {
   extensionEnabled: boolean;
   accentColor: string;
   updateState: UpdateState;
+  popupOpacity: number;
 }
 
 const DISABLED_ACCENT_COLOR = "#9ca3aa";
@@ -21,7 +22,7 @@ function mixHexWithWhite(hexColor: string, amount: number) {
   return `#${[red, green, blue].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
 }
 
-export function Shell({ children, extensionEnabled, accentColor, updateState }: ShellProps) {
+export function Shell({ children, extensionEnabled, accentColor, updateState, popupOpacity }: ShellProps) {
   const effectiveAccentColor = extensionEnabled ? accentColor : DISABLED_ACCENT_COLOR;
 
   return (
@@ -31,7 +32,8 @@ export function Shell({ children, extensionEnabled, accentColor, updateState }: 
       style={
         {
           "--accent": effectiveAccentColor,
-          "--accent-soft": mixHexWithWhite(effectiveAccentColor, 0.28)
+          "--accent-soft": mixHexWithWhite(effectiveAccentColor, 0.28),
+          opacity: popupOpacity
         } as CSSProperties
       }
     >

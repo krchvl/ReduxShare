@@ -11,6 +11,7 @@ const LEGACY_THEME_OPTIONS = [
 export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
 
 export type LanguageSetting = "auto" | "ru" | "en";
+export type ColorSchemeSetting = "light" | "dark" | "system";
 
 export const AI_PROVIDER_OPTIONS = [
   { value: "google", label: "Google" },
@@ -32,49 +33,16 @@ export interface AiModelOption {
   label: string;
 }
 
-export const AI_MODEL_OPTIONS_BY_PROVIDER = {
-  google: [
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" }
-  ],
-  openrouter: [
-    { value: "openrouter/auto", label: "Auto Router" },
-    { value: "openai/gpt-5.5", label: "GPT-5.5" },
-    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" }
-  ],
-  openai: [
-    { value: "gpt-5.5", label: "GPT-5.5" },
-    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro" },
-    { value: "chat-latest", label: "ChatGPT Latest" },
-    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini" }
-  ],
-  anthropic: [
-    { value: "claude-opus-4-1-20250805", label: "Claude Opus 4.1" },
-    { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
-    { value: "claude-3-5-haiku-latest", label: "Claude Haiku 3.5" }
-  ],
-  groq: [
-    { value: "openai/gpt-oss-120b", label: "GPT OSS 120B" },
-    { value: "qwen/qwen3-32b", label: "Qwen3 32B" },
-    { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant" }
-  ],
-  mistral: [
-    { value: "mistral-medium-latest", label: "Mistral Medium 3.1" },
-    { value: "mistral-large-latest", label: "Mistral Large" },
-    { value: "mistral-small-latest", label: "Mistral Small" }
-  ],
-  xai: [
-    { value: "grok-4.3", label: "Grok 4.3" },
-    { value: "grok-4.3-latest", label: "Grok 4.3 Latest" },
-    { value: "grok-latest", label: "Grok Latest" }
-  ],
-  deepseek: [
-    { value: "deepseek-v4-flash", label: "DeepSeek V4 Flash" },
-    { value: "deepseek-v4-pro", label: "DeepSeek V4 Pro" }
-  ]
-} as const satisfies Record<BuiltInAiProvider, readonly AiModelOption[]>;
+export const AI_MODEL_OPTIONS_BY_PROVIDER: Record<BuiltInAiProvider, readonly AiModelOption[]> = {
+  google: [],
+  openrouter: [],
+  openai: [],
+  anthropic: [],
+  groq: [],
+  mistral: [],
+  xai: [],
+  deepseek: []
+};
 
 export interface AiSettings {
   provider: AiProvider;
@@ -94,6 +62,9 @@ export interface Settings {
   hotkeyCode: string;
   accentColor: string;
   language: LanguageSetting;
+  colorScheme: ColorSchemeSetting;
+  popupOpacity: number;
+  pageOverlayOpacity: number;
   ai: AiSettings;
 }
 
@@ -175,9 +146,12 @@ export const DEFAULT_SETTINGS: Settings = {
   hotkeyCode: DEFAULT_HOTKEY_CODE,
   accentColor: DEFAULT_ACCENT_COLOR,
   language: "auto",
+  colorScheme: "system",
+  popupOpacity: 1,
+  pageOverlayOpacity: 1,
   ai: {
     provider: "google",
-    model: "gemini-2.5-flash",
+    model: "",
     apiKey: "",
     connectionVerified: false,
     verifiedAt: null
@@ -205,6 +179,22 @@ export const DEFAULT_STORED_STATE: StoredState = {
 
 export function isLanguageSetting(value: unknown): value is LanguageSetting {
   return value === "auto" || value === "ru" || value === "en";
+}
+
+export function isColorSchemeSetting(value: unknown): value is ColorSchemeSetting {
+  return value === "light" || value === "dark" || value === "system";
+}
+
+export function resolveColorScheme(setting: ColorSchemeSetting | undefined): "light" | "dark" {
+  if (setting === "light" || setting === "dark") {
+    return setting;
+  }
+
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+
+  return "dark";
 }
 
 export function normalizeAccentColor(value: unknown) {
@@ -236,7 +226,7 @@ export function getAiModelOptionsForProvider(provider: AiProvider) {
 }
 
 export function getDefaultAiModelForProvider(provider: AiProvider) {
-  return getAiModelOptionsForProvider(provider)[0]?.value ?? DEFAULT_SETTINGS.ai.model;
+  return getAiModelOptionsForProvider(provider)[0]?.value ?? "";
 }
 
 export function isAiModelForProvider(provider: AiProvider, value: unknown) {
@@ -271,6 +261,14 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
   };
 }
 
+export function normalizeOpacity(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(1, Math.max(0.4, value));
+}
+
 export function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
@@ -280,6 +278,9 @@ export function normalizeSettings(settings: Partial<Settings> | undefined): Sett
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
     accentColor: normalizeAccentColor(settings?.accentColor ?? (settings as Partial<Settings> & { theme?: unknown })?.theme),
     language: isLanguageSetting(settings?.language) ? settings.language : DEFAULT_SETTINGS.language,
+    colorScheme: isColorSchemeSetting(settings?.colorScheme) ? settings.colorScheme : DEFAULT_SETTINGS.colorScheme,
+    popupOpacity: settings?.popupOpacity ?? DEFAULT_SETTINGS.popupOpacity,
+    pageOverlayOpacity: settings?.pageOverlayOpacity ?? DEFAULT_SETTINGS.pageOverlayOpacity,
     ai: normalizeAiSettings(settings?.ai)
   };
 }

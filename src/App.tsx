@@ -13,6 +13,7 @@ import {
   DEFAULT_STORED_STATE,
   DEFAULT_UPDATE_STATE,
   normalizeSettings,
+  resolveColorScheme,
   type AuthSession,
   type LoginCredentials,
   type RegisterCredentials,
@@ -67,7 +68,29 @@ export function App() {
   const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [registerMessage, setRegisterMessage] = useState<string | null>(null);
+  const [, setSystemSchemeTick] = useState(0);
   const t = getTranslator(settings.language);
+  const colorScheme = resolveColorScheme(settings.colorScheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = colorScheme;
+  }, [colorScheme]);
+
+  useEffect(() => {
+    if (settings.colorScheme !== "system" || typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+    const handleChange = () => setSystemSchemeTick((tick) => tick + 1);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    return undefined;
+  }, [settings.colorScheme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,7 +267,7 @@ export function App() {
 
   return (
     <I18nProvider language={settings.language}>
-      <Shell extensionEnabled={settings.extensionEnabled} accentColor={settings.accentColor} updateState={updateState}>
+      <Shell extensionEnabled={settings.extensionEnabled} accentColor={settings.accentColor} updateState={updateState} popupOpacity={settings.popupOpacity}>
         {view === "login" && (
           <LoginScreen
             isLoading={isLoginLoading}

@@ -6878,6 +6878,34 @@ function setAnswerWidgetAccent(accentColor: string) {
   }
 }
 
+const OVERLAY_OPACITY_STYLE_ID = "reduxshare-overlay-opacity";
+
+function getPageOverlayOpacity(settings: StoredStateLike["settings"] | undefined) {
+  const rawOpacity = settings?.pageOverlayOpacity;
+
+  if (typeof rawOpacity !== "number" || !Number.isFinite(rawOpacity)) {
+    return 1;
+  }
+
+  return Math.min(1, Math.max(0.4, rawOpacity));
+}
+
+function syncPageOverlayOpacity(storedState: StoredStateLike | undefined) {
+  const opacity = getPageOverlayOpacity(storedState?.settings ?? currentStoredState?.settings);
+  let styleElement = document.getElementById(OVERLAY_OPACITY_STYLE_ID);
+
+  if (!(styleElement instanceof HTMLStyleElement)) {
+    styleElement = document.createElement("style");
+    styleElement.id = OVERLAY_OPACITY_STYLE_ID;
+    document.documentElement.append(styleElement);
+  }
+
+  styleElement.textContent =
+    `[${ANSWER_WIDGET_ATTR}="true"],` +
+    `[${ANSWER_MENU_PORTAL_ATTR}="true"],` +
+    `#${ATTEMPT_STATUS_PANEL_ID}{opacity:${opacity}}`;
+}
+
 function getVariantCountsForQuestion(questionId: string | null) {
   return questionId ? (variantCountsByQuestionId.get(questionId) ?? createEmptyVariantCounts()) : createEmptyVariantCounts();
 }
@@ -7873,6 +7901,7 @@ function watchStoredSettingsChanges() {
     syncLanguage(nextState);
     syncStealthMode(nextState);
     syncAnswerWidgetHotkey(nextState);
+    syncPageOverlayOpacity(nextState);
 
     if (!canUseQuizFeatures(nextState)) {
       resetRestrictedQuizState();
@@ -8050,6 +8079,7 @@ async function initializeQuizAttemptFeatures() {
   syncLanguage(storedState);
   syncStealthMode(storedState);
   syncAnswerWidgetHotkey(storedState);
+  syncPageOverlayOpacity(storedState);
 
   if (!canUseQuizFeatures(storedState)) {
     resetRestrictedQuizState();

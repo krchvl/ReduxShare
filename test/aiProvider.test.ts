@@ -51,7 +51,7 @@ describe("AI provider integration", () => {
     }));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://generativelanguage.googleapis.com/v1beta/models",
+      "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -122,7 +122,8 @@ describe("AI provider integration", () => {
         headers: expect.objectContaining({
           Accept: "application/json",
           "x-api-key": "test-api-key",
-          "anthropic-version": "2023-06-01"
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
         })
       })
     );
@@ -199,8 +200,7 @@ describe("AI provider integration", () => {
     );
   });
 
-  it("tests Anthropic connections through the messages endpoint", async () => {
-    const fetchMock = vi.fn(async () => mockJsonResponse({
+  it("tests Anthropic connections through the messages endpoint", async () => {    const fetchMock = vi.fn(async () => mockJsonResponse({
       content: [
         {
           type: "text",
@@ -223,10 +223,100 @@ describe("AI provider integration", () => {
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "x-api-key": "test-api-key",
-          "anthropic-version": "2023-06-01"
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
         }),
         body: expect.stringContaining("\"model\":\"claude-sonnet-4-20250514\"")
       })
+    );
+  });
+
+  it.each([
+    {
+      provider: "openai",
+      endpoint: "https://api.openai.com/v1/models",
+      body: { data: [{ id: "gpt-5.5" }, { id: "whisper-1" }] },
+      expected: [{ value: "gpt-5.5", label: "gpt-5.5" }]
+    },
+    {
+      provider: "groq",
+      endpoint: "https://api.groq.com/openai/v1/models",
+      body: { data: [{ id: "llama-3.1-8b-instant" }, { id: "whisper-large-v3-turbo" }] },
+      expected: [{ value: "llama-3.1-8b-instant", label: "llama-3.1-8b-instant" }]
+    },
+    {
+      provider: "mistral",
+      endpoint: "https://api.mistral.ai/v1/models",
+      body: { data: [{ id: "mistral-large-latest" }] },
+      expected: [{ value: "mistral-large-latest", label: "mistral-large-latest" }]
+    },
+    {
+      provider: "xai",
+      endpoint: "https://api.x.ai/v1/models",
+      body: { data: [{ id: "grok-4.3" }] },
+      expected: [{ value: "grok-4.3", label: "grok-4.3" }]
+    },
+    {
+      provider: "deepseek",
+      endpoint: "https://api.deepseek.com/models",
+      body: { data: [{ id: "deepseek-v4-flash" }] },
+      expected: [{ value: "deepseek-v4-flash", label: "deepseek-v4-flash" }]
+    }
+  ] as const)("loads $provider models through its list endpoint with a bearer key", async ({ provider, endpoint, body, expected }) => {
+    const fetchMock = vi.fn(async () => mockJsonResponse(body));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const models = await fetchAiModelOptions(baseSettings({ provider }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      endpoint,
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer test-api-key" })
+      })
+    );
+    expect(models).toEqual(expected);
+  });
+
+  it("follows Google model list pagination", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("pageToken=next-page")) {
+        return mockJsonResponse({
+          models: [{ name: "models/gemini-2.5-flash", displayName: "Gemini 2.5 Flash", supportedGenerationMethods: ["generateContent"] }]
+        });
+      }
+
+      return mockJsonResponse({
+        models: [{ name: "models/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", supportedGenerationMethods: ["generateContent"] }],
+        nextPageToken: "next-page"
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const models = await fetchAiModelOptions(baseSettings({ provider: "google" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(models).toEqual([
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" }
+    ]);
+  });
+
+  it("times out hanging model list requests", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("The operation was aborted.", "AbortError"));
+            });
+          })
+      )
+    );
+
+    await expect(fetchAiModelOptions(baseSettings({ provider: "openai" }), 20)).rejects.toThrow(
+      "OpenAI model list request timed out."
     );
   });
 });
