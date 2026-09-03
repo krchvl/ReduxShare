@@ -115,7 +115,12 @@ function taskRow(overrides: Record<string, unknown> = {}) {
     selected_correct_count: 0,
     selected_incorrect_count: 0,
     selected_unknown_count: 0,
-    updated: "2026-09-03T00:00:00.000Z",
+    created: "2026-09-01T10:00:00.000Z",
+    updated: "2026-09-02T10:00:00.000Z",
+    expand: {
+      first_contributor: { username: "ivan" },
+      last_contributor: { username: "maria" }
+    },
     ...overrides
   };
 }
@@ -332,8 +337,26 @@ describe("ReduxShare review DB save (PocketBase)", () => {
     expect(result.results[0].data).toEqual([
       {
         anchor: { index: 1, label: "question" },
-        suggestions: [{ label: "Non-judgement", correctness: 2, confidence: 1 }],
-        submissions: [{ label: "Non-judgement", correctness: 2, count: 1 }]
+        suggestions: [
+          {
+            label: "Non-judgement",
+            correctness: 2,
+            confidence: 1,
+            contributor: "maria",
+            addedAt: "2026-09-01T10:00:00.000Z",
+            updatedAt: "2026-09-02T10:00:00.000Z"
+          }
+        ],
+        submissions: [
+          {
+            label: "Non-judgement",
+            correctness: 2,
+            count: 1,
+            contributor: "maria",
+            addedAt: "2026-09-01T10:00:00.000Z",
+            updatedAt: "2026-09-02T10:00:00.000Z"
+          }
+        ]
       }
     ]);
   });
@@ -375,7 +398,16 @@ describe("ReduxShare review DB save (PocketBase)", () => {
       {
         anchor: { index: 1, label: "slot:1" },
         suggestions: [],
-        submissions: [{ label: "true", correctness: 2, count: 1 }]
+        submissions: [
+          {
+            label: "true",
+            correctness: 2,
+            count: 1,
+            contributor: "maria",
+            addedAt: "2026-09-01T10:00:00.000Z",
+            updatedAt: "2026-09-02T10:00:00.000Z"
+          }
+        ]
       }
     ]);
   });
@@ -398,12 +430,12 @@ describe("ReduxShare review DB save (PocketBase)", () => {
       {
         anchor: { index: 1, label: "question" },
         suggestions: [
-          { label: "A", correctness: 2, confidence: 0.75 },
-          { label: "B", correctness: 2, confidence: 0.25 }
+          { label: "A", correctness: 2, confidence: 0.75, contributor: "maria", addedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z" },
+          { label: "B", correctness: 2, confidence: 0.25, contributor: "maria", addedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z" }
         ],
         submissions: [
-          { label: "A", correctness: 2, count: 3 },
-          { label: "B", correctness: 2, count: 1 }
+          { label: "A", correctness: 2, count: 3, contributor: "maria", addedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z" },
+          { label: "B", correctness: 2, count: 1, contributor: "maria", addedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z" }
         ]
       }
     ]);

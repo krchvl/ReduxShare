@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
+import type { AiAnswerState, SourceAnswerData } from "../content/quizAttempt/model";
 import {
   AI_PROVIDER_OPTIONS,
   getAiModelOptionsForProvider,
@@ -63,8 +64,143 @@ interface AiModelsState {
   message: string | null;
 }
 
-function GearIcon() {
+function TooltipPreview() {
+  const { t } = useI18n();
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const host = hostRef.current;
+
+    if (!host) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let cleanupInteractions: (() => void) | undefined;
+
+    void import("../content/quizAttempt/answerMenu").then((menu) => {
+      if (cancelled || !host.isConnected) {
+        return;
+      }
+
+      const sourceData: SourceAnswerData = {
+        reduxshare: {
+          anchors: [],
+          suggestions: [
+            {
+              correctness: 2,
+              confidence: 0.99,
+              label: "LinkedIn",
+              contributor: "maria",
+              addedAt: "2026-09-01T10:00:00.000Z",
+              updatedAt: "2026-09-02T12:30:00.000Z"
+            }
+          ],
+          submissions: [
+            {
+              correctness: -1,
+              count: 2,
+              label: "Facetime",
+              contributor: "ivan",
+              addedAt: "2026-09-03T08:00:00.000Z",
+              updatedAt: "2026-09-03T08:00:00.000Z"
+            }
+          ],
+          slots: []
+        },
+        external: {
+          anchors: [],
+          suggestions: [],
+          submissions: [],
+          slots: []
+        }
+      };
+      const aiState: AiAnswerState = {
+        status: "idle",
+        answer: null,
+        confidence: null,
+        actions: [],
+        error: null
+      };
+      const shadowRoot = host.attachShadow({ mode: "open" });
+      shadowRoot.innerHTML = menu.getAnswerMenuMarkup(sourceData, false, aiState, false, false);
+      host.dataset.open = "true";
+      host.dataset.theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+      menu.attachAnswerHovercards(shadowRoot);
+
+      const cleanups: Array<() => void> = [];
+      const on = (target: Element, type: string, listener: EventListener) => {
+        target.addEventListener(type, listener);
+        cleanups.push(() => target.removeEventListener(type, listener));
+      };
+      const menuItems = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-item"));
+      const menuTabs = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-tab[data-menu-tab]"));
+      const menuPanels = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-panel[data-menu-panel]"));
+      const menuBox = shadowRoot.querySelector<HTMLElement>(".menu");
+
+      const setActiveMenuItem = (nextItem: HTMLElement | null) => {
+        for (const item of menuItems) {
+          item.dataset.active = item === nextItem ? "true" : "false";
+        }
+      };
+
+      for (const item of menuItems) {
+        item.dataset.active = "false";
+        on(item, "mouseenter", () => setActiveMenuItem(item));
+        on(item, "focusin", () => setActiveMenuItem(item));
+      }
+
+      if (menuBox) {
+        on(menuBox, "mouseleave", () => setActiveMenuItem(null));
+      }
+
+      for (const tab of menuTabs) {
+        on(tab, "click", (event) => {
+          event.stopPropagation();
+          const tabKey = tab.dataset.menuTab ?? "";
+
+          for (const otherTab of menuTabs) {
+            const isActive = otherTab === tab;
+            otherTab.dataset.active = isActive ? "true" : "false";
+            otherTab.setAttribute("aria-selected", String(isActive));
+          }
+
+          for (const panel of menuPanels) {
+            panel.dataset.active = panel.dataset.menuPanel === tabKey ? "true" : "false";
+          }
+
+          setActiveMenuItem(null);
+        });
+      }
+
+      cleanupInteractions = () => {
+        for (const cleanup of cleanups) {
+          cleanup();
+        }
+      };
+    });
+
+    return () => {
+      cancelled = true;
+      cleanupInteractions?.();
+    };
+  }, []);
+
   return (
+    <section className="settings-panel__rows">
+      <h2>{t("settings.preview.tooltip.title")}</h2>
+      <p>{t("settings.preview.tooltip.line")}</p>
+      <div
+        ref={hostRef}
+        className="tooltip-preview"
+        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, minHeight: 120 }}
+      />
+    </section>
+  );
+}
+
+function GearIcon() {  return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <path d="M20.7 5.8h6.6l1.4 5.6c1.2.4 2.3.8 3.3 1.4l5-3 4.7 4.7-3 5c.6 1.1 1.1 2.2 1.4 3.4l5.6 1.3v6.6l-5.6 1.4a18 18 0 0 1-1.4 3.3l3 5-4.7 4.7-5-3c-1 .6-2.1 1.1-3.3 1.4l-1.4 5.6h-6.6l-1.4-5.6a18 18 0 0 1-3.3-1.4l-5 3-4.7-4.7 3-5a18 18 0 0 1-1.4-3.3l-5.6-1.4v-6.6l5.6-1.3c.4-1.2.8-2.3 1.4-3.4l-3-5L11 9.8l5 3c1.1-.6 2.2-1 3.3-1.4l1.4-5.6Z" />
       <circle cx="24" cy="27" r="7" />
@@ -817,8 +953,7 @@ export function MainScreen({
             </Button>
             <Button className="secondary-wide-button" variant="outline" onClick={onLogout}>
               {t("settings.actions.logout")}
-            </Button>
-            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
+            </Button>            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
             <button className="social-button" type="button" aria-label={t("settings.social.github")}>
               <img src={githubIcon} alt="" />
             </button>
@@ -829,6 +964,7 @@ export function MainScreen({
               </button>
             </a>
           </div>
+          {import.meta.env.DEV && <TooltipPreview />}
         </div>
       );
     }

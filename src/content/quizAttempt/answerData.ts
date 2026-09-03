@@ -131,6 +131,20 @@ function collectAnchorLabels(anchor: unknown): string[] {
   return label ? [label] : [];
 }
 
+function getMetaFields(record: Record<string, unknown>) {
+  const meta: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null } = {};
+
+  for (const field of ["contributor", "addedAt", "updatedAt"] as const) {
+    const value = record[field];
+
+    if (typeof value === "string" && value) {
+      meta[field] = value;
+    }
+  }
+
+  return meta;
+}
+
 function parseSuggestionItem(value: unknown): SuggestionItem | null {
   const record = getRecord(value);
 
@@ -142,7 +156,8 @@ function parseSuggestionItem(value: unknown): SuggestionItem | null {
     correctness: typeof record.correctness === "number" ? record.correctness : 1,
     confidence: typeof record.confidence === "number" ? record.confidence : 0,
     count: typeof record.count === "number" ? record.count : undefined,
-    label: getStringField(record, ["label", "data", "answer", "text", "value", "name"])
+    label: getStringField(record, ["label", "data", "answer", "text", "value", "name"]),
+    ...getMetaFields(record)
   };
 }
 
@@ -156,7 +171,8 @@ function parseSubmissionItem(value: unknown): SubmissionItem | null {
   return {
     correctness: typeof record.correctness === "number" ? record.correctness : 1,
     count: typeof record.count === "number" ? record.count : 0,
-    label: getStringField(record, ["label", "data", "answer", "text", "value", "name"])
+    label: getStringField(record, ["label", "data", "answer", "text", "value", "name"]),
+    ...getMetaFields(record)
   };
 }
 

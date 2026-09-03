@@ -96,6 +96,8 @@
   "settings.server.ms": "ms",
   "settings.server.offline": "Unreachable",
   "settings.actions.reset": "Reset settings",
+  "settings.preview.tooltip.title": "Answers preview (dev only)",
+  "settings.preview.tooltip.line": "Hover an answer — a card with author and dates pops up nearby.",
   "settings.actions.logout": "Log out",
   "settings.social.github": "Author GitHub",
   "settings.social.telegram": "Author Telegram",

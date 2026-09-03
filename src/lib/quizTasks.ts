@@ -52,7 +52,12 @@ interface TaskRecord {
   selected_correct_count: number | null;
   selected_incorrect_count: number | null;
   selected_unknown_count: number | null;
+  created: string;
   updated: string;
+  expand?: {
+    first_contributor?: { username?: unknown } | null;
+    last_contributor?: { username?: unknown } | null;
+  } | null;
 }
 
 interface ReviewImportRecord {
@@ -281,9 +286,41 @@ function pickBestHashRows(rows: TaskRecord[], request: QuizTaskQuestionRequest) 
 interface AggregatedSlot {
   slotKey: string;
   slotIndex: number | null;
-  suggestions: Array<{ correctness: 2; confidence: number; label: string }>;
-  submissions: Array<{ correctness: number; count: number; label: string }>;
+  suggestions: Array<{
+    correctness: 2;
+    confidence: number;
+    label: string;
+    contributor: string | null;
+    addedAt: string | null;
+    updatedAt: string | null;
+  }>;
+  submissions: Array<{
+    correctness: number;
+    count: number;
+    label: string;
+    contributor: string | null;
+    addedAt: string | null;
+    updatedAt: string | null;
+  }>;
   slotAnswerCount: number;
+}
+
+function getRowContributor(row: TaskRecord) {
+  const expand = row.expand ?? null;
+  const first = expand?.first_contributor;
+  const last = expand?.last_contributor;
+  const username = (record: { username?: unknown } | null | undefined) =>
+    typeof record?.username === "string" && record.username ? record.username : null;
+
+  return username(last) ?? username(first);
+}
+
+function getRowMeta(row: TaskRecord) {
+  return {
+    contributor: getRowContributor(row),
+    addedAt: row.created || null,
+    updatedAt: row.updated || null
+  };
 }
 
 /**
@@ -314,7 +351,8 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
           correctness: 2 as const,
           confidence:
             slotVerifiedTotal > 0 ? Math.round((verifiedTotal / slotVerifiedTotal) * 10_000) / 10_000 : 0,
-          label: row.answer_label
+          label: row.answer_label,
+          ...getRowMeta(row)
         };
       })
       .sort((a, b) =>
@@ -322,7 +360,14 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
           ? b.verifiedTotal - a.verifiedTotal
           : a.label.localeCompare(b.label)
       )
-      .map(({ correctness, confidence, label }) => ({ correctness, confidence, label }));
+      .map(({ correctness, confidence, label, contributor, addedAt, updatedAt }) => ({
+        correctness,
+        confidence,
+        label,
+        contributor,
+        addedAt,
+        updatedAt
+      }));
     const submissions = slotRows
       .filter((row) => getObservedTotal(row) > 0)
       .map((row) => ({
@@ -333,7 +378,8 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
               ? 0
               : 1,
         count: getObservedTotal(row),
-        label: row.answer_label
+        label: row.answer_label,
+        ...getRowMeta(row)
       }))
       .sort((a, b) => (a.count !== b.count ? b.count - a.count : a.label.localeCompare(b.label)));
 
@@ -419,7 +465,8 @@ export async function fetchReduxShareTasks(
                 qid: questionId
               }
             ),
-            sort: "-updated"
+            sort: "-updated",
+            expand: "first_contributor,last_contributor"
           });
 
           grouped.set(questionId, rows);

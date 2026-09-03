@@ -70,6 +70,29 @@ function mountChoiceWidget(api: Awaited<ReturnType<typeof getQuizAttemptTestApi>
 }
 
 describe("R-menu widget interactions", () => {
+  it("tags widget hosts with the effective content color scheme", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+    removeFixtureWidgetPlaceholders();
+    api.setStoredState({
+      settings: {
+        extensionEnabled: true,
+        stealthMode: true,
+        language: "ru",
+        colorScheme: "light"
+      },
+      authSession: null
+    });
+    api.mountAnswerWidgets("#5eead4");
+
+    const hosts = Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'));
+    expect(hosts.length).toBeGreaterThan(0);
+
+    for (const host of hosts) {
+      expect(host.dataset.theme).toBe("light");
+    }
+  });
+
   it("opens for unauthenticated users with external sources only", async () => {
     const api = await getQuizAttemptTestApi();
     api.setStoredState({

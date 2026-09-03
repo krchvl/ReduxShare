@@ -185,8 +185,136 @@ describe("R-menu source rendering", () => {
     expect(correctLabel?.className).not.toContain("flyout-label--wrong");
   });
 
-  it("hides AI tools when the question type disables AI", async () => {
+  it("shows contributor and date metadata under internal answers", async () => {
     const api = await getQuizAttemptTestApi();
+    const root = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: {
+            anchors: [],
+            suggestions: [
+              {
+                correctness: 2,
+                confidence: 1,
+                label: "LinkedIn",
+                contributor: "maria",
+                addedAt: "2026-09-01T10:00:00.000Z",
+                updatedAt: "2026-09-02T10:00:00.000Z"
+              }
+            ],
+            submissions: [],
+            slots: []
+          }
+        }),
+        true,
+        {
+          status: "idle",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: null
+        },
+        true
+      )
+    );
+
+    const option = root.querySelector('[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]');
+    expect(option).toBeInstanceOf(HTMLElement);
+    expect(option?.querySelector(".flyout-meta")).toBeNull();
+    expect(option?.getAttribute("data-meta-user")).toBe("maria");
+  });
+
+  it("shows a hovercard with metadata near the cursor", async () => {
+    const { attachAnswerHovercards } = await import("../src/content/quizAttempt/answerMenu");
+    const api = await getQuizAttemptTestApi();
+    const root = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: {
+            anchors: [],
+            suggestions: [
+              {
+                correctness: 2,
+                confidence: 1,
+                label: "LinkedIn",
+                contributor: "maria",
+                addedAt: "2026-09-01T10:00:00.000Z",
+                updatedAt: "2026-09-02T10:00:00.000Z"
+              }
+            ],
+            submissions: [],
+            slots: []
+          }
+        }),
+        true,
+        {
+          status: "idle",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: null
+        },
+        true
+      )
+    );
+
+    attachAnswerHovercards(root);
+    const option = root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]');
+    expect(option).toBeInstanceOf(HTMLElement);
+
+    option!.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, clientX: 100, clientY: 100 }));
+    const card = root.querySelector<HTMLElement>(".flyout-hovercard");
+    expect(card?.hidden).toBe(false);
+    expect(card?.textContent).toContain("LinkedIn");
+    expect(card?.textContent).toContain("maria");
+
+    option!.dispatchEvent(new MouseEvent("mouseleave", { bubbles: false }));
+    expect(card?.hidden).toBe(true);
+  });
+
+  it("flips the hovercard to the left near the viewport edge", async () => {
+    const { attachAnswerHovercards } = await import("../src/content/quizAttempt/answerMenu");
+    const api = await getQuizAttemptTestApi();
+    const root = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: {
+            anchors: [],
+            suggestions: [
+              {
+                correctness: 2,
+                confidence: 1,
+                label: "LinkedIn",
+                contributor: "maria",
+                addedAt: "2026-09-01T10:00:00.000Z",
+                updatedAt: "2026-09-02T10:00:00.000Z"
+              }
+            ],
+            submissions: [],
+            slots: []
+          }
+        }),
+        true,
+        {
+          status: "idle",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: null
+        },
+        true
+      )
+    );
+
+    attachAnswerHovercards(root);
+    const option = root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]');
+    option!.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, clientX: 1000, clientY: 100 }));
+    const card = root.querySelector<HTMLElement>(".flyout-hovercard");
+    expect(card?.hidden).toBe(false);
+    expect(card?.style.left).toBe("754px");
+  });
+
+  it("hides AI tools when the question type disables AI", async () => {    const api = await getQuizAttemptTestApi();
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({

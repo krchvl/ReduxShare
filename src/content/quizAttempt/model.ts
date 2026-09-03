@@ -76,6 +76,7 @@ export interface StoredStateLike {
     accentColor?: string;
     theme?: string;
     language?: LanguageSetting;
+    colorScheme?: string;
     popupOpacity?: number;
     pageOverlayOpacity?: number;
     hotkey?: string;
@@ -180,6 +181,9 @@ export interface SuggestionItem {
   label: string;
   displayLabel?: string;
   actionSlotIndex?: number | null;
+  contributor?: string | null;
+  addedAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface SubmissionItem {
@@ -188,6 +192,9 @@ export interface SubmissionItem {
   label: string;
   displayLabel?: string;
   actionSlotIndex?: number | null;
+  contributor?: string | null;
+  addedAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface AnswerSlotData {

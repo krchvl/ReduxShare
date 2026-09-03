@@ -40,6 +40,53 @@ function getFlyoutActionAttributes(item: { label: string; actionSlotIndex?: numb
   return attributes.join(" ");
 }
 
+function formatAnswerMetaDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const time = Date.parse(value);
+
+  if (!Number.isFinite(time)) {
+    return null;
+  }
+
+  return new Date(time).toLocaleDateString();
+}
+
+export interface AnswerMetaParts {
+  user: string | null;
+  added: string | null;
+  updated: string | null;
+}
+
+export function getAnswerMetaParts(item: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null }): AnswerMetaParts {
+  return {
+    user: item.contributor ?? null,
+    added: formatAnswerMetaDate(item.addedAt),
+    updated: formatAnswerMetaDate(item.updatedAt)
+  };
+}
+
+function getAnswerMetaDataAttributes(item: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null }) {
+  const { user, added, updated } = getAnswerMetaParts(item);
+  const attributes: string[] = [];
+
+  if (user) {
+    attributes.push(`data-meta-user="${escapeHtml(user)}"`);
+  }
+
+  if (added) {
+    attributes.push(`data-meta-added="${escapeHtml(added)}"`);
+  }
+
+  if (updated && updated !== added) {
+    attributes.push(`data-meta-updated="${escapeHtml(updated)}"`);
+  }
+
+  return attributes.length > 0 ? ` ${attributes.join(" ")}` : "";
+}
+
 function getBooleanSuggestionValue(label: string) {
   const normalizedLabel = label.trim().toLowerCase();
 
@@ -119,8 +166,10 @@ function renderSuggestionFlyout(suggestions: SuggestionItem[]): string {
   return verifiedSuggestions
     .map(
       (s) => `
-      <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}>
-        <span class="flyout-label">${escapeHtml(s.displayLabel ?? s.label)}</span>
+      <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}${getAnswerMetaDataAttributes(s)}>
+        <div class="flyout-label-block">
+          <span class="flyout-label">${escapeHtml(s.displayLabel ?? s.label)}</span>
+        </div>
         <span class="flyout-pct" style="color:${correctnessColor(s.correctness)}">${Math.round(s.confidence * 100)}%</span>
       </div>`
     )
@@ -131,20 +180,112 @@ function renderSubmissionFlyout(submissions: SubmissionItem[]): string {
   if (submissions.length === 0) {
     return renderEmptyFlyout();
   }
+
   return submissions
     .map((s) => {
       const wrongClass = s.correctness <= 0 ? " flyout-label--wrong" : "";
       return `
-      <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}>
-        <span class="flyout-label${wrongClass}">${escapeHtml(s.displayLabel ?? s.label)}</span>
+      <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}${getAnswerMetaDataAttributes(s)}>
+        <div class="flyout-label-block">
+          <span class="flyout-label${wrongClass}">${escapeHtml(s.displayLabel ?? s.label)}</span>
+        </div>
         <span class="flyout-pct" style="color:${correctnessColor(s.correctness)}">${s.count}</span>
       </div>`;
     })
     .join("");
 }
 
-function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {
-  if (sourceData.submissions.length > 0) {
+const HOVERCARD_WIDTH = 230;
+const HOVERCARD_MARGIN = 12;
+
+export function attachAnswerHovercards(shadowRoot: ShadowRoot) {
+  let card = shadowRoot.querySelector<HTMLElement>(".flyout-hovercard");
+
+  if (!card) {
+    card = document.createElement("div");
+    card.className = "flyout-hovercard";
+    card.hidden = true;
+    shadowRoot.append(card);
+  }
+
+  let originMarker = shadowRoot.querySelector<HTMLElement>(".flyout-hovercard-origin");
+
+  if (!originMarker) {
+    originMarker = document.createElement("div");
+    originMarker.className = "flyout-hovercard-origin";
+    originMarker.setAttribute("aria-hidden", "true");
+    shadowRoot.append(originMarker);
+  }
+
+  const hovercard = card;
+  const origin = originMarker;
+
+  const showCard = (anchor: HTMLElement, event: MouseEvent) => {
+    const user = anchor.dataset.metaUser ?? "";
+    const added = anchor.dataset.metaAdded ?? "";
+    const updated = anchor.dataset.metaUpdated ?? "";
+
+    if (!user && !added && !updated) {
+      return;
+    }
+
+    const lines: string[] = [];
+
+    if (user && added) {
+      lines.push(`${currentT("quiz.menu.addedBy", { user })} · ${added}`);
+    } else if (user) {
+      lines.push(currentT("quiz.menu.addedBy", { user }));
+    } else if (added) {
+      lines.push(currentT("quiz.menu.addedAt", { date: added }));
+    }
+
+    if (updated && updated !== added) {
+      lines.push(currentT("quiz.menu.updatedAt", { date: updated }));
+    }
+
+    const label = anchor.dataset.answerLabel ?? "";
+    hovercard.innerHTML =
+      (label ? `<div class="flyout-hovercard__title">${escapeHtml(label)}</div>` : "") +
+      lines.map((line) => `<div class="flyout-hovercard__line">${escapeHtml(line)}</div>`).join("");
+    hovercard.hidden = false;
+
+    // Viewport coordinates are translated into the card's local frame through
+    // an origin marker, so ancestor transforms, scroll and zoom cannot shift it.
+    const originRect = origin.getBoundingClientRect();
+    const clientX = event.clientX ?? 0;
+    const clientY = event.clientY ?? 0;
+    const cardHeight = hovercard.offsetHeight || 110;
+    let viewportLeft = clientX + 16;
+
+    if (viewportLeft + HOVERCARD_WIDTH > window.innerWidth - HOVERCARD_MARGIN) {
+      viewportLeft = clientX - HOVERCARD_WIDTH - 16;
+    }
+
+    let viewportTop = clientY + 18;
+
+    if (viewportTop + cardHeight > window.innerHeight - HOVERCARD_MARGIN) {
+      viewportTop = clientY - cardHeight - 18;
+    }
+
+    hovercard.style.left = `${Math.round(Math.max(HOVERCARD_MARGIN, viewportLeft) - originRect.left)}px`;
+    hovercard.style.top = `${Math.round(Math.max(HOVERCARD_MARGIN, viewportTop) - originRect.top)}px`;
+  };
+
+  const hideCard = () => {
+    hovercard.hidden = true;
+  };
+
+  for (const option of Array.from(shadowRoot.querySelectorAll<HTMLElement>(".flyout-option[data-answer-label]"))) {
+    option.addEventListener("mouseenter", (event) => showCard(option, event as MouseEvent));
+    option.addEventListener("focusin", () => {
+      const rowRect = option.getBoundingClientRect();
+      showCard(option, { clientX: rowRect.left, clientY: rowRect.top } as MouseEvent);
+    });
+    option.addEventListener("mouseleave", hideCard);
+  }
+}
+
+function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {  if (sourceData.submissions.length > 0) {
     return sourceData.submissions;
   }
 
@@ -915,6 +1056,62 @@ export function getAnswerMenuMarkup(
         text-decoration-thickness: 1px;
       }
 
+      .flyout-label-block {
+        display: grid;
+        flex: 1;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .flyout-hovercard {
+        position: absolute;
+        top: 0;
+        left: 0;        z-index: 10;
+        display: grid;
+        gap: 4px;
+        width: 230px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 8px;
+        background: rgba(18, 19, 26, 0.97);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        padding: 10px 12px;
+        pointer-events: none;
+      }
+
+      .flyout-hovercard[hidden] {
+        display: none;
+      }
+
+      .flyout-hovercard-origin {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .flyout-hovercard__title {
+        overflow: hidden;
+        color: #ffffff;
+        font-family: Inter, Arial, sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.3;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .flyout-hovercard__line {
+        color: rgba(255, 255, 255, 0.66);
+        font-family: Inter, Arial, sans-serif;
+        font-size: 11.5px;
+        font-weight: 400;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+
       .flyout-pct {
         flex-shrink: 0;
         font-family: Inter, Arial, sans-serif;
@@ -946,6 +1143,10 @@ export function getAnswerMenuMarkup(
           background-color 180ms ease,
           box-shadow 180ms ease,
           transform 160ms ease;
+      }
+
+      .flyout-option[data-answer-label] {
+        cursor: pointer;
       }
 
       .flyout-option::before {
@@ -1016,6 +1217,125 @@ export function getAnswerMenuMarkup(
 
       .menu-item[data-active="true"] .chevron {
         transform: rotate(180deg);
+      }
+
+      :host([data-theme="light"]) .menu {
+        border-color: rgba(15, 20, 35, 0.14);
+        background: #ffffff;
+        box-shadow:
+          0 12px 28px rgba(20, 30, 60, 0.16),
+          0 2px 8px rgba(20, 30, 60, 0.1);
+      }
+
+      :host([data-theme="light"]) .menu-tabs {
+        border-bottom-color: rgba(15, 20, 35, 0.1);
+      }
+
+      :host([data-theme="light"]) .menu-tab {
+        border-right-color: rgba(15, 20, 35, 0.08);
+        color: rgba(20, 25, 40, 0.6);
+      }
+
+      :host([data-theme="light"]) .menu-tab:not([data-active="true"]):hover,
+      :host([data-theme="light"]) .menu-tab:not([data-active="true"]):focus-visible {
+        background: rgba(15, 20, 35, 0.05);
+        color: #14171d;
+      }
+
+      :host([data-theme="light"]) .menu-tab[data-active="true"],
+      :host([data-theme="light"]) .icon,
+      :host([data-theme="light"]) .chevron {
+        color: color-mix(in srgb, var(--reduxshare-accent) 62%, #16213c);
+      }
+
+      :host([data-theme="light"]) .menu-tab[data-active="true"] {
+        background: color-mix(in srgb, var(--reduxshare-accent) 10%, transparent);
+      }
+
+      :host([data-theme="light"]) .menu-item,
+      :host([data-theme="light"]) .menu-ai-button {
+        background: #ffffff;
+        color: #14171d;
+      }
+
+      :host([data-theme="light"]) .menu-item::before {
+        background: #14171d;
+      }
+
+      :host([data-theme="light"]) .menu-item + .menu-item,
+      :host([data-theme="light"]) .menu-ai-button + .menu-item {
+        border-top-color: rgba(15, 20, 35, 0.08);
+      }
+
+      :host([data-theme="light"]) .menu-ai-button:hover,
+      :host([data-theme="light"]) .menu-ai-button:focus-visible,
+      :host([data-theme="light"]) .menu-item:hover,
+      :host([data-theme="light"]) .menu-item:focus-visible {
+        background: #f2f4f8;
+        box-shadow: inset 0 0 0 1px rgba(15, 20, 35, 0.07);
+      }
+
+      :host([data-theme="light"]) .label {
+        color: #14171d;
+      }
+
+      :host([data-theme="light"]) .flyout {
+        border-color: rgba(15, 20, 35, 0.14);
+        background: #ffffff;
+        box-shadow:
+          0 12px 28px rgba(20, 30, 60, 0.16),
+          0 2px 8px rgba(20, 30, 60, 0.1);
+      }
+
+      :host([data-theme="light"]) .flyout-text,
+      :host([data-theme="light"]) .flyout-label {
+        color: #14171d;
+      }
+
+      :host([data-theme="light"]) .flyout-text--error,
+      :host([data-theme="light"]) .flyout-label--wrong {
+        color: #d9484f;
+      }
+
+      :host([data-theme="light"]) .flyout-meta {
+        color: rgba(20, 25, 40, 0.6);
+      }
+
+      :host([data-theme="light"]) .flyout-empty,
+      :host([data-theme="light"]) .menu-empty {
+        color: rgba(20, 25, 40, 0.5);
+      }
+
+      :host([data-theme="light"]) .ai-settings-missing {
+        color: rgba(20, 25, 40, 0.66);
+      }
+
+      :host([data-theme="light"]) .flyout-option + .flyout-option {
+        border-top-color: rgba(15, 20, 35, 0.08);
+      }
+
+      :host([data-theme="light"]) .flyout-option::before {
+        background: #14171d;
+      }
+
+      :host([data-theme="light"]) .flyout-option:hover,
+      :host([data-theme="light"]) .flyout-option:focus-visible {
+        background: #f2f4f8;
+        box-shadow: inset 0 0 0 1px rgba(15, 20, 35, 0.07);
+      }
+
+      :host([data-theme="light"]) .flyout-hovercard {
+        border-color: rgba(15, 20, 35, 0.14);
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 16px 40px rgba(20, 30, 60, 0.2);
+      }
+
+      :host([data-theme="light"]) .flyout-hovercard__title {
+        color: #14171d;
+      }
+
+      :host([data-theme="light"]) .flyout-hovercard__line {
+        color: rgba(20, 25, 40, 0.66);
       }
 
       @media (max-width: 640px) {

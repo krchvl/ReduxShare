@@ -27,6 +27,9 @@ const CONTENT_TRANSLATIONS = {
     "quiz.menu.aiLoading": "Идёт запрос...",
     "quiz.menu.aiQuestionMissing": "Не удалось прочитать вопрос",
     "quiz.menu.empty": "Нет ответов",
+    "quiz.menu.addedBy": "Добавил {user}",
+    "quiz.menu.addedAt": "Добавлено {date}",
+    "quiz.menu.updatedAt": "Обновлено {date}",
     "quiz.ordering.position": "Позиция {position}"
   },
   en: {
@@ -52,6 +55,9 @@ const CONTENT_TRANSLATIONS = {
     "quiz.menu.aiLoading": "Request in progress...",
     "quiz.menu.aiQuestionMissing": "Could not read the question",
     "quiz.menu.empty": "No answers",
+    "quiz.menu.addedBy": "Added by {user}",
+    "quiz.menu.addedAt": "Added {date}",
+    "quiz.menu.updatedAt": "Updated {date}",
     "quiz.ordering.position": "Position {position}"
   }
 } as const;

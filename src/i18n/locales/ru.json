@@ -95,6 +95,8 @@
   "settings.server.ms": "мс",
   "settings.server.offline": "Недоступен",
   "settings.actions.reset": "Вернуть настройки",
+  "settings.preview.tooltip.title": "Превью ответов (только dev)",
+  "settings.preview.tooltip.line": "Наведите на ответ — рядом всплывёт карточка с автором и датами.",
   "settings.actions.logout": "Выход из аккаунта",
   "settings.social.github": "GitHub автора",
   "settings.social.telegram": "Telegram автора",

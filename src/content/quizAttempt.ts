@@ -54,6 +54,7 @@ import {
 import { getContentTranslator, type TranslateFn } from "./quizAttempt/contentI18n";
 import { hotkeyMatchesEvent, normalizeHotkeyCode, normalizeHotkeyValue } from "./quizAttempt/hotkeys";
 import {
+  attachAnswerHovercards,
   createIdleAiAnswerState,
   getAnswerMenuMarkup,
   getAnswerTriggerMarkup,
@@ -1397,6 +1398,58 @@ function ensureAttemptStatusPanel(): HTMLDivElement {
           color: #ff8a8a;
         }
 
+        :host([data-theme="light"]) .panel {
+          background:
+            radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.12), transparent 54%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 242, 246, 0.95));
+          box-shadow:
+            0 20px 44px rgba(20, 30, 60, 0.14),
+            0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.08) inset;
+          color: #14171d;
+        }
+
+        :host([data-theme="light"]) .brand-name {
+          color: color-mix(in srgb, var(--reduxshare-panel-accent-soft) 60%, #1b2a52);
+        }
+
+        :host([data-theme="light"]) .toggle {
+          color: #14171d;
+        }
+
+        :host([data-theme="light"]) .meta-label,
+        :host([data-theme="light"]) .stat__label,
+        :host([data-theme="light"]) .progress__label,
+        :host([data-theme="light"]) .progress__caption {
+          color: rgba(20, 25, 40, 0.62);
+        }
+
+        :host([data-theme="light"]) .progress__percent {
+          color: color-mix(in srgb, var(--reduxshare-progress-soft) 60%, #1b2a52);
+          text-shadow: none;
+        }
+
+        :host([data-theme="light"]) .progress__track {
+          background: rgba(15, 20, 35, 0.1);
+          box-shadow: inset 0 1px 2px rgba(20, 30, 60, 0.12);
+        }
+
+        :host([data-theme="light"]) .stat {
+          border-color: rgba(15, 20, 35, 0.1);
+          background: #ffffff;
+        }
+
+        :host([data-theme="light"]) .stat--total .stat__value {
+          color: color-mix(in srgb, var(--reduxshare-panel-accent-soft) 60%, #1b2a52);
+        }
+
+        :host([data-theme="light"]) .stat--answers .stat__value {
+          color: #1f9d4d;
+        }
+
+        :host([data-theme="light"]) .stat--failed .stat__value {
+          color: #d9484f;
+        }
+
         @keyframes panel-enter {
           from {
             opacity: 0;
@@ -1621,6 +1674,7 @@ function renderAttemptStatusPanel() {
   host.style.setProperty("--reduxshare-panel-accent", accentColor);
   host.style.setProperty("--reduxshare-panel-accent-soft", accentSoftColor);
   host.style.setProperty("--reduxshare-panel-accent-rgb", getRgbCssValue(accentColor));
+  applyContentColorSchemeToHost(host);
 
   panel?.classList.toggle("panel--collapsed", attemptStatusPanelCollapsed);
 
@@ -2249,6 +2303,76 @@ function syncAnswerWidgetHotkey(storedState: StoredStateLike | undefined) {
 
   answerWidgetHotkeyListenerInstalled = true;
   document.addEventListener("keydown", handleAnswerWidgetHotkey, true);
+}
+
+export type ContentColorScheme = "light" | "dark";
+
+export function resolveContentColorScheme(colorScheme: string | undefined): ContentColorScheme {
+  if (colorScheme === "light" || colorScheme === "dark") {
+    return colorScheme;
+  }
+
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+
+  return "dark";
+}
+
+export function getContentColorScheme() {
+  return resolveContentColorScheme(currentStoredState?.settings?.colorScheme);
+}
+
+function applyContentColorSchemeToHost(host: HTMLElement) {
+  host.dataset.theme = getContentColorScheme();
+}
+
+function syncContentColorScheme() {
+  const colorScheme = getContentColorScheme();
+
+  for (const host of answerWidgetCleanups.keys()) {
+    host.dataset.theme = colorScheme;
+  }
+
+  const menuPortal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);
+
+  if (menuPortal instanceof HTMLElement) {
+    menuPortal.dataset.theme = colorScheme;
+  }
+
+  const statusPanel = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
+
+  if (statusPanel instanceof HTMLElement) {
+    statusPanel.dataset.theme = colorScheme;
+  }
+}
+
+let colorSchemeWatcherInstalled = false;
+
+function installColorSchemeWatcher() {
+  if (colorSchemeWatcherInstalled) {
+    return;
+  }
+
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return;
+  }
+
+  colorSchemeWatcherInstalled = true;
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+
+  const handleChange = () => {
+    if ((currentStoredState?.settings?.colorScheme ?? "system") !== "system") {
+      return;
+    }
+
+    syncContentColorScheme();
+    renderAttemptStatusPanel();
+  };
+
+  if (typeof mediaQuery.addEventListener === "function") {
+    mediaQuery.addEventListener("change", handleChange);
+  }
 }
 
 function findQuestionNodeForTrigger(trigger: HTMLButtonElement): Element | null {
@@ -6433,6 +6557,7 @@ function openAnswerMenuPortal(
 
   menuPortal.setAttribute(ANSWER_MENU_PORTAL_ATTR, "true");
   menuPortal.style.setProperty("--reduxshare-accent", accentColor);
+  applyContentColorSchemeToHost(menuPortal);
   shadowRoot.innerHTML = getAnswerMenuMarkup(
     menuAnswerData,
     aiSettingsSaved,
@@ -6662,6 +6787,7 @@ function openAnswerMenuPortal(
 
   document.body.append(menuPortal);
   positionAnswerMenuPortal(menuPortal, trigger);
+  attachAnswerHovercards(shadowRoot);
 
   const flyoutOptions = shadowRoot.querySelectorAll<HTMLElement>(".flyout-option[data-answer-label]");
   for (const option of flyoutOptions) {
@@ -6759,6 +6885,7 @@ function createAnswerWidgetHost(
   }
 
   host.style.setProperty("--reduxshare-accent", accentColor);
+  applyContentColorSchemeToHost(host);
   shadowRoot.innerHTML = getAnswerTriggerMarkup();
   answerWidgetStates.set(host, {
     questionId,
@@ -6876,6 +7003,8 @@ function setAnswerWidgetAccent(accentColor: string) {
   if (menuPortal instanceof HTMLElement) {
     menuPortal.style.setProperty("--reduxshare-accent", accentColor);
   }
+
+  syncContentColorScheme();
 }
 
 const OVERLAY_OPACITY_STYLE_ID = "reduxshare-overlay-opacity";
@@ -8221,6 +8350,8 @@ async function initializeQuizReviewSave() {
 }
 
 async function bootstrapQuizPageDetection() {
+  installColorSchemeWatcher();
+
   if (isQuizAttemptUrl(window.location)) {
     watchStoredSettingsChanges();
     await initializeQuizAttemptFeatures();
