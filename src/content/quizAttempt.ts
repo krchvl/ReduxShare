@@ -169,6 +169,7 @@ declare global {
     | {
         reset: () => void;
         setStoredState: (state: StoredStateLike | undefined) => void;
+        watchStoredSettingsChanges: typeof watchStoredSettingsChanges;
         buildReviewAnswersForQuestion: typeof buildReviewAnswersForQuestion;
         collectReviewQuestionsForSave: typeof collectReviewQuestionsForSave;
         collectQuestionSummaries: typeof collectQuestionSummaries;
@@ -8406,6 +8407,7 @@ function installQuizAttemptTestApi() {
       currentStoredState = state;
       syncLanguage(state);
     },
+    watchStoredSettingsChanges,
     buildReviewAnswersForQuestion,
     collectReviewQuestionsForSave,
     collectQuestionSummaries,

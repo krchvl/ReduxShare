@@ -3,6 +3,7 @@ import type { AiAnswerState, AnswerData, AnswerVariantCounts, SourceAnswerData, 
 type QuizAttemptTestApi = {
   reset: () => void;
   setStoredState: (state: StoredStateLike | undefined) => void;
+  watchStoredSettingsChanges: () => void;
   buildReviewAnswersForQuestion: (questionNode: Element, questionType: string | null) => unknown[];
   collectReviewQuestionsForSave: () => Array<{
     questionId: string | null;

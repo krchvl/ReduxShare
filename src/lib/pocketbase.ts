@@ -1,4 +1,4 @@
-import PocketBase, { ClientResponseError, type AuthModel } from "pocketbase";
+import PocketBase, { BaseAuthStore, ClientResponseError, type AuthModel } from "pocketbase";
 import { I18nError, type TranslationKey } from "../i18n";
 import type { AuthSession } from "../types";
 import { ensurePocketBaseSession, restorePocketBaseSession } from "./auth";
@@ -115,7 +115,11 @@ export function mapPocketBaseSession(pb: PocketBase): AuthSession | null {
  * persisted AuthSession from chrome.storage is the source of truth.
  */
 export function getPocketBase(authSession?: AuthSession | null) {
-  const pb = new PocketBase(getPocketBaseUrl());
+  // In-memory auth store on purpose: the persisted AuthSession from
+  // chrome.storage is the single source of truth. The default
+  // LocalAuthStore would additionally leak tokens into window.localStorage
+  // on extension pages.
+  const pb = new PocketBase(getPocketBaseUrl(), new BaseAuthStore());
   pb.autoCancellation(false);
 
   if (authSession?.accessToken) {

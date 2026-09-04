@@ -70,6 +70,67 @@ function mountChoiceWidget(api: Awaited<ReturnType<typeof getQuizAttemptTestApi>
 }
 
 describe("R-menu widget interactions", () => {
+  it("propagates accent color changes from storage to widgets", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attempt");
+    removeFixtureWidgetPlaceholders();
+    api.setStoredState({
+      settings: {
+        extensionEnabled: true,
+        stealthMode: true,
+        language: "ru",
+        accentColor: "#9cb9f6"
+      },
+      authSession: null
+    });
+    api.watchStoredSettingsChanges();
+    api.mountAnswerWidgets("#9cb9f6");
+
+    const hosts = Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'));
+    expect(hosts.length).toBeGreaterThan(0);
+    for (const host of hosts) {
+      expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#9cb9f6");
+    }
+
+    const onChanged = (chrome.storage.onChanged.addListener as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][0] as (changes: Record<string, { newValue?: unknown }>, areaName: string) => void;
+    const storedState = {
+      settings: {
+        extensionEnabled: true,
+        stealthMode: true,
+        language: "ru",
+        accentColor: "#9cb9f6"
+      },
+      authSession: null
+    };
+
+    // First dispatch initializes the attempt context (async); the second one
+    // exercises the live-update path like a real settings change would.
+    onChanged({ reduxshare: { newValue: storedState } }, "local");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    onChanged(
+      {
+        reduxshare: {
+          newValue: {
+            settings: {
+              extensionEnabled: true,
+              stealthMode: true,
+              language: "ru",
+              accentColor: "#ff0000"
+            },
+            authSession: null
+          }
+        }
+      },
+      "local"
+    );
+
+    for (const host of Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'))) {
+      expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#ff0000");
+    }
+  });
+
   it("tags widget hosts with the effective content color scheme", async () => {
     const api = await getQuizAttemptTestApi();
     loadQuestionFixture("multichoice", "attempt");

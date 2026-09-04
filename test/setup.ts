@@ -52,7 +52,8 @@ vi.stubGlobal("chrome", {
   },
   runtime: {
     lastError: null,
-    sendMessage: runtimeSendMessage
+    sendMessage: runtimeSendMessage,
+    getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
   },
   storage: {
     local: localStorageArea,
