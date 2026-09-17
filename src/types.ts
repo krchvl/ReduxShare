@@ -57,7 +57,9 @@ export interface AiSettings {
 export interface Settings {
   extensionEnabled: boolean;
   stealthMode: boolean;
+  copyUnlock: boolean;
   autoSelect: boolean;
+  autoSelectAvgSeconds: number;
   hotkey: string;
   hotkeyCode: string;
   accentColor: string;
@@ -141,7 +143,9 @@ export interface StoredState {
 export const DEFAULT_SETTINGS: Settings = {
   extensionEnabled: true,
   stealthMode: false,
+  copyUnlock: false,
   autoSelect: true,
+  autoSelectAvgSeconds: 4,
   hotkey: DEFAULT_HOTKEY,
   hotkeyCode: DEFAULT_HOTKEY_CODE,
   accentColor: DEFAULT_ACCENT_COLOR,
@@ -269,11 +273,21 @@ export function normalizeOpacity(value: unknown) {
   return Math.min(1, Math.max(0.4, value));
 }
 
+export function normalizeAutoSelectAvgSeconds(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_SETTINGS.autoSelectAvgSeconds;
+  }
+
+  return Math.min(15, Math.max(1, value));
+}
+
 export function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
     stealthMode: settings?.stealthMode ?? DEFAULT_SETTINGS.stealthMode,
+    copyUnlock: settings?.copyUnlock ?? DEFAULT_SETTINGS.copyUnlock,
     autoSelect: settings?.autoSelect ?? DEFAULT_SETTINGS.autoSelect,
+    autoSelectAvgSeconds: normalizeAutoSelectAvgSeconds(settings?.autoSelectAvgSeconds),
     hotkey: normalizeHotkeyValue(settings?.hotkey),
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
     accentColor: normalizeAccentColor(settings?.accentColor ?? (settings as Partial<Settings> & { theme?: unknown })?.theme),
