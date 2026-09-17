@@ -23,9 +23,29 @@ for (const target of targets) {
   run("npx", ["vite", "build"], {
     REDUXSHARE_BROWSER_TARGET: target
   });
+  run("npx", ["vite", "build"], {
+    REDUXSHARE_BROWSER_TARGET: target,
+    REDUXSHARE_BUNDLE: "content"
+  });
+  await assertContentScriptsAreSelfContained(resolve(rootDir, "dist", target));
   await removeBuildJunk(resolve(rootDir, "dist", target));
   const manifest = await writeTargetManifest(target);
   await createTargetArchive(target, manifest.version);
+}
+
+async function assertContentScriptsAreSelfContained(targetDir) {
+  const manifest = JSON.parse(await readFile(resolve(targetDir, "manifest.json"), "utf8"));
+  const files = (manifest.content_scripts ?? []).flatMap((entry) => entry.js ?? []);
+
+  for (const file of files) {
+    const source = await readFile(resolve(targetDir, file), "utf8");
+
+    if (/^import[^\n]*from\s*["']/m.test(source)) {
+      console.error(`${file} contains an ES import, which a classic content script cannot load.`);
+      console.error("Keep every module the content entries import inlined in their own build pass.");
+      process.exit(1);
+    }
+  }
 }
 
 async function checkPocketBaseUrl(rootDir) {
