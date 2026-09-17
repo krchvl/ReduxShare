@@ -120,7 +120,7 @@ export async function fetchLatestUpdateInfo(currentVersion: string): Promise<Lat
   };
 }
 
-function getErrorMessage(error: unknown) {
+function getUpdateCheckErrorMessage(error: unknown) {
   return getLocalizedErrorMessage(error, getTranslator(undefined), "errors.updateCheckFailed");
 }
 
@@ -165,7 +165,7 @@ export async function requestUpdateState(): Promise<UpdateCheckResponse> {
     return {
       ok: false,
       updateState: normalizeUpdateState(null),
-      error: getErrorMessage(error)
+      error: getUpdateCheckErrorMessage(error)
     };
   }
 }
@@ -192,7 +192,7 @@ export async function requestUpdateCheck(payload: CheckUpdatePayload = {}): Prom
     return {
       ok: false,
       updateState: normalizeUpdateState(null),
-      error: getErrorMessage(error)
+      error: getUpdateCheckErrorMessage(error)
     };
   }
 }

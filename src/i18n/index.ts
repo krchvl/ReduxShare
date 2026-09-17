@@ -1,11 +1,20 @@
 import type { LanguageSetting } from "../types";
+import {
+  createTranslator,
+  resolveLanguage,
+  translateKey,
+  type I18nParams,
+  type ResolvedLanguage,
+  type Translator
+} from "../shared/i18nCore";
 import en from "./locales/en.json";
 import ru from "./locales/ru.json";
 
-export type ResolvedLanguage = "ru" | "en";
-export type I18nParams = Record<string, string | number | boolean | null | undefined>;
+export type { I18nParams, ResolvedLanguage };
+export { resolveLanguage };
+
 export type TranslationKey = keyof typeof ru;
-export type TranslateFn = (key: TranslationKey, params?: I18nParams) => string;
+export type TranslateFn = Translator<TranslationKey>;
 
 const TRANSLATIONS: Record<ResolvedLanguage, Record<TranslationKey, string>> = {
   ru,
@@ -22,51 +31,12 @@ export function isLanguageSetting(value: unknown): value is LanguageSetting {
   return value === "auto" || value === "ru" || value === "en";
 }
 
-export function getBrowserLanguage() {
-  if (typeof chrome !== "undefined" && chrome.i18n?.getUILanguage) {
-    return chrome.i18n.getUILanguage();
-  }
-
-  if (typeof navigator !== "undefined") {
-    return navigator.language;
-  }
-
-  return undefined;
-}
-
-export function resolveLanguage(language: LanguageSetting | undefined, browserLanguage = getBrowserLanguage()) {
-  if (language === "ru" || language === "en") {
-    return language;
-  }
-
-  const normalizedBrowserLanguage = browserLanguage?.toLowerCase() ?? "";
-
-  if (normalizedBrowserLanguage.startsWith("en")) {
-    return "en";
-  }
-
-  return "ru";
-}
-
-function interpolate(template: string, params: I18nParams | undefined) {
-  if (!params) {
-    return template;
-  }
-
-  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key: string) => {
-    const value = params[key];
-    return value === null || value === undefined ? match : String(value);
-  });
-}
-
 export function translate(language: ResolvedLanguage, key: TranslationKey, params?: I18nParams) {
-  const template = TRANSLATIONS[language][key] ?? TRANSLATIONS.ru[key] ?? key;
-  return interpolate(template, params);
+  return translateKey(TRANSLATIONS, language, key, params);
 }
 
 export function getTranslator(language: LanguageSetting | undefined): TranslateFn {
-  const resolvedLanguage = resolveLanguage(language);
-  return (key, params) => translate(resolvedLanguage, key, params);
+  return createTranslator(TRANSLATIONS, language);
 }
 
 export class I18nError extends Error {
@@ -100,4 +70,12 @@ export function getLocalizedErrorMessage(
   }
 
   return t(fallbackKey);
+}
+
+export function getRequestErrorMessage(
+  error: unknown,
+  language: LanguageSetting | undefined,
+  fallbackKey: TranslationKey = "errors.externalRequest"
+) {
+  return getLocalizedErrorMessage(error, getTranslator(language), fallbackKey);
 }

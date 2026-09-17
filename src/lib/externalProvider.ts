@@ -1,4 +1,4 @@
-import { getLocalizedErrorMessage, getTranslator, type TranslationKey } from "../i18n";
+import { getRequestErrorMessage, getTranslator } from "../i18n";
 import type { LanguageSetting } from "../types";
 
 export const EXTERNAL_CLIENT_VERSION = "2.6.0";
@@ -111,14 +111,6 @@ export function isAbortError(error: unknown) {
   );
 }
 
-function getErrorMessage(
-  error: unknown,
-  language?: LanguageSetting,
-  fallbackKey: TranslationKey = "errors.externalRequest"
-) {
-  return getLocalizedErrorMessage(error, getTranslator(language), fallbackKey);
-}
-
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -187,7 +179,7 @@ export async function fetchQuestionVariants(
       questionType: question.questionType,
       questionHash: question.questionHash,
       ok: false,
-      error: isAbortError(error) ? t("errors.externalRequest") : getErrorMessage(error, language)
+      error: isAbortError(error) ? t("errors.externalRequest") : getRequestErrorMessage(error, language)
     };
   }
 }
