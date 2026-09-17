@@ -23,7 +23,7 @@ import {
   type ExternalQuestionRequest,
   type ExternalVariantsPayload
 } from "../lib/externalProvider";
-import { getLocalizedErrorMessage, getTranslator, type TranslationKey } from "../i18n";
+import { getRequestErrorMessage, getTranslator, type TranslationKey } from "../i18n";
 import {
   CHECK_UPDATE_MESSAGE,
   GET_UPDATE_STATE_MESSAGE,
@@ -46,22 +46,12 @@ import {
   PENDING_REVIEW_SAVES_STORAGE_KEY,
   QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY
 } from "../shared/storageKeys";
-import { normalizeAiSettings, type AiSettings, type AuthSession, type LanguageSetting, type UpdateState, type UserProfile } from "../types";
+import { normalizeAiSettings, type AiSettings, type AuthSession, type LanguageSetting, type StoredState, type UpdateState, type UserProfile } from "../types";
 
 const FETCH_QUIZ_ANSWERS_MESSAGE = "REDUXSHARE_FETCH_QUIZ_ANSWERS";
 const RECORD_QUIZ_PROGRESS_MESSAGE = "REDUXSHARE_RECORD_QUIZ_PROGRESS";
 const SAVE_REVIEW_ANSWERS_MESSAGE = "REDUXSHARE_SAVE_REVIEW_ANSWERS";
 const MAX_PENDING_REVIEW_SAVES = 25;
-
-interface StoredStateLike {
-  settings?: {
-    language?: LanguageSetting;
-    ai?: Partial<AiSettings>;
-  };
-  authSession?: AuthSession | null;
-  userProfile?: UserProfile | null;
-  updateState?: UpdateState | null;
-}
 
 interface FetchQuizAnswersPayload extends ExternalVariantsPayload {
   domain: string;
@@ -179,14 +169,6 @@ function isGetUpdateStateMessage(message: unknown): message is GetUpdateStateMes
   return candidate.type === GET_UPDATE_STATE_MESSAGE;
 }
 
-function getErrorMessage(
-  error: unknown,
-  language?: LanguageSetting,
-  fallbackKey: TranslationKey = "errors.externalRequest"
-) {
-  return getLocalizedErrorMessage(error, getTranslator(language), fallbackKey);
-}
-
 function sendErrorResponse<TResponse extends { ok: false; error?: string }>(
   error: unknown,
   sendResponse: (response: TResponse) => void,
@@ -196,23 +178,23 @@ function sendErrorResponse<TResponse extends { ok: false; error?: string }>(
     .then((storedState) => {
       sendResponse({
         ok: false,
-        error: getErrorMessage(error, storedState.settings?.language, fallbackKey)
+        error: getRequestErrorMessage(error, storedState.settings?.language, fallbackKey)
       } as TResponse);
     })
     .catch(() => {
       sendResponse({
         ok: false,
-        error: getErrorMessage(error, undefined, fallbackKey)
+        error: getRequestErrorMessage(error, undefined, fallbackKey)
       } as TResponse);
     });
 }
 
-async function loadStoredState(): Promise<StoredStateLike> {
+async function loadStoredState(): Promise<Partial<StoredState>> {
   const result = await chrome.storage.local.get(APP_STORAGE_KEY);
-  return (result[APP_STORAGE_KEY] as StoredStateLike | undefined) ?? {};
+  return (result[APP_STORAGE_KEY] as Partial<StoredState> | undefined) ?? {};
 }
 
-async function saveStoredStatePatch(patch: Partial<StoredStateLike>) {
+async function saveStoredStatePatch(patch: Partial<StoredState>) {
   const currentState = await loadStoredState();
   await chrome.storage.local.set({
     [APP_STORAGE_KEY]: {
@@ -391,7 +373,7 @@ async function performUpdateCheck(payload: CheckUpdatePayload = {}): Promise<Upd
         currentVersion,
         checkedAt: checkedAt.toISOString(),
         nextCheckAt: new Date(checkedAt.getTime() + UPDATE_RETRY_INTERVAL_MS).toISOString(),
-        error: getErrorMessage(error, undefined, "errors.updateCheckFailed")
+        error: getRequestErrorMessage(error, undefined, "errors.updateCheckFailed")
       },
       currentVersion
     );
@@ -429,7 +411,7 @@ async function handleCheckUpdate(payload: CheckUpdatePayload = {}): Promise<Upda
   };
 }
 
-function getStoredAuthSession(storedState: StoredStateLike) {
+function getStoredAuthSession(storedState: Partial<StoredState>) {
   return storedState.authSession?.user.id ? storedState.authSession : null;
 }
 
@@ -573,7 +555,7 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
   } catch (error) {
     return {
       ok: false,
-      error: getErrorMessage(error, storedState.settings?.language, "errors.aiConnectionFailed")
+      error: getRequestErrorMessage(error, storedState.settings?.language, "errors.aiConnectionFailed")
     };
   }
 }
@@ -592,7 +574,7 @@ async function handleFetchAiModels(payload: AiSettings): Promise<AiModelsRespons
   } catch (error) {
     return {
       ok: false,
-      error: getErrorMessage(error, storedState.settings?.language, "errors.aiModelsFetchFailed")
+      error: getRequestErrorMessage(error, storedState.settings?.language, "errors.aiModelsFetchFailed")
     };
   }
 }
@@ -628,7 +610,7 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
   } catch (error) {
     return {
       ok: false,
-      error: getErrorMessage(error, storedState.settings?.language, "errors.aiRequestFailed")
+      error: getRequestErrorMessage(error, storedState.settings?.language, "errors.aiRequestFailed")
     };
   }
 }
@@ -730,7 +712,7 @@ if (chrome.storage?.onChanged) {
       return;
     }
 
-    const nextState = changes[APP_STORAGE_KEY].newValue as StoredStateLike | undefined;
+    const nextState = changes[APP_STORAGE_KEY].newValue as Partial<StoredState> | undefined;
     const authSession = nextState ? getStoredAuthSession(nextState) : null;
 
     if (!authSession) {
