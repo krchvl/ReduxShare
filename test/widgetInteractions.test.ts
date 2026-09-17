@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import type { AnswerSlotData, SourceAnswerData } from "../src/content/quizAttempt/model";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AnswerSlotData, SourceAnswerData } from "../src/model";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import {
@@ -70,6 +70,10 @@ function mountChoiceWidget(api: Awaited<ReturnType<typeof getQuizAttemptTestApi>
 }
 
 describe("R-menu widget interactions", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("propagates accent color changes from storage to widgets", async () => {
     const api = await getQuizAttemptTestApi();
     loadQuestionFixture("match", "attempt");
@@ -946,5 +950,192 @@ describe("R-menu widget interactions", () => {
     expect((document.getElementById("q129:12_sub1_answer") as HTMLInputElement).value).toBe("цитоплазма");
     expect((document.getElementById("q129:12_sub2_answer") as HTMLSelectElement).value).toBe("0");
     expect((document.getElementById("q129:12_sub3_answer") as HTMLInputElement).value).toBe("40");
+  });
+});
+
+describe("human-like auto-select scheduling", () => {
+  function baseStoredState() {
+    return {
+      settings: {
+        extensionEnabled: true,
+        stealthMode: true,
+        language: "ru",
+        autoSelect: true,
+        autoSelectAvgSeconds: 4
+      },
+      authSession: null
+    };
+  }
+
+  function dispatchStorageChange(state: unknown) {
+    const onChanged = (chrome.storage.onChanged.addListener as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][0] as (changes: Record<string, { newValue?: unknown }>, areaName: string) => void;
+    onChanged({ reduxshare: { newValue: state } }, "local");
+  }
+
+  it("applies auto-select through the storage watcher flow", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attempt");
+    removeFixtureWidgetPlaceholders();
+    api.setStoredState(baseStoredState());
+    api.watchStoredSettingsChanges();
+    api.setSourceAnswerData(
+      "3699",
+      "external",
+      slottedAnswerData([
+        answerSlot(1, { anchors: ["сила"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+        answerSlot(2, { anchors: ["Масса"], suggestions: [slottedExactSuggestion("Килограмм", 2)] }),
+        answerSlot(3, { anchors: ["Напряжение"], suggestions: [slottedExactSuggestion("Вольт", 3)] })
+      ])
+    );
+    api.mountAnswerWidgets("#5eead4");
+
+    dispatchStorageChange(baseStoredState());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // The first dispatch initializes the attempt context; the second one
+    // runs the live-update path like a real settings/data change would.
+    // (Test mode applies immediately without timers or progress bars.)
+    dispatchStorageChange(baseStoredState());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect((document.getElementById("menuq126:12_sub0") as HTMLSelectElement).value).toBe("2");
+  });
+
+  function deterministicRandom() {
+    let seed = 42;
+    return () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+  }
+
+  it("computes delays around the average with bounded variance", async () => {
+    const api = await getQuizAttemptTestApi();
+    const random = deterministicRandom();
+    const delays = Array.from({ length: 200 }, () => api.computeAutoSelectDelayMs(4, random, null));
+
+    for (const delay of delays) {
+      expect(delay).toBeGreaterThanOrEqual(1000);
+      expect(delay).toBeLessThanOrEqual(60000);
+    }
+
+    const mean = delays.reduce((sum, delay) => sum + delay, 0) / delays.length;
+    expect(mean).toBeGreaterThan(3000);
+    expect(mean).toBeLessThan(5000);
+  });
+
+  it("falls back to safe defaults for invalid averages", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    expect(api.computeAutoSelectDelayMs(Number.NaN, () => 0.5, null)).toBeGreaterThanOrEqual(1000);
+    expect(api.computeAutoSelectDelayMs(0, () => 0.5, null)).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("rushes delays when little quiz time is left", async () => {
+    const api = await getQuizAttemptTestApi();
+    const unhurried = api.computeAutoSelectDelayMs(4, () => 0.9999, null);
+    const rushed = api.computeAutoSelectDelayMs(4, () => 0.9999, 30);
+
+    expect(rushed).toBeLessThan(unhurried);
+    expect(rushed).toBeGreaterThanOrEqual(800);
+  });
+
+  it("parses Moodle time-left labels", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    expect(api.parseQuizTimeLeftSeconds("Time left 0:05:23")).toBe(323);
+    expect(api.parseQuizTimeLeftSeconds("12:34")).toBe(754);
+    expect(api.parseQuizTimeLeftSeconds("1:02:03")).toBe(3723);
+    expect(api.parseQuizTimeLeftSeconds(null)).toBeNull();
+    expect(api.parseQuizTimeLeftSeconds("unlimited")).toBeNull();
+  });
+
+  it("applies scheduled answers after the delay with a progress bar", async () => {
+    vi.useFakeTimers();
+    try {
+      const api = await getQuizAttemptTestApi();
+      loadQuestionFixture("match", "attempt");
+      removeFixtureWidgetPlaceholders();
+      api.setSourceAnswerData(
+        "3699",
+        "external",
+        slottedAnswerData([
+          answerSlot(1, { anchors: ["сила"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+          answerSlot(2, { anchors: ["Масса"], suggestions: [slottedExactSuggestion("Килограмм", 2)] }),
+          answerSlot(3, { anchors: ["Напряжение"], suggestions: [slottedExactSuggestion("Вольт", 3)] })
+        ])
+      );
+      api.mountAnswerWidgets("#5eead4");
+
+      const questionNode = document.querySelector(".que");
+      expect(questionNode).toBeInstanceOf(Element);
+
+      const scheduled = api.scheduleAutoSelectAnswer(
+        "3699",
+        questionNode as Element,
+        { settings: { extensionEnabled: true, autoSelect: true, autoSelectAvgSeconds: 4 }, authSession: null },
+        false
+      );
+      expect(scheduled).toBe(true);
+
+      const hosts = Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'));
+      expect(hosts.length).toBeGreaterThan(0);
+      expect(hosts.some((host) => host.shadowRoot?.querySelector(".delay-progress"))).toBe(true);
+      expect((document.getElementById("menuq126:12_sub0") as HTMLSelectElement).value).toBe("0");
+
+      await vi.advanceTimersByTimeAsync(70000);
+
+      expect((document.getElementById("menuq126:12_sub0") as HTMLSelectElement).value).toBe("2");
+      expect(
+        Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]')).some(
+          (host) => host.shadowRoot?.querySelector(".delay-progress")
+        )
+      ).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels scheduled answers when the user answers manually", async () => {
+    vi.useFakeTimers();
+    try {
+      const api = await getQuizAttemptTestApi();
+      loadQuestionFixture("match", "attempt");
+      removeFixtureWidgetPlaceholders();
+      api.setSourceAnswerData(
+        "3699",
+        "external",
+        slottedAnswerData([
+          answerSlot(1, { anchors: ["сила"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+          answerSlot(2, { anchors: ["Масса"], suggestions: [slottedExactSuggestion("Килограмм", 2)] }),
+          answerSlot(3, { anchors: ["Напряжение"], suggestions: [slottedExactSuggestion("Вольт", 3)] })
+        ])
+      );
+      api.mountAnswerWidgets("#5eead4");
+
+      const questionNode = document.querySelector(".que");
+      expect(questionNode).toBeInstanceOf(Element);
+
+      // The cancel listener is installed once per page load like in production.
+      api.ensureAutoSelectCancelListener();
+
+      api.scheduleAutoSelectAnswer(
+        "3699",
+        questionNode as Element,
+        { settings: { extensionEnabled: true, autoSelect: true, autoSelectAvgSeconds: 4 }, authSession: null },
+        false
+      );
+
+      const sub0 = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
+      sub0.value = "1";
+      sub0.dispatchEvent(new Event("input", { bubbles: true }));
+
+      await vi.advanceTimersByTimeAsync(70000);
+
+      expect(sub0.value).toBe("1");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
