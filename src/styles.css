@@ -180,7 +180,11 @@ button:focus-visible {
   background:
     linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 34%),
     linear-gradient(240deg, rgba(255, 255, 255, 0.025), transparent 38%),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 92px),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.018) 0 1px,
+      transparent 1px 92px
+    ),
     var(--background-main);
   box-shadow:
     inset 0 0 110px rgba(0, 0, 0, 0.72),
@@ -264,7 +268,9 @@ button:focus-visible {
   padding: 0;
   border-radius: 999px;
   background: transparent;
-  transition: transform 120ms ease, filter 120ms ease;
+  transition:
+    transform 120ms ease,
+    filter 120ms ease;
 }
 
 .social-button:hover {
@@ -290,7 +296,11 @@ button:focus-visible {
   line-height: 1;
   letter-spacing: 0;
   white-space: nowrap;
-  transition: filter 120ms ease, transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  transition:
+    filter 120ms ease,
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 .button:hover:not(:disabled) {
@@ -567,7 +577,7 @@ button:focus-visible {
 .settings-row {
   display: flex;
   min-height: 136px;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 36px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -605,7 +615,6 @@ button:focus-visible {
   min-width: 132px;
   align-items: center;
   justify-content: flex-end;
-  padding-top: 18px;
 }
 
 .server-picker {
@@ -663,6 +672,56 @@ button:focus-visible {
   text-align: right;
 }
 
+.autoselect-timing {
+  display: grid;
+  gap: 14px;
+  justify-items: end;
+}
+
+.autoselect-timing__chips {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.autoselect-timing__chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 16px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.autoselect-timing__chip:hover {
+  border-color: var(--border-strong);
+  color: var(--white);
+}
+
+.autoselect-timing__chip--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.autoselect-timing__slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 300ms;
+}
+
+.autoselect-timing__slider .opacity-slider {
+  width: 180px;
+}
+
 .switch {
   position: relative;
   width: 94px;
@@ -670,7 +729,9 @@ button:focus-visible {
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 0;
-  transition: background 120ms ease, filter 120ms ease;
+  transition:
+    background 120ms ease,
+    filter 120ms ease;
 }
 
 .switch:hover {
@@ -1123,4 +1184,107 @@ button:focus-visible {
     opacity: 0;
     transform: translateY(-8px) scale(0.96);
   }
+}
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--white);
+  background: var(--background-main);
+}
+
+.error-boundary h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #ff6b6b;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.error-boundary p {
+  margin: 0 0 24px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 400px;
+}
+
+.error-boundary details {
+  width: 100%;
+  max-width: 500px;
+  margin: 0;
+  background: var(--background-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.error-boundary details summary {
+  padding: 16px;
+  background: var(--background-panel-soft);
+  color: var(--white);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease;
+}
+
+.error-boundary details summary:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.error-boundary details p {
+  margin: 0;
+  padding: 16px;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--input-color);
+  border-top: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.error-boundary details::-webkit-scrollbar {
+  width: 6px;
+}
+
+.error-boundary details::-webkit-scrollbar-track {
+  background: var(--background-panel);
+}
+
+.error-boundary details::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.error-boundary button {
+  min-width: 160px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+  color: var(--black);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(156, 185, 246, 0.3);
+  transition: all 120ms ease;
+}
+
+.error-boundary button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(156, 185, 246, 0.4);
+}
+
+.error-boundary button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(156, 185, 246, 0.3);
 }

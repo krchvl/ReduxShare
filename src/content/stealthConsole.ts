@@ -1,4 +1,7 @@
 (() => {
+  // This bridge runs in the MAIN world and owns its entry chunk, so it deliberately re-declares
+  // the two message names and the origin marker it answers to instead of importing
+  // src/shared/messages.ts. Keep them byte-for-byte identical to that module.
   const STEALTH_MODE_MESSAGE = "REDUXSHARE_STEALTH_MODE";
   const COPY_UNLOCK_MESSAGE = "REDUXSHARE_COPY_UNLOCK";
   const STEALTH_MESSAGE_SOURCE = "ReduxShare";

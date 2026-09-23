@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { QuizVariantResult } from "../src/content/quizAttempt/model";
-import { getAnswerData, getVariantCounts } from "../src/content/quizAttempt/answerData";
+import type { QuizVariantResult } from "../src/model";
+import { getAnswerData, getVariantCounts } from "../src/data/answerData";
 
 function variantResult(data: QuizVariantResult["data"]): QuizVariantResult {
   return {

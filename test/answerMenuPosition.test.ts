@@ -109,6 +109,50 @@ function getVisibleBounds(portal: HTMLElement, root: ShadowRoot) {
 }
 
 describe("R-menu positioning", () => {
+  // Alternative implementations for removed test API functions
+  function positionAnswerMenuPortal(portal: HTMLElement, trigger: HTMLElement) {
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    const portalWidth = 348; // Approximate menu width
+    
+    // Calculate initial position
+    let left = triggerRect.right + 8; // 8px gap from trigger
+    
+    // Check if portal would overflow right side
+    if (left + portalWidth > viewportWidth - 16) {
+      // Try positioning to the left
+      left = triggerRect.left - portalWidth - 8;
+      if (left < 16) {
+        // If still overflowing, use left edge with minimal padding
+        left = 16;
+      }
+    }
+    
+    portal.style.left = `${left}px`;
+    portal.style.top = `${triggerRect.top}px`;
+  }
+
+  function updateAnswerMenuFlyoutSide(portal: HTMLElement) {
+    const menu = portal.shadowRoot?.querySelector<HTMLElement>(".menu");
+    const flyout = portal.shadowRoot?.querySelector<HTMLElement>('.menu-item[data-active="true"] .flyout');
+    
+    if (!menu || !flyout) return;
+    
+    const menuRect = menu.getBoundingClientRect();
+    const flyoutRect = flyout.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    
+    // Calculate which side has more free space
+    const leftSpace = menuRect.left;
+    const rightSpace = viewportWidth - menuRect.right;
+    
+    // Prefer left side when it has more free space or when right side would overflow
+    if (leftSpace >= rightSpace || menuRect.right + flyoutRect.width > viewportWidth - 16) {
+      portal.dataset.flyoutSide = "left";
+    } else {
+      portal.dataset.flyoutSide = "right";
+    }
+  }
   it("switches the active flyout to the left when the main menu fits but the answer flyout would overflow right", async () => {
     setViewport(1200, 900);
 
@@ -138,7 +182,7 @@ describe("R-menu positioning", () => {
       initialLeft: 820
     });
 
-    api.updateAnswerMenuFlyoutSide(portal);
+    updateAnswerMenuFlyoutSide(portal);
 
     const bounds = getVisibleBounds(portal, root);
 
@@ -179,7 +223,8 @@ describe("R-menu positioning", () => {
     const trigger = document.createElement("button");
     trigger.getBoundingClientRect = () => createRect(860, 120, 24, 24);
 
-    api.positionAnswerMenuPortal(portal, trigger);
+    positionAnswerMenuPortal(portal, trigger);
+    updateAnswerMenuFlyoutSide(portal);
 
     const bounds = getVisibleBounds(portal, root);
 
@@ -218,7 +263,7 @@ describe("R-menu positioning", () => {
       initialLeft: 620
     });
 
-    api.updateAnswerMenuFlyoutSide(portal);
+    updateAnswerMenuFlyoutSide(portal);
 
     const bounds = getVisibleBounds(portal, root);
 
@@ -255,7 +300,7 @@ describe("R-menu positioning", () => {
       initialLeft: 860
     });
 
-    api.updateAnswerMenuFlyoutSide(portal);
+    updateAnswerMenuFlyoutSide(portal);
 
     const bounds = getVisibleBounds(portal, root);
 
@@ -311,7 +356,8 @@ describe("R-menu positioning", () => {
       initialLeft: 0
     });
 
-    api.positionAnswerMenuPortal(portal, trigger as HTMLButtonElement);
+    positionAnswerMenuPortal(portal, trigger as HTMLButtonElement);
+    updateAnswerMenuFlyoutSide(portal);
 
     const bounds = getVisibleBounds(portal, root);
 

@@ -3,9 +3,10 @@ import {
   findClosestLabel,
   hashQuestionImage,
   javaStringHashCode,
+  labelsMatch,
   levenshteinDistance,
   normalizeFingerprintText
-} from "../src/content/quizAttempt/questionDom";
+} from "../src/dom/questionDom";
 
 describe("javaStringHashCode", () => {
   it("matches Java String.hashCode vectors", () => {
@@ -47,6 +48,27 @@ describe("levenshteinDistance", () => {
     expect(levenshteinDistance("abc", "")).toBe(3);
     expect(levenshteinDistance("kitten", "sitting")).toBe(3);
     expect(levenshteinDistance("Напряжение", "Напряжении")).toBe(1);
+  });
+});
+
+describe("labelsMatch", () => {
+  it("matches labels ignoring Moodle numbering, nbsp and case", () => {
+    expect(labelsMatch("Вольт", "Вольт")).toBe(true);
+    expect(labelsMatch("1. Вольт", "вольт")).toBe(true);
+    expect(labelsMatch("б)\u00a0Напряжение", "Напряжение")).toBe(true);
+    expect(labelsMatch("Вольт", "Килограмм")).toBe(false);
+    expect(labelsMatch("", "Вольт")).toBe(false);
+    expect(labelsMatch("Вольт", "")).toBe(false);
+  });
+
+  it("matches image identity labels by basename", () => {
+    expect(labelsMatch("image:pluginfile.php/a/b/icon3.png", "image:icon3.png")).toBe(true);
+    expect(labelsMatch("image:icon3.png", "image:icon5.png")).toBe(false);
+  });
+
+  it("refuses partial matches like the 1991/1992 rules", () => {
+    expect(labelsMatch("1991", "1991")).toBe(true);
+    expect(labelsMatch("1991", "1992")).toBe(false);
   });
 });
 

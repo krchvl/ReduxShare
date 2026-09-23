@@ -5,6 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { answerSlot, slottedAnswerData, slottedExactSuggestion } from "./helpers/sourceData";
+import { setCurrentStoredState } from "../src/state";
+import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncPageOverlayOpacity, syncAnswerWidgetHotkey } from "../src/content/quizAttempt";
 
 const TEST_MODE_STUB = "__REDUXSHARE_TEST_MODE__";
 
@@ -21,10 +24,10 @@ function baseStoredState() {
   };
 }
 
-function dispatchStorageChange(state: unknown) {
-  const onChanged = (chrome.storage.onChanged.addListener as unknown as { mock: { calls: unknown[][] } }).mock
-    .calls[0][0] as (changes: Record<string, { newValue?: unknown }>, areaName: string) => void;
-  onChanged({ reduxshare: { newValue: state } }, "local");
+async function dispatchStorageChange(state: unknown) {
+  // The storage mock dispatches onChanged from set() itself; awaiting the write
+  // delivers the change to the registered content-script watcher.
+  await chrome.storage.local.set({ reduxshare: state });
 }
 
 function getSubZeroSelect() {
@@ -51,7 +54,13 @@ describe("paced auto-select on a live quiz page", () => {
     loadQuestionFixture("match", "attempt");
     document.querySelectorAll('[data-reduxshare-answer-widget="true"]').forEach((node) => node.remove());
     api.setStoredState(baseStoredState());
-    api.watchStoredSettingsChanges();
+    // Manual sync of settings changes (equivalent to watchStoredSettingsChanges)
+    const currentState = baseStoredState();
+    setCurrentStoredState(currentState);
+    syncLanguage(currentState);
+    syncStealthMode(currentState);
+    syncAnswerWidgetHotkey(currentState);
+    syncPageOverlayOpacity(currentState);
     api.setSourceAnswerData(
       "3699",
       "external",
@@ -66,11 +75,14 @@ describe("paced auto-select on a live quiz page", () => {
     const select = getSubZeroSelect();
     vi.stubGlobal(TEST_MODE_STUB, false);
 
+    // Register the storage watcher so dispatchStorageChange triggers auto-select scheduling
+    api.watchStoredSettingsChanges();
+
     // The first dispatch initializes the attempt context, the second one runs the live-update
     // path that schedules the answers.
-    dispatchStorageChange(baseStoredState());
+    await dispatchStorageChange(baseStoredState());
     await vi.advanceTimersByTimeAsync(300);
-    dispatchStorageChange(baseStoredState());
+    await dispatchStorageChange(baseStoredState());
     await vi.advanceTimersByTimeAsync(300);
 
     expect(select.value).toBe("0");

@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
-import type { AiAnswerState, SourceAnswerData } from "../content/quizAttempt/model";
 import {
   AI_PROVIDER_OPTIONS,
+  AUTO_SELECT_TEMPO_PRESETS,
   getAiModelOptionsForProvider,
   getDefaultAiModelForProvider,
   normalizeAiSettings,
   type AiModelOption,
+  type AutoSelectTempoPreset,
   type AiSettings,
   type Settings,
   type UpdateState
@@ -19,6 +20,12 @@ import { ColorSchemeSelect } from "./ColorSchemeSelect";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
+import {
+  isBroadHostPermissionGrantedSync,
+  needsBroadHostPermission,
+  refreshBroadPermissionCache,
+  requestBroadHostPermission
+} from "../lib/optionalPermissions";
 import { getPocketBaseLabel, measurePocketBasePing, pingStatusForLatency, tryGetPocketBaseUrl } from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import githubIcon from "../assets/github.svg";
@@ -48,6 +55,10 @@ interface SettingPanelRowProps {
   control: ReactNode;
 }
 
+function isCustomProviderFlow(draft: AiSettings): boolean {
+  return draft.provider === "custom" && Boolean(draft.customEndpoint?.trim());
+}
+
 type AiTestStatus = "idle" | "checking" | "success" | "error" | "saved";
 
 interface AiTestState {
@@ -62,142 +73,6 @@ interface AiModelsState {
   status: "idle" | "loading" | "success" | "error";
   models: AiModelOption[];
   message: string | null;
-}
-
-function TooltipPreview() {
-  const { t } = useI18n();
-  const hostRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const host = hostRef.current;
-
-    if (!host) {
-      return undefined;
-    }
-
-    let cancelled = false;
-    let cleanupInteractions: (() => void) | undefined;
-
-    void import("../content/quizAttempt/answerMenu").then((menu) => {
-      if (cancelled || !host.isConnected) {
-        return;
-      }
-
-      const sourceData: SourceAnswerData = {
-        reduxshare: {
-          anchors: [],
-          suggestions: [
-            {
-              correctness: 2,
-              confidence: 0.99,
-              label: "LinkedIn",
-              contributor: "maria",
-              addedAt: "2026-09-01T10:00:00.000Z",
-              updatedAt: "2026-09-02T12:30:00.000Z"
-            }
-          ],
-          submissions: [
-            {
-              correctness: -1,
-              count: 2,
-              label: "Facetime",
-              contributor: "ivan",
-              addedAt: "2026-09-03T08:00:00.000Z",
-              updatedAt: "2026-09-03T08:00:00.000Z"
-            }
-          ],
-          slots: []
-        },
-        external: {
-          anchors: [],
-          suggestions: [],
-          submissions: [],
-          slots: []
-        }
-      };
-      const aiState: AiAnswerState = {
-        status: "idle",
-        answer: null,
-        confidence: null,
-        actions: [],
-        error: null
-      };
-      const shadowRoot = host.attachShadow({ mode: "open" });
-      shadowRoot.innerHTML = menu.getAnswerMenuMarkup(sourceData, false, aiState, false, false);
-      host.dataset.open = "true";
-      host.dataset.theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
-      menu.attachAnswerHovercards(shadowRoot);
-
-      const cleanups: Array<() => void> = [];
-      const on = (target: Element, type: string, listener: EventListener) => {
-        target.addEventListener(type, listener);
-        cleanups.push(() => target.removeEventListener(type, listener));
-      };
-      const menuItems = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-item"));
-      const menuTabs = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-tab[data-menu-tab]"));
-      const menuPanels = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-panel[data-menu-panel]"));
-      const menuBox = shadowRoot.querySelector<HTMLElement>(".menu");
-
-      const setActiveMenuItem = (nextItem: HTMLElement | null) => {
-        for (const item of menuItems) {
-          item.dataset.active = item === nextItem ? "true" : "false";
-        }
-      };
-
-      for (const item of menuItems) {
-        item.dataset.active = "false";
-        on(item, "mouseenter", () => setActiveMenuItem(item));
-        on(item, "focusin", () => setActiveMenuItem(item));
-      }
-
-      if (menuBox) {
-        on(menuBox, "mouseleave", () => setActiveMenuItem(null));
-      }
-
-      for (const tab of menuTabs) {
-        on(tab, "click", (event) => {
-          event.stopPropagation();
-          const tabKey = tab.dataset.menuTab ?? "";
-
-          for (const otherTab of menuTabs) {
-            const isActive = otherTab === tab;
-            otherTab.dataset.active = isActive ? "true" : "false";
-            otherTab.setAttribute("aria-selected", String(isActive));
-          }
-
-          for (const panel of menuPanels) {
-            panel.dataset.active = panel.dataset.menuPanel === tabKey ? "true" : "false";
-          }
-
-          setActiveMenuItem(null);
-        });
-      }
-
-      cleanupInteractions = () => {
-        for (const cleanup of cleanups) {
-          cleanup();
-        }
-      };
-    });
-
-    return () => {
-      cancelled = true;
-      cleanupInteractions?.();
-    };
-  }, []);
-
-  return (
-    <section className="settings-panel__rows">
-      <h2>{t("settings.preview.tooltip.title")}</h2>
-      <p>{t("settings.preview.tooltip.line")}</p>
-      <div
-        ref={hostRef}
-        className="tooltip-preview"
-        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, minHeight: 120 }}
-      />
-    </section>
-  );
 }
 
 function GearIcon() {  return (
@@ -432,6 +307,56 @@ export function MainScreen({
     models: [],
     message: null
   });
+  // Latest-value refs: async model fetches outlive provider switches, and the
+  // completion handlers must decide staleness against *current* state, not the
+  // snapshot captured when the request was issued.
+  const aiDraftRef = useRef(aiDraft);
+  const aiModelsStateRef = useRef(aiModelsState);
+
+  // Sync the in-memory permission cache with the browser's actual state.
+  // This must happen synchronously on component mount: the permission prompt
+  // must be shown from a user gesture, and the UI must reflect the current
+  // grant status before the user interacts with the form.
+  useEffect(() => {
+    refreshBroadPermissionCache().catch(() => {
+      // Ignore errors; the permission cache will fall back to `null`,
+      // which behaves as "not granted" until the user grants it explicitly.
+    });
+  }, []);
+
+  // Auto-save AI settings when the user changes the form, if the connection
+  // is already verified. This prevents data loss when the user accidentally
+  // closes the popup without clicking "Save".
+  const prevAiSettingsRef = useRef<AiSettings>(settings.ai);
+  const canSaveAiSettings = aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget;
+
+  useEffect(() => {
+    prevAiSettingsRef.current = settings.ai;
+  }, [settings.ai]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (canSaveAiSettings && JSON.stringify(prevAiSettingsRef.current) !== JSON.stringify(aiDraft)) {
+        const nextAiSettings = normalizeAiSettings({
+          ...aiDraft,
+          apiKey: aiDraft.apiKey.trim(),
+          connectionVerified: true,
+          verifiedAt: aiTestState.verifiedAt
+        });
+        onSettingsChange({ ...settings, ai: nextAiSettings });
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [aiDraft, aiTestState, canSaveAiSettings, settings, onSettingsChange]);
+
+  useEffect(() => {
+    aiDraftRef.current = aiDraft;
+  }, [aiDraft]);
+
+  useEffect(() => {
+    aiModelsStateRef.current = aiModelsState;
+  }, [aiModelsState]);
 
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     onSettingsChange({ ...settings, [key]: value });
@@ -501,7 +426,6 @@ export function MainScreen({
     ? `${aiDraft.provider}:${aiDraft.provider === "openrouter" ? "public" : aiDraft.apiKey.trim()}`
     : null;
   const canTestAiConnection = Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
-  const canSaveAiSettings = aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget;
   const hasSavedAiKey = settings.ai.connectionVerified && Boolean(settings.ai.apiKey.trim());
 
   function updateAiDraft(patch: Partial<AiSettings>) {
@@ -536,8 +460,14 @@ export function MainScreen({
       return;
     }
 
+    // Capture the provider/payload now: the await below can outlive a provider
+    // switch, and reading aiDraft after it would stamp a response with whatever
+    // provider is current at that later moment.
+    const requestProvider = aiDraft.provider;
+    const requestDraft = { ...aiDraft, apiKey: aiDraft.apiKey.trim() };
+
     setAiModelsState({
-      provider: aiDraft.provider,
+      provider: requestProvider,
       requestKey,
       status: "loading",
       models: [],
@@ -545,41 +475,48 @@ export function MainScreen({
     });
 
     try {
-      const response = await requestAiModels({
-        ...aiDraft,
-        apiKey: aiDraft.apiKey.trim()
-      });
+      const response = await requestAiModels(requestDraft);
 
       if (!response.ok || !response.models?.length) {
-        setAiModelsState({
-          provider: aiDraft.provider,
-          requestKey,
-          status: "error",
-          models: [],
-          message: response.error ?? t("settings.ai.status.modelsError")
-        });
+        setAiModelsState((current) => current.requestKey === requestKey
+          ? {
+            provider: requestProvider,
+            requestKey,
+            status: "error",
+            models: [],
+            message: response.error ?? t("settings.ai.status.modelsError")
+          }
+          : current);
         return;
       }
 
-      setAiModelsState({
-        provider: aiDraft.provider,
-        requestKey,
-        status: "success",
-        models: response.models,
-        message: t("settings.ai.status.modelsLoaded", { count: String(response.models.length) })
-      });
+      const models = response.models;
 
-      if (!response.models.some((model) => model.value === aiDraft.model)) {
-        updateAiDraft({ model: response.models[0].value });
+      setAiModelsState((current) => current.requestKey === requestKey
+        ? {
+          provider: requestProvider,
+          requestKey,
+          status: "success",
+          models,
+          message: t("settings.ai.status.modelsLoaded", { count: String(models.length) })
+        }
+        : current);
+
+      // The response still describes models for requestProvider; only reset the
+      // draft's model if the user has not switched providers meanwhile.
+      if (aiDraftRef.current.provider === requestProvider && !models.some((model) => model.value === aiDraftRef.current.model)) {
+        updateAiDraft({ model: models[0].value });
       }
     } catch (error) {
-      setAiModelsState({
-        provider: aiDraft.provider,
-        requestKey,
-        status: "error",
-        models: [],
-        message: error instanceof Error ? error.message : t("settings.ai.status.modelsError")
-      });
+      setAiModelsState((current) => current.requestKey === requestKey
+        ? {
+          provider: requestProvider,
+          requestKey,
+          status: "error",
+          models: [],
+          message: error instanceof Error ? error.message : t("settings.ai.status.modelsError")
+        }
+        : current);
     }
   }
 
@@ -598,6 +535,20 @@ export function MainScreen({
   }, [aiModelsAutoRequestKey, aiModelsState.requestKey]);
 
   async function handleTestAiConnection() {
+    // The custom-endpoint flow needs the optional broad host permission; the
+    // browser prompt must open synchronously inside this user gesture, so it is
+    // the very first thing the handler does.
+    const requiresBroadPermission = isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint);
+
+    if (requiresBroadPermission && !(await requestBroadHostPermission())) {
+      setAiTestState({
+        status: "error",
+        message: t("settings.ai.status.permissionDenied"),
+        verifiedAt: null
+      });
+      return;
+    }
+
     setAiTestState({ status: "checking", message: t("settings.ai.status.checking"), verifiedAt: null });
 
     try {
@@ -634,6 +585,18 @@ export function MainScreen({
 
   function handleSaveAiSettings() {
     if (!canSaveAiSettings || !aiTestState.verifiedAt) {
+      return;
+    }
+
+    // Saving is also a user gesture, but the permission is requested on the
+    // Test button (the prompt must open synchronously); here we only refuse to
+    // persist a custom endpoint while the grant is missing.
+    if (isCustomProviderFlow(aiDraft) && !isBroadHostPermissionGrantedSync()) {
+      setAiTestState({
+        status: "error",
+        message: t("settings.ai.status.permissionDenied"),
+        verifiedAt: null
+      });
       return;
     }
 
@@ -964,7 +927,6 @@ export function MainScreen({
               </button>
             </a>
           </div>
-          {import.meta.env.DEV && <TooltipPreview />}
         </div>
       );
     }
@@ -998,6 +960,60 @@ export function MainScreen({
               checked={settings.autoSelect}
               label={t("settings.autoselect.title")}
               onChange={(checked) => updateSetting("autoSelect", checked)}
+            />
+          }
+        />
+        {settings.autoSelect && (
+          <SettingPanelRow
+            title={t("settings.autoselectAvg.title")}
+            lines={[t("settings.autoselectAvg.line"), ""]}
+            control={
+              <div className="autoselect-timing">
+                <div className="autoselect-timing__chips" role="group" aria-label={t("settings.autoselectAvg.title")}>
+                  {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`autoselect-timing__chip ${
+                        settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
+                          ? "autoselect-timing__chip--active"
+                          : ""
+                      }`}
+                      onClick={() => updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])}
+                    >
+                      {t(`settings.autoselectTempo.${preset}`)}
+                    </button>
+                  ))}
+                </div>
+                <div className="autoselect-timing__slider">
+                  <input
+                    className="opacity-slider"
+                    type="range"
+                    min={1}
+                    max={30}
+                    step={0.5}
+                    value={settings.autoSelectAvgSeconds}
+                    aria-label={t("settings.autoselectAvg.title")}
+                    onChange={(event) => updateSetting("autoSelectAvgSeconds", Number(event.target.value))}
+                  />
+                  <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
+                </div>
+              </div>
+            }
+          />
+        )}
+        <SettingPanelRow
+          title={t("settings.attemptStatusPanel.title")}
+          lines={
+            settings.attemptStatusPanelClosed
+              ? [t("settings.attemptStatusPanel.off.line1"), t("settings.attemptStatusPanel.off.line2")]
+              : [t("settings.attemptStatusPanel.on.line1"), t("settings.attemptStatusPanel.on.line2")]
+          }
+          control={
+            <Switch
+              checked={!settings.attemptStatusPanelClosed}
+              label={t("settings.attemptStatusPanel.title")}
+              onChange={(visible) => updateSetting("attemptStatusPanelClosed", !visible)}
             />
           }
         />

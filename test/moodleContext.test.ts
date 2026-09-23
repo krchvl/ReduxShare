@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findMoodleAttemptIdFromPage, findMoodleUserIdFromPage } from "../src/content/quizAttempt/moodleContext";
+import { findMoodleAttemptIdFromPage, findMoodleUserIdFromPage } from "../src/moodleContext";
 
 describe("findMoodleAttemptIdFromPage", () => {
   it("reads numeric attempt ids from the page URL", () => {

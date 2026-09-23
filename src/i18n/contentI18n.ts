@@ -1,9 +1,7 @@
-import type { LanguageSetting } from "./model";
+import { createTranslator, type I18nParams, type Translator } from "../shared/i18nCore";
+import type { LanguageSetting } from "../model";
 
-type ContentResolvedLanguage = "ru" | "en";
-type ContentI18nParams = Record<string, string | number | boolean | null | undefined>;
-
-const CONTENT_TRANSLATIONS = {
+export const CONTENT_TRANSLATIONS = {
   ru: {
     "quiz.panel.user": "Пользователь",
     "quiz.panel.time": "До окончания теста",
@@ -16,6 +14,7 @@ const CONTENT_TRANSLATIONS = {
     "quiz.panel.subtitle": "Обзор попытки",
     "quiz.panel.collapse": "Свернуть панель",
     "quiz.panel.expand": "Развернуть панель",
+    "quiz.panel.close": "Закрыть панель",
     "quiz.menu.internalSources": "Внутренние источники",
     "quiz.menu.externalSources": "Внешние источники",
     "quiz.menu.aiTools": "Инструменты ИИ",
@@ -30,7 +29,19 @@ const CONTENT_TRANSLATIONS = {
     "quiz.menu.addedBy": "Добавил {user}",
     "quiz.menu.addedAt": "Добавлено {date}",
     "quiz.menu.updatedAt": "Обновлено {date}",
-    "quiz.ordering.position": "Позиция {position}"
+    "quiz.ordering.position": "Позиция {position}",
+    "quiz.preview.button": "Показать вопросы",
+    "quiz.preview.title": "Вопросы квиза",
+    "quiz.preview.subtitle": "Обзор без попытки",
+    "quiz.preview.loading": "Загрузка вопросов...",
+    "quiz.preview.empty": "Вопросы не найдены",
+    "quiz.preview.authRequired": "Войдите в аккаунт расширения, чтобы увидеть сохранённые ответы",
+    "quiz.preview.error": "Не удалось загрузить вопросы",
+    "quiz.preview.question": "Вопрос {number}",
+    "quiz.preview.conditionMissing": "Условие задания не найдено",
+    "quiz.preview.options": "Варианты ответов",
+    "quiz.preview.externalDiscovery": "Ответы внешних источников появятся здесь после того, как вы откроете попытку этого квиза хотя бы один раз — так расширение узнает список заданий.",
+    "quiz.preview.statistic": "Статистика"
   },
   en: {
     "quiz.panel.user": "User",
@@ -44,6 +55,7 @@ const CONTENT_TRANSLATIONS = {
     "quiz.panel.subtitle": "Attempt overview",
     "quiz.panel.collapse": "Collapse panel",
     "quiz.panel.expand": "Expand panel",
+    "quiz.panel.close": "Close panel",
     "quiz.menu.internalSources": "Internal sources",
     "quiz.menu.externalSources": "External sources",
     "quiz.menu.aiTools": "AI tools",
@@ -58,52 +70,27 @@ const CONTENT_TRANSLATIONS = {
     "quiz.menu.addedBy": "Added by {user}",
     "quiz.menu.addedAt": "Added {date}",
     "quiz.menu.updatedAt": "Updated {date}",
-    "quiz.ordering.position": "Position {position}"
+    "quiz.ordering.position": "Position {position}",
+    "quiz.preview.button": "Show questions",
+    "quiz.preview.title": "Quiz questions",
+    "quiz.preview.subtitle": "Overview without an attempt",
+    "quiz.preview.loading": "Loading questions...",
+    "quiz.preview.empty": "No questions found",
+    "quiz.preview.authRequired": "Sign in to the extension account to see saved answers",
+    "quiz.preview.error": "Failed to load questions",
+    "quiz.preview.question": "Question {number}",
+    "quiz.preview.conditionMissing": "Question statement not found",
+    "quiz.preview.options": "Answer options",
+    "quiz.preview.externalDiscovery": "External answers will appear here after you open an attempt of this quiz at least once — that is how the extension learns the question list.",
+    "quiz.preview.statistic": "Statistics"
   }
 } as const;
 
 export type ContentTranslationKey = keyof typeof CONTENT_TRANSLATIONS.ru;
-export type TranslateFn = (key: ContentTranslationKey, params?: ContentI18nParams) => string;
+export type TranslateFn = Translator<ContentTranslationKey>;
 
-function getContentBrowserLanguage() {
-  if (typeof chrome !== "undefined" && chrome.i18n?.getUILanguage) {
-    return chrome.i18n.getUILanguage();
-  }
-
-  if (typeof navigator !== "undefined") {
-    return navigator.language;
-  }
-
-  return undefined;
-}
-
-function resolveContentLanguage(
-  language: LanguageSetting | undefined,
-  browserLanguage = getContentBrowserLanguage()
-): ContentResolvedLanguage {
-  if (language === "ru" || language === "en") {
-    return language;
-  }
-
-  return (browserLanguage?.toLowerCase() ?? "").startsWith("en") ? "en" : "ru";
-}
-
-function interpolateContentTranslation(template: string, params: ContentI18nParams | undefined) {
-  if (!params) {
-    return template;
-  }
-
-  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key: string) => {
-    const value = params[key];
-    return value === null || value === undefined ? match : String(value);
-  });
-}
-
+// Same resolution, interpolation and fallback rules as the popup translator; only the table is
+// content-specific, because the content bundle cannot import the popup locale JSON files.
 export function getContentTranslator(language: LanguageSetting | undefined): TranslateFn {
-  const resolvedLanguage = resolveContentLanguage(language);
-
-  return (key, params) => {
-    const template = CONTENT_TRANSLATIONS[resolvedLanguage][key] ?? CONTENT_TRANSLATIONS.ru[key] ?? key;
-    return interpolateContentTranslation(template, params);
-  };
+  return createTranslator(CONTENT_TRANSLATIONS, language);
 }

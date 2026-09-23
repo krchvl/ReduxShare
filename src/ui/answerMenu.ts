@@ -1,5 +1,6 @@
-import { DEFAULT_ACCENT_COLOR, type AiAnswerState, type AnswerData, type SourceAnswerData, type StoredStateLike, type SubmissionItem, type SuggestionItem } from "./model";
-import { getContentTranslator, type TranslateFn } from "./contentI18n";
+import { DEFAULT_ACCENT_COLOR, type AiAnswerState, type AnswerData, type SourceAnswerData, type StoredStateLike, type SubmissionItem, type SuggestionItem } from "../model";
+import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
+import { getBooleanSuggestionValue } from "../shared/answerParsing";
 
 let currentT: TranslateFn = getContentTranslator(undefined);
 
@@ -85,20 +86,6 @@ function getAnswerMetaDataAttributes(item: { contributor?: string | null; addedA
   }
 
   return attributes.length > 0 ? ` ${attributes.join(" ")}` : "";
-}
-
-function getBooleanSuggestionValue(label: string) {
-  const normalizedLabel = label.trim().toLowerCase();
-
-  if (normalizedLabel === "true") {
-    return true;
-  }
-
-  if (normalizedLabel === "false") {
-    return false;
-  }
-
-  return null;
 }
 
 function getRenderableExactSuggestions(suggestions: SuggestionItem[]) {
@@ -645,12 +632,73 @@ export function getAnswerTriggerMarkup() {
         outline: 0;
         transform: translateY(-1px);
       }
+
+      .delay-progress {
+        position: absolute;
+        right: 0;
+        bottom: -9px;
+        left: 0;
+        height: 5px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.38);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .delay-progress-fill {
+        width: 0%;
+        height: 100%;
+        background: var(--reduxshare-accent);
+        transition: width 120ms linear;
+      }
     </style>
 
     <div class="widget">
       <button class="trigger" type="button" aria-label="ReduxShare" aria-haspopup="menu" aria-expanded="false">R</button>
     </div>
   `;
+}
+
+const ANSWER_DELAY_PROGRESS_CLASS = "delay-progress";
+
+// A pending human-like auto-select shows how long it will wait on the widget of its question.
+// `ratio` is null when the wait is over and the bar has to disappear again.
+export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) {
+  const shadowRoot = host.shadowRoot;
+
+  if (!shadowRoot) {
+    return;
+  }
+
+  const existing = shadowRoot.querySelector<HTMLElement>(`.${ANSWER_DELAY_PROGRESS_CLASS}`);
+
+  if (ratio === null) {
+    existing?.remove();
+    return;
+  }
+
+  const progress =
+    existing ??
+    (() => {
+      const element = document.createElement("span");
+      element.className = ANSWER_DELAY_PROGRESS_CLASS;
+      element.setAttribute("role", "progressbar");
+      element.setAttribute("aria-label", "ReduxShare");
+      element.innerHTML = `<span class="delay-progress-fill"></span>`;
+      shadowRoot.append(element);
+      return element;
+    })();
+  const percent = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+  const fill = progress.querySelector<HTMLElement>(".delay-progress-fill");
+
+  progress.setAttribute("aria-valuemin", "0");
+  progress.setAttribute("aria-valuemax", "100");
+  progress.setAttribute("aria-valuenow", String(percent));
+
+  if (fill) {
+    fill.style.width = `${percent}%`;
+  }
 }
 
 export function getAnswerMenuMarkup(

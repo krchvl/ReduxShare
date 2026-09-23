@@ -8,6 +8,23 @@ const LEGACY_THEME_OPTIONS = [
   { name: "Peace", accent: "#76d982" }
 ] as const;
 
+export type LegacyTheme = "Night" | "Devil" | "Peace";
+
+export interface LegacyStoredSettings {
+  theme?: LegacyTheme;
+}
+
+export type AutoSelectTempoPreset = "realistic" | "balanced" | "brisk";
+
+// Avg answer time per tempo. `autoSelectAvgSeconds` stays the source of truth in storage, so a
+// manual slider value simply stops matching any preset (and no chip renders as active).
+// Avg answer time per tempo. "Balanced" doubles as the default, so a fresh install highlights it.
+export const AUTO_SELECT_TEMPO_PRESETS = {
+  realistic: 12,
+  balanced: 4,
+  brisk: 1.5
+} as const satisfies Record<AutoSelectTempoPreset, number>;
+
 export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
 
 export type LanguageSetting = "auto" | "ru" | "en";
@@ -60,6 +77,9 @@ export interface Settings {
   copyUnlock: boolean;
   autoSelect: boolean;
   autoSelectAvgSeconds: number;
+  // Turned off by closing the attempt status panel with its close button; flipping it back on
+  // in the popup re-renders the panel on the open attempt page. Not persisted.
+  attemptStatusPanelClosed: boolean;
   hotkey: string;
   hotkeyCode: string;
   accentColor: string;
@@ -133,7 +153,7 @@ export interface QuizAttemptContext {
 }
 
 export interface StoredState {
-  settings: Settings;
+  settings: Settings & Partial<LegacyStoredSettings>;
   authSession: AuthSession | null;
   userProfile: UserProfile | null;
   latestQuizAttemptContext?: QuizAttemptContext | null;
@@ -146,6 +166,7 @@ export const DEFAULT_SETTINGS: Settings = {
   copyUnlock: false,
   autoSelect: true,
   autoSelectAvgSeconds: 4,
+  attemptStatusPanelClosed: false,
   hotkey: DEFAULT_HOTKEY,
   hotkeyCode: DEFAULT_HOTKEY_CODE,
   accentColor: DEFAULT_ACCENT_COLOR,
@@ -278,19 +299,20 @@ export function normalizeAutoSelectAvgSeconds(value: unknown) {
     return DEFAULT_SETTINGS.autoSelectAvgSeconds;
   }
 
-  return Math.min(15, Math.max(1, value));
+  return Math.min(30, Math.max(1, Math.round(value * 10) / 10));
 }
 
-export function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
+export function normalizeSettings(settings: Partial<Settings> & Partial<LegacyStoredSettings> | undefined): Settings {
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
     stealthMode: settings?.stealthMode ?? DEFAULT_SETTINGS.stealthMode,
     copyUnlock: settings?.copyUnlock ?? DEFAULT_SETTINGS.copyUnlock,
     autoSelect: settings?.autoSelect ?? DEFAULT_SETTINGS.autoSelect,
+    attemptStatusPanelClosed: settings?.attemptStatusPanelClosed === true,
     autoSelectAvgSeconds: normalizeAutoSelectAvgSeconds(settings?.autoSelectAvgSeconds),
     hotkey: normalizeHotkeyValue(settings?.hotkey),
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
-    accentColor: normalizeAccentColor(settings?.accentColor ?? (settings as Partial<Settings> & { theme?: unknown })?.theme),
+    accentColor: normalizeAccentColor(settings?.accentColor ?? (settings as Partial<LegacyStoredSettings>)?.theme),
     language: isLanguageSetting(settings?.language) ? settings.language : DEFAULT_SETTINGS.language,
     colorScheme: isColorSchemeSetting(settings?.colorScheme) ? settings.colorScheme : DEFAULT_SETTINGS.colorScheme,
     popupOpacity: settings?.popupOpacity ?? DEFAULT_SETTINGS.popupOpacity,

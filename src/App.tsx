@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
@@ -12,6 +13,7 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_STORED_STATE,
   DEFAULT_UPDATE_STATE,
+  LegacyStoredSettings,
   normalizeSettings,
   resolveColorScheme,
   type AuthSession,
@@ -267,37 +269,39 @@ export function App() {
 
   return (
     <I18nProvider language={settings.language}>
-      <Shell extensionEnabled={settings.extensionEnabled} accentColor={settings.accentColor} updateState={updateState} popupOpacity={settings.popupOpacity}>
-        {view === "login" && (
-          <LoginScreen
-            isLoading={isLoginLoading}
-            errorMessage={loginError}
-            onLogin={handleLogin}
-            onOpenRegister={() => setView("register")}
-          />
-        )}
-        {view === "register" && (
-          <RegisterScreen
-            isLoading={isRegisterLoading}
-            message={registerMessage}
-            onRegister={handleRegister}
-            onOpenLogin={() => setView("login")}
-          />
-        )}
-        {view === "main" && (
-          <Suspense fallback={null}>
-            <MainScreen
-              settings={settings}
-              updateState={updateState}
-              isCheckingUpdates={isCheckingUpdates}
-              onSettingsChange={setSettings}
-              onCheckUpdates={handleCheckUpdates}
-              onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
-              onLogout={handleLogout}
+      <ErrorBoundary>
+        <Shell extensionEnabled={settings.extensionEnabled} accentColor={settings.accentColor} updateState={updateState} popupOpacity={settings.popupOpacity}>
+          {view === "login" && (
+            <LoginScreen
+              isLoading={isLoginLoading}
+              errorMessage={loginError}
+              onLogin={handleLogin}
+              onOpenRegister={() => setView("register")}
             />
-          </Suspense>
-        )}
-      </Shell>
+          )}
+          {view === "register" && (
+            <RegisterScreen
+              isLoading={isRegisterLoading}
+              message={registerMessage}
+              onRegister={handleRegister}
+              onOpenLogin={() => setView("login")}
+            />
+          )}
+          {view === "main" && (
+            <Suspense fallback={null}>
+              <MainScreen
+                settings={settings}
+                updateState={updateState}
+                isCheckingUpdates={isCheckingUpdates}
+                onSettingsChange={setSettings}
+                onCheckUpdates={handleCheckUpdates}
+                onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
+                onLogout={handleLogout}
+              />
+            </Suspense>
+          )}
+        </Shell>
+      </ErrorBoundary>
     </I18nProvider>
   );
 }

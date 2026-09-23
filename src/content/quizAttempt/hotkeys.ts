@@ -1,4 +1,4 @@
-import { DEFAULT_HOTKEY, DEFAULT_HOTKEY_CODE } from "./model";
+import { DEFAULT_HOTKEY, DEFAULT_HOTKEY_CODE } from "../../model";
 
 const NON_BINDABLE_HOTKEYS = new Set([
   "Alt",
@@ -166,4 +166,36 @@ export function hotkeyMatchesEvent(hotkey: string, hotkeyCode: string, event: Ke
   }
 
   return formatHotkeyBindingFromKeyboardEvent(event)?.code === normalizeHotkeyCode(hotkeyCode, hotkey);
+}
+
+// Typing into an input, a textarea or a rich-text field must never be swallowed by the hotkey.
+export function isEditableHotkeyTarget(event: KeyboardEvent) {
+  const firstElementTarget = event
+    .composedPath()
+    .find((target): target is Element => target instanceof Element);
+
+  if (!firstElementTarget) {
+    return false;
+  }
+
+  if (
+    firstElementTarget instanceof HTMLInputElement ||
+    firstElementTarget instanceof HTMLTextAreaElement ||
+    firstElementTarget instanceof HTMLSelectElement
+  ) {
+    return true;
+  }
+
+  if (
+    firstElementTarget instanceof HTMLElement &&
+    firstElementTarget.isContentEditable
+  ) {
+    return true;
+  }
+
+  return Boolean(
+    firstElementTarget.closest(
+      "[contenteditable=''], [contenteditable='true']",
+    ),
+  );
 }

@@ -225,7 +225,7 @@ describe("R-menu source rendering", () => {
   });
 
   it("shows a hovercard with metadata near the cursor", async () => {
-    const { attachAnswerHovercards } = await import("../src/content/quizAttempt/answerMenu");
+    const { attachAnswerHovercards } = await import("../src/ui/answerMenu");
     const api = await getQuizAttemptTestApi();
     const root = renderMenu(
       api.getAnswerMenuMarkup(
@@ -273,7 +273,7 @@ describe("R-menu source rendering", () => {
   });
 
   it("flips the hovercard to the left near the viewport edge", async () => {
-    const { attachAnswerHovercards } = await import("../src/content/quizAttempt/answerMenu");
+    const { attachAnswerHovercards } = await import("../src/ui/answerMenu");
     const api = await getQuizAttemptTestApi();
     const root = renderMenu(
       api.getAnswerMenuMarkup(

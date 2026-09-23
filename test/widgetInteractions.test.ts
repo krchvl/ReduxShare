@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AnswerSlotData, SourceAnswerData } from "../src/model";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
+import { setCurrentStoredState } from "../src/state";
+import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncPageOverlayOpacity, syncAnswerWidgetHotkey } from "../src/content/quizAttempt";
 import {
   answerSlot,
   exactAnswerData,
@@ -87,8 +90,17 @@ describe("R-menu widget interactions", () => {
       },
       authSession: null
     });
-    api.watchStoredSettingsChanges();
+    // Manual sync of settings changes (equivalent to watchStoredSettingsChanges)
+    const currentState = api.getStoredState();
+    setCurrentStoredState(currentState);
+    syncLanguage(currentState);
+    syncStealthMode(currentState);
+    syncAnswerWidgetHotkey(currentState);
+    syncPageOverlayOpacity(currentState);
     api.mountAnswerWidgets("#9cb9f6");
+
+    // Register the storage watcher so chrome.storage.local.set triggers the live-update path
+    api.watchStoredSettingsChanges();
 
     const hosts = Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'));
     expect(hosts.length).toBeGreaterThan(0);
@@ -96,8 +108,6 @@ describe("R-menu widget interactions", () => {
       expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#9cb9f6");
     }
 
-    const onChanged = (chrome.storage.onChanged.addListener as unknown as { mock: { calls: unknown[][] } }).mock
-      .calls[0][0] as (changes: Record<string, { newValue?: unknown }>, areaName: string) => void;
     const storedState = {
       settings: {
         extensionEnabled: true,
@@ -108,27 +118,23 @@ describe("R-menu widget interactions", () => {
       authSession: null
     };
 
-    // First dispatch initializes the attempt context (async); the second one
-    // exercises the live-update path like a real settings change would.
-    onChanged({ reduxshare: { newValue: storedState } }, "local");
+    // The mock now dispatches onChanged from storage.local.set like real Chrome:
+    // first write initializes the attempt context (async), the second one exercises
+    // the live-update path.
+    await chrome.storage.local.set({ reduxshare: storedState });
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    onChanged(
-      {
-        reduxshare: {
-          newValue: {
-            settings: {
-              extensionEnabled: true,
-              stealthMode: true,
-              language: "ru",
-              accentColor: "#ff0000"
-            },
-            authSession: null
-          }
-        }
-      },
-      "local"
-    );
+    await chrome.storage.local.set({
+      reduxshare: {
+        settings: {
+          extensionEnabled: true,
+          stealthMode: true,
+          language: "ru",
+          accentColor: "#ff0000"
+        },
+        authSession: null
+      }
+    });
 
     for (const host of Array.from(document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'))) {
       expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#ff0000");
@@ -968,9 +974,9 @@ describe("human-like auto-select scheduling", () => {
   }
 
   function dispatchStorageChange(state: unknown) {
-    const onChanged = (chrome.storage.onChanged.addListener as unknown as { mock: { calls: unknown[][] } }).mock
-      .calls[0][0] as (changes: Record<string, { newValue?: unknown }>, areaName: string) => void;
-    onChanged({ reduxshare: { newValue: state } }, "local");
+    // The storage mock dispatches onChanged from set() itself; awaiting the write
+    // delivers the change to the registered content-script watcher.
+    return chrome.storage.local.set({ reduxshare: state });
   }
 
   it("applies auto-select through the storage watcher flow", async () => {
@@ -978,7 +984,13 @@ describe("human-like auto-select scheduling", () => {
     loadQuestionFixture("match", "attempt");
     removeFixtureWidgetPlaceholders();
     api.setStoredState(baseStoredState());
-    api.watchStoredSettingsChanges();
+    // Manual sync of settings changes (equivalent to watchStoredSettingsChanges)
+    const currentState = baseStoredState();
+    setCurrentStoredState(currentState);
+    syncLanguage(currentState);
+    syncStealthMode(currentState);
+    syncAnswerWidgetHotkey(currentState);
+    syncPageOverlayOpacity(currentState);
     api.setSourceAnswerData(
       "3699",
       "external",
@@ -990,13 +1002,16 @@ describe("human-like auto-select scheduling", () => {
     );
     api.mountAnswerWidgets("#5eead4");
 
-    dispatchStorageChange(baseStoredState());
+    // Register the storage watcher so dispatchStorageChange triggers auto-select scheduling
+    api.watchStoredSettingsChanges();
+
+    await dispatchStorageChange(baseStoredState());
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     // The first dispatch initializes the attempt context; the second one
     // runs the live-update path like a real settings/data change would.
     // (Test mode applies immediately without timers or progress bars.)
-    dispatchStorageChange(baseStoredState());
+    await dispatchStorageChange(baseStoredState());
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     expect((document.getElementById("menuq126:12_sub0") as HTMLSelectElement).value).toBe("2");
@@ -1025,6 +1040,22 @@ describe("human-like auto-select scheduling", () => {
     expect(mean).toBeLessThan(5000);
   });
 
+  it("randomizes the delay spread between questions", async () => {
+    const api = await getQuizAttemptTestApi();
+    const random = deterministicRandom();
+    const delays = Array.from({ length: 300 }, () => api.computeAutoSelectDelayMs(4, random, null));
+
+    // Spread is randomized in [0.25, 0.55], so avg 4s lands within [1.8s, 6.2s].
+    for (const delay of delays) {
+      expect(delay).toBeGreaterThanOrEqual(1800);
+      expect(delay).toBeLessThanOrEqual(6200);
+    }
+
+    // The old build used a fixed +-40% spread; exceeding it proves the spread is randomized.
+    const maxDeviation = Math.max(...delays.map((delay) => Math.abs(delay - 4000) / 4000));
+    expect(maxDeviation).toBeGreaterThan(0.42);
+  });
+
   it("falls back to safe defaults for invalid averages", async () => {
     const api = await getQuizAttemptTestApi();
 
@@ -1049,6 +1080,34 @@ describe("human-like auto-select scheduling", () => {
     expect(api.parseQuizTimeLeftSeconds("1:02:03")).toBe(3723);
     expect(api.parseQuizTimeLeftSeconds(null)).toBeNull();
     expect(api.parseQuizTimeLeftSeconds("unlimited")).toBeNull();
+  });
+
+  it("binds review-learned boolean slots to the right checkboxes on the next attempt", async () => {
+    const api = await getQuizAttemptTestApi();
+    document.body.innerHTML = `<div id="question-127-1" class="que multichoice deferredfeedback notyetanswered"><div class="info"><h3 class="no">Question <span class="qno">1</span></h3><div class="state">Not yet answered</div><div class="grade">Marked out of 1.00</div><div class="questionflag editable"><input type="hidden" name="q127:1_:flagged" value="0"><input type="hidden" value="qaid=893&amp;qubaid=127&amp;qid=1385&amp;slot=1&amp;checksum=d9d036b49aaf83eccd86eb2263452893&amp;sesskey=aFHd5HyKHw&amp;newstate=" class="questionflagpostdata"></div></div><div class="content"><div class="formulation clearfix"><h4 class="accesshide">Question text</h4><input type="hidden" name="q127:1_:sequencecheck" value="1"><div class="qtext"><div class="clearfix">Research from Harvard shows the mind wanders, on average.....</div></div><fieldset class="ablock no-overflow visual-scroll-x"><legend class="prompt h6 fw-normal visually-hidden"><span class="visually-hidden">Question 1</span> Answer</legend><div class="answer"><div class="r0"><input type="hidden" name="q127:1_choice0" value="0"><input type="checkbox" name="q127:1_choice0" value="1" id="q127:1_choice0" aria-labelledby="q127:1_choice0_label"><div class="d-flex w-auto" id="q127:1_choice0_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr" style="text-align: left;">63 percent of the time.</p></div></div></div><div class="r1"><input type="hidden" name="q127:1_choice1" value="0"><input type="checkbox" name="q127:1_choice1" value="1" id="q127:1_choice1" aria-labelledby="q127:1_choice1_label"><div class="d-flex w-auto" id="q127:1_choice1_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr" style="text-align: left;">23 percent of the time.</p></div></div></div><div class="r0"><input type="hidden" name="q127:1_choice2" value="0"><input type="checkbox" name="q127:1_choice2" value="1" id="q127:1_choice2" aria-labelledby="q127:1_choice2_label"><div class="d-flex w-auto" id="q127:1_choice2_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr" style="text-align: left;">between 10 and 20 percent of the time.</p></div></div></div><div class="r1"><input type="hidden" name="q127:1_choice3" value="0"><input type="checkbox" name="q127:1_choice3" value="1" id="q127:1_choice3" aria-labelledby="q127:1_choice3_label"><div class="d-flex w-auto" id="q127:1_choice3_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr" style="text-align: left;">47 percent of the time.</p></div></div></div></div></fieldset></div></div></div>`;
+    removeFixtureWidgetPlaceholders();
+
+    // Exactly what the review builder saves for a failed checkbox multichoice:
+    // per-option expected truth with correctness 2, in review-page slot order 1..4.
+    api.setSourceAnswerData(
+      "1385",
+      "reduxshare",
+      slottedAnswerData([
+        answerSlot(1, { anchors: ["63 percent of the time."], suggestions: [slottedExactSuggestion("false", 1)] }),
+        answerSlot(2, { anchors: ["23 percent of the time."], suggestions: [slottedExactSuggestion("true", 2)] }),
+        answerSlot(3, { anchors: ["between 10 and 20 percent of the time."], suggestions: [slottedExactSuggestion("false", 3)] }),
+        answerSlot(4, { anchors: ["47 percent of the time."], suggestions: [slottedExactSuggestion("true", 4)] })
+      ])
+    );
+
+    api.mountAnswerWidgets("#5eead4");
+
+    const slotIndexes = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]')
+    ).map((host) => host.dataset.reduxshareSlotIndex ?? null);
+
+    // Review slots 1..4 must bind 1:1 to the four checkboxes in attempt-page order.
+    expect(slotIndexes).toEqual(["1", "2", "3", "4"]);
   });
 
   it("applies scheduled answers after the delay with a progress bar", async () => {
@@ -1118,7 +1177,7 @@ describe("human-like auto-select scheduling", () => {
       expect(questionNode).toBeInstanceOf(Element);
 
       // The cancel listener is installed once per page load like in production.
-      api.ensureAutoSelectCancelListener();
+      // ensureAutoSelectCancelListener() removed from test API - equivalent behavior is automatic
 
       api.scheduleAutoSelectAnswer(
         "3699",

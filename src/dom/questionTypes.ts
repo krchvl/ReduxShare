@@ -11,7 +11,7 @@ import {
   SELECTABLE_QUESTION_TYPES,
   SUPPORTED_AUTO_SELECT_QUESTION_TYPES,
   TEXT_INPUT_QUESTION_TYPES
-} from "./model";
+} from "../model";
 
 export function getSecondQuestionClass(questionNode: Element) {
   const classNames = Array.from(questionNode.classList);

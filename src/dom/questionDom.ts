@@ -1,4 +1,23 @@
-import { ANSWER_WIDGET_ATTR } from "./model";
+import { ANSWER_WIDGET_ATTR } from "../model";
+
+export function splitSequentialAnswerLabels(labels: string[], expectedCount: number) {
+  if (labels.length !== 1 || expectedCount <= 1) {
+    return labels;
+  }
+
+  const [label] = labels;
+  const delimiters = [/\r?\n+/, /\s*\|\s*/, /\s*;\s*/, /\s+→\s+/, /\s+->\s+/];
+
+  for (const delimiter of delimiters) {
+    const parts = label.split(delimiter).map((part) => part.trim()).filter(Boolean);
+
+    if (parts.length === expectedCount) {
+      return parts;
+    }
+  }
+
+  return labels;
+}
 
 export function normalizeFingerprintText(value: string) {
   return value
@@ -39,6 +58,11 @@ export function getUniqueTexts(values: string[]) {
 }
 
 export function getMoodleAnswerLabelText(container: Element) {
+  const cached = (container as any)._reduxshareLabelCache;
+  if (cached !== undefined) {
+    return cached;
+  }
+
   const clonedContainer = container.cloneNode(true);
 
   if (!(clonedContainer instanceof Element)) {
@@ -51,7 +75,9 @@ export function getMoodleAnswerLabelText(container: Element) {
     node.remove();
   });
 
-  return clonedContainer.textContent ?? "";
+  const text = clonedContainer.textContent ?? "";
+  (container as any)._reduxshareLabelCache = text;
+  return text;
 }
 
 export function getQuestionText(questionNode: Element) {

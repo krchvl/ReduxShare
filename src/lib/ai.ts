@@ -1,8 +1,24 @@
 import type { AiModelOption, AiSettings } from "../types";
+import {
+  FETCH_AI_MODELS_MESSAGE,
+  GENERATE_AI_ANSWER_MESSAGE,
+  TEST_AI_CONNECTION_MESSAGE
+} from "../shared/messages";
+import type {
+  AiAnswerAction,
+  AiAnswerResponse,
+  AiQuestionControl,
+  AiQuestionImage,
+  AiQuestionOption
+} from "../model";
 
-export const TEST_AI_CONNECTION_MESSAGE = "REDUXSHARE_TEST_AI_CONNECTION";
-export const FETCH_AI_MODELS_MESSAGE = "REDUXSHARE_FETCH_AI_MODELS";
-export const GENERATE_AI_ANSWER_MESSAGE = "REDUXSHARE_GENERATE_AI_ANSWER";
+// The canonical shapes of the AI wire data live in src/model.ts next to the other shared
+// answer-data types; this module owns the message protocol on top of them.
+export type { AiAnswerAction, AiQuestionControl, AiQuestionImage, AiQuestionOption };
+
+// Historic name of AiAnswerResponse, kept for the background handlers and tests.
+export interface AiResponse extends AiAnswerResponse {}
+
 export const AI_DISABLED_QUESTION_TYPES = new Set(["ddimageortext", "ddmarker"]);
 
 export interface TestAiConnectionMessage {
@@ -30,50 +46,10 @@ export interface GenerateAiAnswerMessage {
   payload: GenerateAiAnswerPayload;
 }
 
-export interface AiResponse {
-  ok: boolean;
-  answer?: string;
-  confidence?: number;
-  actions?: AiAnswerAction[];
-  error?: string;
-}
-
 export interface AiModelsResponse {
   ok: boolean;
   models?: AiModelOption[];
   error?: string;
-}
-
-export interface AiQuestionOption {
-  label: string;
-  value?: string | null;
-  index?: number | null;
-  groupIndex?: number | null;
-}
-
-export interface AiQuestionControl {
-  kind: "choice" | "select" | "text" | "textarea" | "ordering-item" | "drop" | "marker";
-  label: string;
-  slotIndex?: number | null;
-  index?: number | null;
-  groupIndex?: number | null;
-  options?: AiQuestionOption[];
-}
-
-export interface AiQuestionImage {
-  label: string;
-  url: string;
-  width?: number | null;
-  height?: number | null;
-  naturalWidth?: number | null;
-  naturalHeight?: number | null;
-}
-
-export interface AiAnswerAction {
-  label: string;
-  slotIndex?: number | null;
-  position?: number | null;
-  coordinate?: string | null;
 }
 
 export function isTestAiConnectionMessage(message: unknown): message is TestAiConnectionMessage {

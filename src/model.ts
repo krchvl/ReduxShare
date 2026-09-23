@@ -1,14 +1,7 @@
-export const APP_STORAGE_KEY = "reduxshare";
-export const QUIZ_CONTEXT_STORAGE_KEY = "reduxshareQuizAttemptContext";
-export const QUIZ_PROGRESS_REPORTS_STORAGE_KEY = "reduxshareQuizProgressReports";
-export const QUIZ_REVIEW_PENDING_STORAGE_KEY = "reduxshareQuizReviewPending";
-export const QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY = "reduxshareQuizReviewSaveDiagnostics";
-export const FETCH_QUIZ_ANSWERS_MESSAGE = "REDUXSHARE_FETCH_QUIZ_ANSWERS";
-export const RECORD_QUIZ_PROGRESS_MESSAGE = "REDUXSHARE_RECORD_QUIZ_PROGRESS";
-export const SAVE_REVIEW_ANSWERS_MESSAGE = "REDUXSHARE_SAVE_REVIEW_ANSWERS";
-export const GENERATE_AI_ANSWER_MESSAGE = "REDUXSHARE_GENERATE_AI_ANSWER";
-export const STEALTH_MODE_MESSAGE = "REDUXSHARE_STEALTH_MODE";
-export const STEALTH_MESSAGE_SOURCE = "ReduxShare";
+import type { AuthSession, Settings, UserProfile } from "./types";
+
+// chrome.storage keys live in src/shared/storageKeys.ts and message names in
+// src/shared/messages.ts, so both bundles share one declaration of each.
 export const ANSWER_WIDGET_ATTR = "data-reduxshare-answer-widget";
 export const ANSWER_MENU_PORTAL_ATTR = "data-reduxshare-answer-menu-portal";
 export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
@@ -67,41 +60,19 @@ export const SUPPORTED_WIDGET_QUESTION_TYPES = new Set([
 ]);
 export const UNSUPPORTED_DRAG_DROP_QUESTION_TYPES = new Set<string>();
 
-export type LanguageSetting = "auto" | "ru" | "en";
+export type { LanguageSetting } from "./types";
 
+// What the content script can read back from chrome.storage: whatever the popup wrote, possibly
+// from an older version of the extension, so every field stays optional. The shape is derived
+// from the popup's Settings/AuthSession/UserProfile so a new setting never needs to be declared
+// a second time here.
 export interface StoredStateLike {
-  settings?: {
-    extensionEnabled?: boolean;
-    stealthMode?: boolean;
-    accentColor?: string;
+  settings?: Partial<Settings> & {
+    // Legacy theme name, still read for accounts that never picked an accent color.
     theme?: string;
-    language?: LanguageSetting;
-    colorScheme?: string;
-    popupOpacity?: number;
-    pageOverlayOpacity?: number;
-    hotkey?: string;
-    hotkeyCode?: string;
-    autoSelect?: boolean;
-    ai?: {
-      provider?: string;
-      model?: string;
-      apiKey?: string;
-      connectionVerified?: boolean;
-      verifiedAt?: string | null;
-      customModelName?: string | null;
-      customEndpoint?: string | null;
-    };
   };
-  authSession?: {
-    accessToken?: string;
-    refreshToken?: string;
-    expiresAt?: number | null;
-    user?: {
-      id?: string;
-      email?: string | null;
-    };
-  } | null;
-  userProfile?: UserProfileLike | null;
+  authSession?: Partial<AuthSession> | null;
+  userProfile?: Partial<UserProfile> | null;
   latestQuizAttemptContext?: QuizAttemptContext;
 }
 
@@ -148,19 +119,40 @@ export interface QuizAnswersResponse {
   externalResults?: QuizVariantResult[];
 }
 
-export interface UserProfileLike {
-  id?: string;
-  email?: string;
-  username?: string;
-  moodleDomain?: string | null;
-  solvedTestsCount?: number;
-  solvedTasksCount?: number;
+// Quiz view page (no attempt started): the answer database is queried per quiz
+// instead of per question, so the stored questions themselves act as the quiz's
+// question list.
+export interface QuizPreviewRequestPayload {
+  domain: string;
+  courseId: number | null;
+  quizId: number | null;
+}
+
+export interface QuizPreviewQuestion {
+  questionId: string | null;
+  questionType: string | null;
+  questionHash: string | null;
+  // Statement of the task, stored with the internal answers. Null for questions the
+  // database has answers for but never saw the markup of.
+  questionText: string | null;
+  // Every option the question ever offered (radio/checkbox/select labels), deduplicated.
+  // Empty for free-form question types like shortanswer.
+  answerOptions?: string[];
+  reduxshare: AnswerData;
+  external: AnswerData;
+}
+
+export interface QuizPreviewResponse {
+  ok: boolean;
+  error?: string;
+  authRequired?: boolean;
+  questions?: QuizPreviewQuestion[];
 }
 
 export interface RecordQuizProgressResponse {
   ok: boolean;
   error?: string;
-  userProfile?: UserProfileLike;
+  userProfile?: Partial<UserProfile>;
 }
 
 export interface QuizProgressReports {
@@ -253,6 +245,12 @@ export interface ReviewQuestionPayload {
   questionId: string | null;
   questionType: string | null;
   questionHash: string | null;
+  // Question statement as read from the review page. Stored with the answers so the
+  // quiz view page (which has no question markup) can show the conditions.
+  questionText?: string | null;
+  // Every option the review page rendered for the question (radio/checkbox/select
+  // labels). Stored once per question as the option pool, separate from answers.
+  answerOptions?: string[];
   answers: ReviewAnswerPayload[];
 }
 
@@ -310,6 +308,9 @@ export interface AiQuestionImage {
   height?: number | null;
   naturalWidth?: number | null;
   naturalHeight?: number | null;
+  /** Pre-fetched bytes: the content script inlines same-origin images so the
+   *  service worker never needs host access to the arbitrary quiz origin. */
+  dataUrl?: string | null;
 }
 
 export interface ReviewObservation {

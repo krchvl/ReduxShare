@@ -1,8 +1,7 @@
 import { getLocalizedErrorMessage, getTranslator } from "../i18n";
+import { CHECK_UPDATE_MESSAGE, GET_UPDATE_STATE_MESSAGE } from "../shared/messages";
 import { DEFAULT_UPDATE_STATE, type UpdateSource, type UpdateState } from "../types";
 
-export const CHECK_UPDATE_MESSAGE = "REDUXSHARE_CHECK_UPDATE";
-export const GET_UPDATE_STATE_MESSAGE = "REDUXSHARE_GET_UPDATE_STATE";
 export const UPDATE_ALARM_NAME = "reduxshare-update-check";
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const UPDATE_RETRY_INTERVAL_MS = 6 * 60 * 60 * 1000;

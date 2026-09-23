@@ -111,6 +111,44 @@ export function isAbortError(error: unknown) {
   );
 }
 
+// The provider returns an empty list for an unknown qtype instead of an error,
+// so "no rows" from a possibly-wrong type says nothing about data existence.
+// The probe order puts the common qtypes first; the list mirrors
+// MOODLE_QUESTION_TYPE_LABELS and is bounded per question.
+export const EXTERNAL_TYPE_PROBE_ORDER = [
+  "multichoice",
+  "truefalse",
+  "shortanswer",
+  "matching",
+  "match",
+  "numerical",
+  "gapselect",
+  "ddwtos",
+  "ddmarker",
+  "ddimageortext",
+  "ordering",
+  "essay",
+  "multichoiceset",
+  "multianswer",
+  "calculated",
+  "calculatedsimple",
+  "calculatedmulti"
+] as const;
+
+export const EXTERNAL_TYPE_PROBE_LIMIT = 10;
+
+export function hasExternalAnswerRows(result: ExternalVariantResult) {
+  if (!result.ok) {
+    return false;
+  }
+
+  if (Array.isArray(result.data)) {
+    return result.data.length > 0;
+  }
+
+  return result.data !== null && result.data !== undefined;
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  EXTERNAL_TYPE_PROBE_LIMIT,
+  EXTERNAL_TYPE_PROBE_ORDER,
   buildVariantsUrl,
   fetchQuestionVariants,
+  hasExternalAnswerRows,
   isAbortError,
   normalizeExternalVariantsData,
   type ExternalVariantsPayload
@@ -70,6 +73,26 @@ describe("normalizeExternalVariantsData", () => {
   it("flags primitives such as HTML error pages as invalid", () => {
     expect(normalizeExternalVariantsData("<html>blocked</html>")).toEqual({ data: null, invalid: true });
     expect(normalizeExternalVariantsData(42)).toEqual({ data: null, invalid: true });
+  });
+});
+
+describe("hasExternalAnswerRows", () => {
+  it("treats ok results with rows as data and everything else as empty", () => {
+    expect(hasExternalAnswerRows({ ok: true, data: [{ anchor: [] }] })).toBe(true);
+    expect(hasExternalAnswerRows({ ok: true, data: { anchor: [] } })).toBe(true);
+    expect(hasExternalAnswerRows({ ok: true, data: [] })).toBe(false);
+    expect(hasExternalAnswerRows({ ok: true, data: null })).toBe(false);
+    expect(hasExternalAnswerRows({ ok: false, error: "boom" })).toBe(false);
+  });
+});
+
+describe("EXTERNAL_TYPE_PROBE_ORDER", () => {
+  it("has no duplicates, covers the common qtypes and respects the budget", () => {
+    expect(new Set(EXTERNAL_TYPE_PROBE_ORDER).size).toBe(EXTERNAL_TYPE_PROBE_ORDER.length);
+    expect(EXTERNAL_TYPE_PROBE_ORDER).toContain("multichoice");
+    expect(EXTERNAL_TYPE_PROBE_ORDER).toContain("match");
+    expect(EXTERNAL_TYPE_PROBE_ORDER).toContain("ddmarker");
+    expect(EXTERNAL_TYPE_PROBE_ORDER.length).toBeLessThanOrEqual(EXTERNAL_TYPE_PROBE_LIMIT * 2);
   });
 });
 

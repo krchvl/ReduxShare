@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ReviewAnswerPayload, ReviewQuestionPayload } from "../src/content/quizAttempt/model";
+import type { ReviewAnswerPayload, ReviewQuestionPayload } from "../src/model";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 
@@ -31,6 +31,39 @@ function expectBooleanAnswers(answers: ReviewAnswerPayload[], labels: string[], 
 }
 
 describe("Moodle review payload builder", () => {
+  it("carries the statement of the task so the quiz view page can show it", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("multichoice", "review-open");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+
+    expect(question.questionText).toBe(
+      "Research from Harvard shows the mind wanders, on average....."
+    );
+  });
+
+  it("collects every rendered option as the answer option pool", async () => {
+    const api = await getQuizAttemptTestApi();
+
+    loadQuestionFixture("multichoice", "review-open");
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+
+    // The option pool includes labels nobody selected, deduplicated case-insensitively.
+    expect(question.answerOptions).toEqual(
+      expect.arrayContaining([
+        "63 percent of the time.",
+        "23 percent of the time.",
+        "between 10 and 20 percent of the time.",
+        "47 percent of the time."
+      ])
+    );
+    expect(new Set(question.answerOptions!.map((option) => option.toLowerCase())).size).toBe(
+      question.answerOptions!.length
+    );
+  });
+
   it("saves checkbox multichoice open review as exact per-option true/false", async () => {
     const api = await getQuizAttemptTestApi();
 
@@ -70,6 +103,29 @@ describe("Moodle review payload builder", () => {
       "47 percent of the time."
     ]);
     expectBooleanAnswers(answers, ["false", "false", "false", "true"], 1, false);
+  });
+
+  it("falls back to statistics when a failed review's correct answer matches no option", async () => {
+    // Regression: shuffled/paraphrased options made labelsMatch fail for the rightanswer text,
+    // and every checkbox was saved as correctness-2 "false" — poisoning the next attempt.
+    const api = await getQuizAttemptTestApi();
+
+    document.body.innerHTML = `<div id="question-126-1" class="que multichoice deferredfeedback notanswered"><div class="info"><h3 class="no">Question <span class="qno">1</span></h3><div class="state">Not answered</div><div class="grade">Marked out of 1.00</div><div class="questionflag editable"><input type="hidden" name="q126:1_:flagged" value="0"><input type="hidden" value="qaid=888&amp;qubaid=126&amp;qid=1385&amp;slot=1&amp;checksum=a212338df7fd9f259b7b98a9c9c94595&amp;sesskey=aFHd5HyKHw&amp;newstate=" class="questionflagpostdata"></div><div class="editquestion"><a href="https://school.moodledemo.net/question/bank/editquestion/question.php?cmid=978&amp;returnurl=%2Fmod%2Fquiz%2Freview.php%3Fattempt%3D90%26cmid%3D978%23&amp;id=1385"><i class="icon fa fa-pen fa-fw iconsmall" title="Edit" role="img" aria-label="Edit"></i>Edit question</a></div></div><div class="content"><div class="formulation clearfix"><div class="qtext"><div class="clearfix">Research from Harvard shows the mind wanders, on average.....</div></div><fieldset class="ablock"><div class="answer"><div class="r0"><input type="checkbox" name="q126:1_choice0" disabled="disabled" value="1" id="q126:1_choice0" aria-labelledby="q126:1_choice0_label"><div class="d-flex w-auto" id="q126:1_choice0_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">63 percent of the time.</p></div></div></div><div class="r1"><input type="checkbox" name="q126:1_choice1" disabled="disabled" value="1" id="q126:1_choice1" aria-labelledby="q126:1_choice1_label"><div class="d-flex w-auto" id="q126:1_choice1_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">47 percent of the time.</p></div></div></div><div class="r0"><input type="checkbox" name="q126:1_choice2" disabled="disabled" value="1" id="q126:1_choice2" aria-labelledby="q126:1_choice2_label"><div class="d-flex w-auto" id="q126:1_choice2_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">between 10 and 20 percent of the time.</p></div></div></div><div class="r1"><input type="checkbox" name="q126:1_choice3" disabled="disabled" value="1" id="q126:1_choice3" aria-labelledby="q126:1_choice3_label"><div class="d-flex w-auto" id="q126:1_choice3_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">23 percent of the time.</p></div></div></div></div></fieldset></div><div class="outcome clearfix"><div class="feedback"><div class="specificfeedback clearfix">Your answer is incorrect.</div><div class="rightanswer">The correct answer is: <p dir="ltr">about half of the time.</p></div></div></div></div></div>`;
+
+    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const answers = getAnswersBySlot(question);
+
+    // No correctness-2 "true"/"false" pair may be invented: the truth is simply unknown.
+    expect(answers.some((answer) => answer.correctness === 2)).toBe(false);
+    expect(answers.some((answer) => answer.isCorrect)).toBe(false);
+    // Observed statistics are still recorded so the answer keeps contributing counts.
+    expect(answers.map((answer) => answer.slotKey)).toEqual([
+      "63 percent of the time.",
+      "47 percent of the time.",
+      "between 10 and 20 percent of the time.",
+      "23 percent of the time."
+    ]);
+    expect(answers.every((answer) => answer.correctness === 1)).toBe(true);
   });
 
   it("keeps multichoice attempt and review hashes aligned for ReduxShare lookup", async () => {

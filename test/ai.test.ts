@@ -1,6 +1,6 @@
 import { describe, expect, it, type Mock } from "vitest";
-import type { AiAnswerState } from "../src/content/quizAttempt/model";
-import { GENERATE_AI_ANSWER_MESSAGE } from "../src/content/quizAttempt/model";
+import type { AiAnswerState } from "../src/model";
+import { GENERATE_AI_ANSWER_MESSAGE } from "../src/shared/messages";
 import { buildQuizAnswerPrompt, normalizeStructuredAiAnswerForPayload, parseStructuredAiAnswer } from "../src/lib/aiProvider";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
@@ -86,24 +86,24 @@ describe("AI quiz behavior", () => {
   it("builds AI payload controls for choice, text, select, ordering, drop, and marker questions", async () => {
     const api = await getQuizAttemptTestApi();
 
-    expect(getControlKinds(api.buildAiAnswerRequestPayload(loadQuestionFixture("multichoice", "attempt"), "1385"))).toEqual([
+    expect(getControlKinds(await api.buildAiAnswerRequestPayload(loadQuestionFixture("multichoice", "attempt"), "1385"))).toEqual([
       "choice",
       "choice",
       "choice",
       "choice"
     ]);
-    expect(getControlKinds(api.buildAiAnswerRequestPayload(loadQuestionFixture("shortanswer", "attempt"), "2011"))).toEqual([
+    expect(getControlKinds(await api.buildAiAnswerRequestPayload(loadQuestionFixture("shortanswer", "attempt"), "2011"))).toEqual([
       "text"
     ]);
     expect(
       getControlKinds(
-        api.buildAiAnswerRequestPayload(
+        await api.buildAiAnswerRequestPayload(
           loadQuestionFixture("match", "attempt"),
           "gap-1"
         )
       )
     ).toEqual(["select", "select", "select"]);
-    expect(api.buildAiAnswerRequestPayload(loadQuestionFixture("match", "attempt"), "match-1")).toMatchObject({
+    expect(await api.buildAiAnswerRequestPayload(loadQuestionFixture("match", "attempt"), "match-1")).toMatchObject({
       controls: [
         {
           kind: "select",
@@ -122,7 +122,7 @@ describe("AI quiz behavior", () => {
         }
       ]
     });
-    expect(api.buildAiAnswerRequestPayload(loadQuestionFixture("randomsamatch", "attempt"), "randomsamatch-1")).toMatchObject({
+    expect(await api.buildAiAnswerRequestPayload(loadQuestionFixture("randomsamatch", "attempt"), "randomsamatch-1")).toMatchObject({
       questionType: "randomsamatch",
       controls: [
         {
@@ -141,7 +141,7 @@ describe("AI quiz behavior", () => {
     });
     expect(
       getControlKinds(
-        api.buildAiAnswerRequestPayload(
+        await api.buildAiAnswerRequestPayload(
           setQuestionHtml(`
             <div class="que ordering">
               <div class="qtext">Order items</div>
@@ -154,7 +154,7 @@ describe("AI quiz behavior", () => {
     ).toEqual(["ordering-item", "ordering-item"]);
     expect(
       getControlKinds(
-        api.buildAiAnswerRequestPayload(
+        await api.buildAiAnswerRequestPayload(
           setQuestionHtml(`
             <div class="que ddwtos">
               <div class="qtext">Fill <span class="drop place1 group1"></span></div>
@@ -167,7 +167,7 @@ describe("AI quiz behavior", () => {
     ).toEqual(["drop"]);
     expect(
       getControlKinds(
-        api.buildAiAnswerRequestPayload(
+        await api.buildAiAnswerRequestPayload(
           setQuestionHtml(`
             <div class="que ddmarker">
               <div class="qtext">Place marker</div>
@@ -178,7 +178,19 @@ describe("AI quiz behavior", () => {
         )
       )
     ).toEqual(["marker"]);
-    expect(api.buildAiAnswerRequestPayload(loadQuestionFixture("ddmarker", "attempt"), "3700")).toMatchObject({
+    // The ddmarker fixture references a remote pluginfile image; stub the fetch so
+    // the payload builder stays hermetic and the data-URL inlining is exercised.
+    const fetchImageSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }), { status: 200 })
+      );
+
+    const ddmarkerPayload = await api.buildAiAnswerRequestPayload(loadQuestionFixture("ddmarker", "attempt"), "3700");
+
+    fetchImageSpy.mockRestore();
+
+    expect(ddmarkerPayload).toMatchObject({
       controls: [
         { kind: "marker", label: "Ядро", slotIndex: 1 },
         { kind: "marker", label: "Митохондрия", slotIndex: 2 },
@@ -188,20 +200,21 @@ describe("AI quiz behavior", () => {
       images: [
         expect.objectContaining({
           label: "ddmarker background image",
-          url: expect.stringContaining("/pluginfile.php/")
+          url: expect.stringContaining("/pluginfile.php/"),
+          dataUrl: expect.stringMatching(/^data:image\/png;base64,/)
         })
       ]
     });
     expect(
       getControlKinds(
-        api.buildAiAnswerRequestPayload(loadQuestionFixture("ddimageortext", "attempt"), "3001")
+        await api.buildAiAnswerRequestPayload(loadQuestionFixture("ddimageortext", "attempt"), "3001")
       )
     ).toEqual(["drop"]);
   });
 
   it("passes every match dropdown option to AI, including non-selected ampere", async () => {
     const api = await getQuizAttemptTestApi();
-    const payload = api.buildAiAnswerRequestPayload(setAmpereMatchQuestionHtml(), "match-ampere") as {
+    const payload = await api.buildAiAnswerRequestPayload(setAmpereMatchQuestionHtml(), "match-ampere") as {
       answerLabels: string[];
       controls: Array<{ label: string; slotIndex: number; options: Array<{ label: string; value: string }> }>;
       questionType: string;
@@ -304,7 +317,7 @@ describe("AI quiz behavior", () => {
 
   it("includes ddmarker image metadata in the AI prompt", async () => {
     const api = await getQuizAttemptTestApi();
-    const payload = api.buildAiAnswerRequestPayload(loadQuestionFixture("ddmarker", "attempt"), "3700") as Parameters<
+    const payload = await api.buildAiAnswerRequestPayload(loadQuestionFixture("ddmarker", "attempt"), "3700") as Parameters<
       typeof buildQuizAnswerPrompt
     >[0];
     const prompt = buildQuizAnswerPrompt(payload);

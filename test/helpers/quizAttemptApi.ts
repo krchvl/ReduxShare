@@ -1,9 +1,20 @@
-import type { AiAnswerState, AnswerData, AnswerVariantCounts, SourceAnswerData, StoredStateLike } from "../../src/content/quizAttempt/model";
+import type { AiAnswerState, AnswerData, AnswerVariantCounts, SourceAnswerData, StoredStateLike } from "../../src/model";
 
 type QuizAttemptTestApi = {
   reset: () => void;
+  syncAttemptStatusPanelClosedState: (storedState: unknown) => void;
+  setAttemptStatusPanelClosedInSession: (closed: boolean) => Promise<void>;
   setStoredState: (state: StoredStateLike | undefined) => void;
-  watchStoredSettingsChanges: () => void;
+  getStoredState: () => StoredStateLike | undefined;
+  computeAutoSelectDelayMs: (avgSeconds: number, random?: () => number, timeLeftSeconds?: number | null) => number;
+  parseQuizTimeLeftSeconds: (text: string | null | undefined) => number | null;
+  scheduleAutoSelectAnswer: (
+    questionId: string | null,
+    questionNode: Element,
+    storedState: StoredStateLike | undefined,
+    immediate?: boolean
+  ) => boolean;
+  cancelAutoSelectSchedule: (questionId: string | null) => void;
   buildReviewAnswersForQuestion: (questionNode: Element, questionType: string | null) => unknown[];
   collectReviewQuestionsForSave: () => Array<{
     questionId: string | null;
@@ -11,7 +22,7 @@ type QuizAttemptTestApi = {
     questionHash: string | null;
     answers: unknown[];
   }>;
-  buildAiAnswerRequestPayload: (questionNode: Element, questionId: string | null) => unknown;
+  buildAiAnswerRequestPayload: (questionNode: Element, questionId: string | null) => Promise<unknown>;
   collectQuestionSummaries: () => Array<{
     questionId: string | null;
     questionType: string | null;
@@ -39,8 +50,6 @@ type QuizAttemptTestApi = {
     aiToolsEnabled?: boolean,
     externalOnly?: boolean
   ) => string;
-  positionAnswerMenuPortal: (menuPortal: HTMLElement, trigger: HTMLElement) => void;
-  updateAnswerMenuFlyoutSide: (menuPortal: HTMLElement) => void;
   createEmptySourceAnswerData: () => SourceAnswerData;
   createEmptyVariantCounts: () => AnswerVariantCounts;
 };

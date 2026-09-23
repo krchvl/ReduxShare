@@ -4,7 +4,7 @@ import type {
   SourceAnswerData,
   SubmissionItem,
   SuggestionItem
-} from "../../src/content/quizAttempt/model";
+} from "../../src/model";
 
 export function emptyAnswerData(): AnswerData {
   return {

@@ -6,7 +6,15 @@ import {
   type SourceAnswerData,
   type SubmissionItem,
   type SuggestionItem
-} from "./model";
+} from "../model";
+
+export function getPreferredSuggestionLabels(suggestions: SuggestionItem[]) {
+  const exactSuggestionLabels = suggestions
+    .filter((suggestion) => suggestion.correctness === 2 && suggestion.label.trim())
+    .map((suggestion) => suggestion.label.trim());
+
+  return Array.from(new Set(exactSuggestionLabels));
+}
 
 export function createEmptyVariantCounts(): AnswerVariantCounts {
   return {

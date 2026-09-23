@@ -1,4 +1,4 @@
-import { ANSWER_WIDGET_ATTR } from "./model";
+import { ANSWER_WIDGET_ATTR } from "../../model";
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
   const InputConstructor = input.ownerDocument.defaultView?.HTMLInputElement ?? window.HTMLInputElement;

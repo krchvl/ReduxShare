@@ -14,19 +14,33 @@ import {
   testAiConnection
 } from "../lib/aiProvider";
 import {
+  fetchReduxShareQuizPreviewTasks,
   fetchReduxShareTasks,
   saveReduxShareReviewAnswers,
+  type QuizPreviewTaskResult,
   type SaveReduxShareReviewPayload
 } from "../lib/quizTasks";
 import {
+  flushPendingReviewSaves,
+  flushPendingReviewSavesWithStoredState,
+  handleSharedAlarmForPendingSaves,
+  queuePendingReviewSave,
+  schedulePendingFlushAlarm,
+  updatePendingFlushAlarmAfterFlush,
+  type PendingSaveFlushDeps,
+  type PendingSaveFlushResult
+} from "./reviewSaveQueue";
+import {
+  EXTERNAL_TYPE_PROBE_LIMIT,
+  EXTERNAL_TYPE_PROBE_ORDER,
   fetchQuestionVariants,
+  hasExternalAnswerRows,
   type ExternalQuestionRequest,
+  type ExternalVariantResult,
   type ExternalVariantsPayload
 } from "../lib/externalProvider";
 import { getRequestErrorMessage, getTranslator, type TranslationKey } from "../i18n";
 import {
-  CHECK_UPDATE_MESSAGE,
-  GET_UPDATE_STATE_MESSAGE,
   UPDATE_ALARM_NAME,
   UPDATE_CHECK_INTERVAL_MS,
   UPDATE_RETRY_INTERVAL_MS,
@@ -43,15 +57,29 @@ import {
 import { recordUserQuizProgress } from "../lib/userProfiles";
 import {
   APP_STORAGE_KEY,
-  PENDING_REVIEW_SAVES_STORAGE_KEY,
   QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY
 } from "../shared/storageKeys";
-import { normalizeAiSettings, type AiSettings, type AuthSession, type LanguageSetting, type StoredState, type UpdateState, type UserProfile } from "../types";
-
-const FETCH_QUIZ_ANSWERS_MESSAGE = "REDUXSHARE_FETCH_QUIZ_ANSWERS";
-const RECORD_QUIZ_PROGRESS_MESSAGE = "REDUXSHARE_RECORD_QUIZ_PROGRESS";
-const SAVE_REVIEW_ANSWERS_MESSAGE = "REDUXSHARE_SAVE_REVIEW_ANSWERS";
-const MAX_PENDING_REVIEW_SAVES = 25;
+import {
+  CHECK_UPDATE_MESSAGE,
+  FETCH_QUIZ_ANSWERS_MESSAGE,
+  FETCH_QUIZ_PREVIEW_MESSAGE,
+  GET_UPDATE_STATE_MESSAGE,
+  RECORD_QUIZ_PROGRESS_MESSAGE,
+  SAVE_REVIEW_ANSWERS_MESSAGE
+} from "../shared/messages";
+import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
+import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
+import type { AnswerData, QuizPreviewRequestPayload } from "../model";
+import { createEmptyAnswerData, getAnswerData } from "../data/answerData";
+import {
+  normalizeAiSettings,
+  type AiSettings,
+  type AuthSession,
+  type LanguageSetting,
+  type StoredState,
+  type UpdateState,
+  type UserProfile
+} from "../types";
 
 interface FetchQuizAnswersPayload extends ExternalVariantsPayload {
   domain: string;
@@ -79,6 +107,29 @@ interface RecordQuizProgressMessage {
 interface SaveReviewAnswersMessage {
   type: typeof SAVE_REVIEW_ANSWERS_MESSAGE;
   payload: SaveReduxShareReviewPayload;
+}
+
+interface FetchQuizPreviewMessage {
+  type: typeof FETCH_QUIZ_PREVIEW_MESSAGE;
+  payload: QuizPreviewRequestPayload;
+}
+
+interface QuizPreviewQuestionResult {
+  questionId: string | null;
+  questionType: string | null;
+  questionHash: string | null;
+  questionText: string | null;
+  // The panel renders AnswerData (slots/suggestions/submissions), so the raw
+  // variant results are normalised here rather than shipped as { data: ... }.
+  reduxshare: AnswerData;
+  external: AnswerData;
+}
+
+interface QuizPreviewResponse {
+  ok: boolean;
+  error?: string;
+  authRequired?: boolean;
+  questions?: QuizPreviewQuestionResult[];
 }
 
 interface QuizVariantResult {
@@ -113,12 +164,6 @@ interface SaveReviewAnswersResponse {
   queued?: boolean;
 }
 
-interface PendingReviewSave {
-  id: string;
-  queuedAt: string;
-  payload: SaveReduxShareReviewPayload;
-}
-
 function isFetchQuizAnswersMessage(message: unknown): message is FetchQuizAnswersMessage {
   if (!message || typeof message !== "object") {
     return false;
@@ -149,6 +194,16 @@ function isSaveReviewAnswersMessage(message: unknown): message is SaveReviewAnsw
   return candidate.type === SAVE_REVIEW_ANSWERS_MESSAGE && typeof candidate.payload === "object";
 }
 
+function isFetchQuizPreviewMessage(message: unknown): message is FetchQuizPreviewMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<FetchQuizPreviewMessage>;
+
+  return candidate.type === FETCH_QUIZ_PREVIEW_MESSAGE && typeof candidate.payload === "object";
+}
+
 function isCheckUpdateMessage(message: unknown): message is CheckUpdateMessage {
   if (!message || typeof message !== "object") {
     return false;
@@ -174,34 +229,27 @@ function sendErrorResponse<TResponse extends { ok: false; error?: string }>(
   sendResponse: (response: TResponse) => void,
   fallbackKey: TranslationKey = "errors.externalRequest"
 ) {
+  let responseSent = false;
+  
   void loadStoredState()
     .then((storedState) => {
-      sendResponse({
-        ok: false,
-        error: getRequestErrorMessage(error, storedState.settings?.language, fallbackKey)
-      } as TResponse);
+      if (!responseSent) {
+        responseSent = true;
+        sendResponse({
+          ok: false,
+          error: getRequestErrorMessage(error, storedState.settings?.language, fallbackKey)
+        } as TResponse);
+      }
     })
     .catch(() => {
-      sendResponse({
-        ok: false,
-        error: getRequestErrorMessage(error, undefined, fallbackKey)
-      } as TResponse);
+      if (!responseSent) {
+        responseSent = true;
+        sendResponse({
+          ok: false,
+          error: getRequestErrorMessage(error, undefined, fallbackKey)
+        } as TResponse);
+      }
     });
-}
-
-async function loadStoredState(): Promise<Partial<StoredState>> {
-  const result = await chrome.storage.local.get(APP_STORAGE_KEY);
-  return (result[APP_STORAGE_KEY] as Partial<StoredState> | undefined) ?? {};
-}
-
-async function saveStoredStatePatch(patch: Partial<StoredState>) {
-  const currentState = await loadStoredState();
-  await chrome.storage.local.set({
-    [APP_STORAGE_KEY]: {
-      ...currentState,
-      ...patch
-    }
-  });
 }
 
 async function saveReviewSaveDiagnostics(stage: string, details: Record<string, unknown> = {}) {
@@ -218,93 +266,36 @@ async function saveReviewSaveDiagnostics(stage: string, details: Record<string, 
   }
 }
 
-function getPendingReviewSaveId(payload: SaveReduxShareReviewPayload) {
-  return [payload.domain, payload.courseId ?? "unknown-course", payload.quizId ?? "unknown-quiz", payload.attemptKey].join("|");
-}
+const pendingSaveFlushDeps: PendingSaveFlushDeps = {
+  loadStoredState: () => loadStoredState(),
+  saveStoredStatePatch: (patch) => saveStoredStatePatch(patch),
+  saveDiagnostics: saveReviewSaveDiagnostics
+};
 
-async function loadPendingReviewSaves(): Promise<PendingReviewSave[]> {
-  const result = await chrome.storage.local.get(PENDING_REVIEW_SAVES_STORAGE_KEY);
-  const value = result[PENDING_REVIEW_SAVES_STORAGE_KEY];
-
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((entry): entry is PendingReviewSave => {
-    if (!entry || typeof entry !== "object") {
-      return false;
-    }
-
-    const candidate = entry as Partial<PendingReviewSave>;
-    return typeof candidate.id === "string" && typeof candidate.queuedAt === "string" && typeof candidate.payload === "object";
-  });
-}
-
-async function savePendingReviewSaves(queue: PendingReviewSave[]) {
-  await chrome.storage.local.set({
-    [PENDING_REVIEW_SAVES_STORAGE_KEY]: queue.slice(-MAX_PENDING_REVIEW_SAVES)
-  });
-}
-
-async function queuePendingReviewSave(payload: SaveReduxShareReviewPayload) {
-  const queue = await loadPendingReviewSaves();
-  const nextEntry: PendingReviewSave = {
-    id: getPendingReviewSaveId(payload),
-    queuedAt: new Date().toISOString(),
-    payload
-  };
-  const dedupedQueue = queue.filter((entry) => entry.id !== nextEntry.id);
-  dedupedQueue.push(nextEntry);
-  await savePendingReviewSaves(dedupedQueue);
-  return dedupedQueue.length;
-}
-
-let pendingReviewSaveFlushInProgress = false;
-
-async function flushPendingReviewSaves(authSession: AuthSession) {
-  if (pendingReviewSaveFlushInProgress) {
-    return {
-      authSession,
-      flushedCount: 0,
-      remainingCount: (await loadPendingReviewSaves()).length
-    };
-  }
-
-  pendingReviewSaveFlushInProgress = true;
-
-  try {
-    const queue = await loadPendingReviewSaves();
-    const remaining: PendingReviewSave[] = [];
-    let latestAuthSession = authSession;
-    let flushedCount = 0;
-
-    for (const entry of queue) {
-      try {
-        const result = await saveReduxShareReviewAnswers(latestAuthSession, entry.payload);
-        latestAuthSession = result.authSession;
-        flushedCount += 1;
-      } catch (error) {
-        remaining.push(entry);
-        await saveReviewSaveDiagnostics("background-pending-save-flush-error", {
-          error: error instanceof Error ? error.message : String(error),
-          pendingId: entry.id,
-          courseId: entry.payload.courseId,
-          quizId: entry.payload.quizId,
-          attemptKey: entry.payload.attemptKey
+function runPendingSaveFlush(
+  flush: Promise<PendingSaveFlushResult | null>,
+  trigger: "sw-start" | "storage-change"
+) {
+  void flush
+    .then(async (result) => {
+      if (result && result.flushedCount > 0) {
+        await saveReviewSaveDiagnostics("background-pending-save-flush-result", {
+          flushedPendingCount: result.flushedCount,
+          remainingPendingCount: result.remainingCount,
+          trigger
         });
       }
-    }
 
-    await savePendingReviewSaves(remaining);
-
-    return {
-      authSession: latestAuthSession,
-      flushedCount,
-      remainingCount: remaining.length
-    };
-  } finally {
-    pendingReviewSaveFlushInProgress = false;
-  }
+      // Keep the shared alarm compressed while work remains, stretch it back when done.
+      await updatePendingFlushAlarmAfterFlush();
+    })
+    .catch((error) => {
+      void saveReviewSaveDiagnostics("background-pending-save-flush-error", {
+        error: error instanceof Error ? error.message : String(error),
+        trigger
+      });
+      void schedulePendingFlushAlarm();
+    });
 }
 
 function ensureUpdateAlarm() {
@@ -415,7 +406,58 @@ function getStoredAuthSession(storedState: Partial<StoredState>) {
   return storedState.authSession?.user.id ? storedState.authSession : null;
 }
 
-async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise<QuizAnswersResponse> {
+	async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise<QuizAnswersResponse> {
+	  const storedState = await loadStoredState();
+	  const authSession = getStoredAuthSession(storedState);
+	  const t = getTranslator(storedState.settings?.language);
+
+	  if (payload.courseId === null || payload.quizId === null) {
+	    return {
+	      ok: false,
+	      error: t("errors.moodleIdsMissing")
+	    };
+	  }
+
+	  // Remember the question identities seen on attempt pages so the quiz view page
+	  // preview can query the external provider for them later.
+	  await recordQuizQuestions(payload.domain, payload.courseId, payload.quizId, payload.questions);
+
+	  // Both sources are launched up-front so the slower one bounds latency instead of their sum.
+	  const externalResultsPromise = Promise.all(
+	    payload.questions.map((question) => fetchQuestionVariants(payload, question, storedState.settings?.language))
+	  );
+
+	  const emptyReduxshareResults = payload.questions.map((question) => ({
+	    questionId: question.questionId,
+	    questionType: question.questionType,
+	    questionHash: question.questionHash,
+	    ok: true,
+	    data: null,
+	    answerCount: 0
+	  }));
+
+	  if (!authSession) {
+	    const externalResults = await externalResultsPromise;
+	    return {
+	      ok: true,
+	      reduxshareResults: emptyReduxshareResults,
+	      externalResults
+	    };
+	  }
+
+  const reduxshareResponse = await fetchReduxShareTasks(authSession, payload, storedState.settings?.language);
+  await saveStoredStatePatch({ authSession: reduxshareResponse.authSession });
+
+  const externalResults = await externalResultsPromise;
+
+  return {
+    ok: true,
+    reduxshareResults: reduxshareResponse.results,
+    externalResults
+  };
+}
+
+async function handleFetchQuizPreview(payload: QuizPreviewRequestPayload): Promise<QuizPreviewResponse> {
   const storedState = await loadStoredState();
   const authSession = getStoredAuthSession(storedState);
   const t = getTranslator(storedState.settings?.language);
@@ -427,36 +469,186 @@ async function handleFetchQuizAnswers(payload: FetchQuizAnswersPayload): Promise
     };
   }
 
-  const externalResults = await Promise.all(
-    payload.questions.map((question) => fetchQuestionVariants(payload, question, storedState.settings?.language))
-  );
-  let reduxshareResults: QuizVariantResult[] = payload.questions.map((question) => ({
-    questionId: question.questionId,
-    questionType: question.questionType,
-    questionHash: question.questionHash,
-    ok: true,
-    data: null,
-    answerCount: 0
-  }));
-
+  // The view page never sees question markup, so the internal answer database doubles
+  // as the quiz's question list: questions nobody has ever shared for this quiz cannot
+  // be enumerated from here.
   if (!authSession) {
     return {
       ok: true,
-      reduxshareResults,
-      externalResults
+      authRequired: true,
+      questions: []
     };
   }
 
-  let latestAuthSession = authSession;
-  const reduxshareResponse = await fetchReduxShareTasks(latestAuthSession, payload, storedState.settings?.language);
-  latestAuthSession = reduxshareResponse.authSession;
-  reduxshareResults = reduxshareResponse.results;
-  await saveStoredStatePatch({ authSession: latestAuthSession });
+  const previewResponse = await fetchReduxShareQuizPreviewTasks(authSession, payload, storedState.settings?.language);
+  await saveStoredStatePatch({ authSession: previewResponse.authSession });
+
+  // Questions seen on attempt/review pages but never shared as answers are not in
+  // the database; the local registry lists them so the external provider can still
+  // be queried for their answers.
+  const quizStubs = await getQuizQuestionStubs(payload.domain, payload.courseId, payload.quizId);
+  const knownQuestionIds = new Set(previewResponse.results.map((result) => result.questionId));
+  const stubResults: QuizPreviewTaskResult[] = quizStubs
+    .filter((stub) => !knownQuestionIds.has(stub.questionId))
+    .map((stub) => ({
+      questionId: stub.questionId,
+      questionType: stub.questionType,
+      questionHash: stub.questionHash,
+      questionText: stub.questionText ?? null,
+      answerOptions: [],
+      ok: false,
+      data: null,
+      answerCount: 0
+    }));
+  const stubTextByQuestionId = new Map(
+    quizStubs
+      .filter((stub) => stub.questionText)
+      .map((stub) => [stub.questionId, stub.questionText as string])
+  );
+  // The external API answers with 400 unless questionType is a known qtype, and
+  // the database rows may lack or stale the type. Registry stubs carry the type
+  // as read from the question DOM, so they win; the database type is the fallback.
+  const stubTypeByQuestionId = new Map(
+    quizStubs
+      .filter((stub) => stub.questionType)
+      .map((stub) => [stub.questionId, stub.questionType as string])
+  );
+
+  const previewEntries = [...previewResponse.results, ...stubResults];
+
+  const externalRequests: ExternalQuestionRequest[] = previewEntries.map((result) => ({
+    questionId: result.questionId,
+    questionType: stubTypeByQuestionId.get(result.questionId ?? "") ?? result.questionType,
+    questionHash: result.questionHash
+  }));
+
+  const externalPayload: ExternalVariantsPayload = {
+    domain: payload.domain,
+    courseId: payload.courseId,
+    quizId: payload.quizId,
+    // The view page has no attempt: the historical "1" placeholders match what the
+    // attempt-page request sends when real page meta is unavailable (server tolerates them).
+    attemptId: "1",
+    questions: externalRequests
+  };
+
+  const externalResults = await Promise.all(
+    externalRequests.map((question) => fetchQuestionVariants(externalPayload, question, storedState.settings?.language))
+  );
+
+  const externalByQuestionId = new Map<string | null, ExternalVariantResult>();
+
+  for (const result of externalResults) {
+    externalByQuestionId.set(result.questionId, result);
+  }
+
+  // A failed request with a type that differs from the database value gets one
+  // retry with the alternative: the two sources disagree on legacy/named types.
+  const retryRequests: ExternalQuestionRequest[] = [];
+
+  externalResults.forEach((result, index) => {
+    if (result.ok || !result.questionId) {
+      return;
+    }
+
+    const entry = previewEntries[index];
+    const stubType = stubTypeByQuestionId.get(result.questionId);
+    const databaseType = entry.questionType;
+
+    if (!stubType || !databaseType || stubType === databaseType) {
+      return;
+    }
+
+    retryRequests.push({
+      questionId: result.questionId,
+      questionType: databaseType,
+      questionHash: result.questionHash
+    });
+  });
+
+  if (retryRequests.length > 0) {
+    const retryResults = await Promise.all(
+      retryRequests.map((question) => fetchQuestionVariants(externalPayload, question, storedState.settings?.language))
+    );
+
+    for (const [retryIndex, retryResult] of retryResults.entries()) {
+      if (retryResult.ok) {
+        externalByQuestionId.set(retryResult.questionId, retryResult);
+      }
+    }
+  }
+
+  // The API answers with an empty list for an unknown qtype and with 400 for an
+  // empty one, so a missing or stale type silently hides answers. Questions whose
+  // type is not DOM-confirmed (no registry stub) get a bounded probe over the
+  // known qtypes, and a hit is written back to the registry for next time.
+  const discoveredTypes = new Map<string, string>();
+
+  await Promise.all(
+    externalRequests.map(async (question) => {
+      if (!question.questionId || stubTypeByQuestionId.has(question.questionId)) {
+        return;
+      }
+
+      const currentResult = externalByQuestionId.get(question.questionId);
+
+      if (currentResult && hasExternalAnswerRows(currentResult)) {
+        return;
+      }
+
+      const candidates = EXTERNAL_TYPE_PROBE_ORDER.filter((qtype) => qtype !== question.questionType).slice(
+        0,
+        EXTERNAL_TYPE_PROBE_LIMIT
+      );
+
+      for (const qtype of candidates) {
+        const probeResult = await fetchQuestionVariants(
+          externalPayload,
+          { ...question, questionType: qtype },
+          storedState.settings?.language
+        );
+
+        if (hasExternalAnswerRows(probeResult)) {
+          externalByQuestionId.set(question.questionId, probeResult);
+          discoveredTypes.set(question.questionId, qtype);
+          return;
+        }
+      }
+    })
+  );
+
+  if (discoveredTypes.size > 0) {
+    await recordQuizQuestions(
+      payload.domain,
+      payload.courseId,
+      payload.quizId,
+      Array.from(discoveredTypes, ([questionId, questionType]) => ({ questionId, questionType, questionHash: null }))
+    );
+  }
 
   return {
     ok: true,
-    reduxshareResults,
-    externalResults
+    questions: previewEntries.map((reduxshareResult) => {
+      const externalResult =
+        externalByQuestionId.get(reduxshareResult.questionId) ??
+        ({
+          questionId: reduxshareResult.questionId,
+          questionType: reduxshareResult.questionType,
+          questionHash: reduxshareResult.questionHash,
+          ok: false,
+          data: null
+        } satisfies ExternalVariantResult);
+
+      return {
+        questionId: reduxshareResult.questionId,
+        questionType: reduxshareResult.questionType,
+        questionHash: reduxshareResult.questionHash,
+        questionText: reduxshareResult.questionText || stubTextByQuestionId.get(reduxshareResult.questionId ?? "") || null,
+        answerOptions: reduxshareResult.answerOptions,
+        reduxshare: reduxshareResult.ok ? getAnswerData(reduxshareResult) : createEmptyAnswerData(),
+        external: externalResult.ok ? getAnswerData(externalResult) : createEmptyAnswerData()
+      };
+    })
   };
 }
 
@@ -485,6 +677,20 @@ async function handleSaveReviewAnswers(payload: SaveReduxShareReviewPayload): Pr
   const storedState = await loadStoredState();
   const authSession = getStoredAuthSession(storedState);
 
+  // Review pages carry the question statements: record the identities (with text)
+  // even when the save itself cannot proceed, so the preview keeps improving.
+  await recordQuizQuestions(
+    payload.domain,
+    payload.courseId,
+    payload.quizId,
+    payload.questions.map((question) => ({
+      questionId: question.questionId,
+      questionType: question.questionType,
+      questionHash: question.questionHash,
+      questionText: question.questionText ?? null
+    }))
+  );
+
   if (!authSession) {
     const queueSize = await queuePendingReviewSave(payload);
     await saveReviewSaveDiagnostics("background-save-queued-auth-required", {
@@ -502,31 +708,53 @@ async function handleSaveReviewAnswers(payload: SaveReduxShareReviewPayload): Pr
     };
   }
 
-  const flushResult = await flushPendingReviewSaves(authSession);
-  const result = await saveReduxShareReviewAnswers(flushResult.authSession, payload);
-  await saveStoredStatePatch({ authSession: result.authSession });
-  await saveReviewSaveDiagnostics("background-save-result", {
-    courseId: payload.courseId,
-    quizId: payload.quizId,
-    attemptKey: payload.attemptKey,
-    questionCount: payload.questions.length,
-    imported: result.imported,
-    savedCount: result.savedCount,
-    flushedPendingCount: flushResult.flushedCount,
-    remainingPendingCount: flushResult.remainingCount,
-    questions: payload.questions.map((question) => ({
-      questionId: question.questionId,
-      questionType: question.questionType,
-      questionHash: question.questionHash,
-      answerCount: question.answers.length
-    }))
-  });
+  const flushResult = await flushPendingReviewSaves(authSession, pendingSaveFlushDeps);
 
-  return {
-    ok: true,
-    imported: result.imported,
-    savedCount: result.savedCount
-  };
+  try {
+    const result = await saveReduxShareReviewAnswers(flushResult.authSession, payload);
+    await saveStoredStatePatch({ authSession: result.authSession });
+    await saveReviewSaveDiagnostics("background-save-result", {
+      courseId: payload.courseId,
+      quizId: payload.quizId,
+      attemptKey: payload.attemptKey,
+      questionCount: payload.questions.length,
+      imported: result.imported,
+      savedCount: result.savedCount,
+      flushedPendingCount: flushResult.flushedCount,
+      remainingPendingCount: flushResult.remainingCount,
+      questions: payload.questions.map((question) => ({
+        questionId: question.questionId,
+        questionType: question.questionType,
+        questionHash: question.questionHash,
+        answerCount: question.answers.length
+      }))
+    });
+
+    return {
+      ok: true,
+      imported: result.imported,
+      savedCount: result.savedCount
+    };
+  } catch (error) {
+    // A failed save must not lose the attempt: the pending queue retries it on
+    // every later trigger (SW restart, alarm tick, next login or save).
+    const queueSize = await queuePendingReviewSave(payload);
+    await saveReviewSaveDiagnostics("background-save-queued-retry", {
+      courseId: payload.courseId,
+      quizId: payload.quizId,
+      attemptKey: payload.attemptKey,
+      questionCount: payload.questions.length,
+      queueSize,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      ok: true,
+      imported: false,
+      savedCount: 0,
+      queued: true
+    };
+  }
 }
 
 async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> {
@@ -676,6 +904,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
     return true;
   }
 
+  if (isFetchQuizPreviewMessage(message)) {
+    void handleFetchQuizPreview(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse);
+      });
+
+    return true;
+  }
+
   if (isRecordQuizProgressMessage(message)) {
     void handleRecordQuizProgress(message.payload)
       .then(sendResponse)
@@ -719,21 +957,7 @@ if (chrome.storage?.onChanged) {
       return;
     }
 
-    void flushPendingReviewSaves(authSession)
-      .then((result) => {
-        if (result.flushedCount > 0) {
-          void saveStoredStatePatch({ authSession: result.authSession });
-          void saveReviewSaveDiagnostics("background-pending-save-flush-result", {
-            flushedPendingCount: result.flushedCount,
-            remainingPendingCount: result.remainingCount
-          });
-        }
-      })
-      .catch((error) => {
-        void saveReviewSaveDiagnostics("background-pending-save-flush-error", {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      });
+    runPendingSaveFlush(flushPendingReviewSaves(authSession, pendingSaveFlushDeps), "storage-change");
   });
 }
 
@@ -754,10 +978,21 @@ if (chrome.alarms?.onAlarm) {
     }
 
     void checkForUpdates({ force: false, reason: "alarm" });
+
+    // The shared alarm doubles as the pending-save retry while the queue is non-empty.
+    void handleSharedAlarmForPendingSaves(pendingSaveFlushDeps).catch((error) => {
+      void saveReviewSaveDiagnostics("background-pending-save-flush-error", {
+        error: error instanceof Error ? error.message : String(error),
+        trigger: "alarm"
+      });
+    });
   });
 }
 
 ensureUpdateAlarm();
 void checkForUpdates({ force: false, reason: "startup" });
+// Resume a flush that a previous service worker may not have finished: this covers
+// the MV3 idle-kill and browser-restart cases that storage.onChanged cannot observe.
+runPendingSaveFlush(flushPendingReviewSavesWithStoredState(pendingSaveFlushDeps), "sw-start");
 
 export {};

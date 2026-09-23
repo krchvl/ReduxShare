@@ -15,6 +15,7 @@ import orderingPrompt from "../aiPrompts/ordering.json";
 import shortanswerPrompt from "../aiPrompts/shortanswer.json";
 import truefalsePrompt from "../aiPrompts/truefalse.json";
 import type { AiAnswerAction, AiQuestionControl, AiQuestionImage, GenerateAiAnswerPayload } from "./ai";
+import { parseAiMatchPairs } from "../shared/answerParsing";
 
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODELS_PAGE_SIZE = 100;
@@ -592,27 +593,54 @@ async function fetchAiImagePart(image: AiQuestionImage): Promise<GoogleAiImagePa
     return null;
   }
 
-  const response = await fetch(image.url, {
-    credentials: "include"
-  });
+  // The content script inlines same-origin images as data URLs, so the service
+  // worker needs no host access to the quiz origin. The direct fetch below only
+  // runs when the optional broad host permission has been granted (e.g. a custom
+  // AI endpoint request) — otherwise it fails and the image is simply skipped.
+  if (image.dataUrl?.startsWith("data:image/")) {
+    const header = "data:";
+    const separatorIndex = image.dataUrl.indexOf(",", header.length);
 
-  if (!response.ok) {
-    throw new Error(`Could not load question image for AI: ${response.status}`);
-  }
+    if (separatorIndex > 0) {
+      const mimeType = image.dataUrl.slice(header.length, separatorIndex).split(";", 1)[0] || "image/png";
+      const base64Payload = image.dataUrl.slice(separatorIndex + 1);
 
-  const blob = await response.blob();
-  const mimeType = blob.type || "image/png";
-
-  if (!mimeType.startsWith("image/")) {
-    throw new Error(`Question image has unsupported content type: ${mimeType}`);
-  }
-
-  return {
-    inlineData: {
-      mimeType,
-      data: arrayBufferToBase64(await blob.arrayBuffer())
+      return {
+        inlineData: {
+          mimeType,
+          data: base64Payload
+        }
+      };
     }
-  };
+  }
+
+  try {
+    const response = await fetch(image.url, {
+      credentials: "include"
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const blob = await response.blob();
+    const mimeType = blob.type || "image/png";
+
+    if (!mimeType.startsWith("image/")) {
+      return null;
+    }
+    
+    return {
+      inlineData: {
+        mimeType,
+        data: arrayBufferToBase64(await blob.arrayBuffer())
+      }
+    };
+  } catch {
+    // No host permission for the quiz origin and no inline data: skip the image
+    // instead of failing the whole AI request.
+    return null;
+  }
 }
 
 async function buildGoogleAiImageParts(payload: GenerateAiAnswerPayload) {
@@ -917,7 +945,8 @@ function unescapeLooseJsonString(value: string) {
 }
 
 function extractLooseJsonStringField(text: string, fieldName: string) {
-  const pattern = new RegExp(`"${fieldName}"\\s*:\\s*"([\\s\\S]*?)"\\s*(?:,\\s*"|\\s*})`, "i");
+  const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`"${escapedFieldName}"\\s*:\\s*"([\\s\\S]*?)"\\s*(?:,\\s*"|\\s*})`, "i");
   const match = pattern.exec(text);
   return match ? unescapeLooseJsonString(match[1]) : "";
 }
@@ -951,30 +980,6 @@ function aiLabelsLooselyMatch(left: string, right: string) {
   const leftKey = normalizeAiMatchKey(left);
   const rightKey = normalizeAiMatchKey(right);
   return Boolean(leftKey && rightKey && leftKey === rightKey);
-}
-
-function splitAiMatchPairText(text: string) {
-  return text
-    .replace(/\r/g, "\n")
-    .split(/\n|;|,(?=\s*[^,;:\n]+(?:→|->|=>|=|:))/g)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-}
-
-function parseAiMatchPairs(text: string) {
-  return splitAiMatchPairText(text)
-    .map((segment) => {
-      const match = /^(.+?)\s*(?:→|->|=>|=|:)\s*(.+)$/.exec(segment);
-      if (!match) {
-        return null;
-      }
-
-      return {
-        prompt: match[1].replace(/^["'{\s]+|["'}]\s*$/g, "").trim(),
-        answer: match[2].replace(/^["'\s]+|["'}]\s*$/g, "").trim()
-      };
-    })
-    .filter((pair): pair is { prompt: string; answer: string } => Boolean(pair?.prompt && pair.answer));
 }
 
 function findVisibleOptionLabel(control: AiQuestionControl, label: string) {
