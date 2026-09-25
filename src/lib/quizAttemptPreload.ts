@@ -51,14 +51,22 @@ export async function preloadQuizQuestions(
     `ReduxShare: preloading ${newQuestions.length} quiz questions for ${domain}/${courseId}/${quizId}`
   );
 
-  const found = await probeExternalQuestions(newQuestions, domain, courseId, quizId, language);
+  const foundQuestionIds = await probeExternalQuestions(newQuestions, domain, courseId, quizId, language);
 
-  // Record all successfully probed questions in the registry.
-  if (found > 0) {
-    await recordQuizQuestions(domain, courseId, quizId, newQuestions);
+  // Record only questions with a confirmed hit: misses stay out of the
+  // registry so later preview opens retry them instead of treating the
+  // earlier empty probe as cached knowledge.
+  if (foundQuestionIds.length > 0) {
+    const foundIdSet = new Set(foundQuestionIds);
+    await recordQuizQuestions(
+      domain,
+      courseId,
+      quizId,
+      newQuestions.filter((question) => foundIdSet.has(question.questionId ?? ""))
+    );
   }
 
-  return { ok: true, found, total: questions.length };
+  return { ok: true, found: foundQuestionIds.length, total: questions.length };
 }
 
 async function probeExternalQuestions(
@@ -67,8 +75,8 @@ async function probeExternalQuestions(
   courseId: number,
   quizId: number,
   language?: string
-): Promise<number> {
-  let found = 0;
+): Promise<string[]> {
+  const foundQuestionIds: string[] = [];
 
   for (let i = 0; i < questions.length; i += PRELOAD_BATCH_SIZE) {
     const batch = questions.slice(i, i + PRELOAD_BATCH_SIZE);
@@ -81,13 +89,13 @@ async function probeExternalQuestions(
     const batchResults = await Promise.allSettled(batchPromises);
 
     for (const result of batchResults) {
-      if (result.status === "fulfilled" && result.value) {
-        found++;
+      if (result.status === "fulfilled" && result.value !== null) {
+        foundQuestionIds.push(result.value);
       }
     }
   }
 
-  return found;
+  return foundQuestionIds;
 }
 
 async function probeSingleQuestion(
@@ -96,11 +104,11 @@ async function probeSingleQuestion(
   courseId: number,
   quizId: number,
   language?: string
-): Promise<boolean> {
+): Promise<string | null> {
   const questionId = question.questionId?.trim();
 
   if (!questionId) {
-    return false;
+    return null;
   }
 
   // Probe qtypes in order until we find a non-empty answer.
@@ -129,7 +137,7 @@ async function probeSingleQuestion(
       logReduxShareInfo(
         `ReduxShare: preloaded question ${questionId} (${qtype}) from external source for ${domain}/${courseId}/${quizId}`
       );
-      return true;
+      return questionId;
     } catch {
       // If any fetch fails, continue probing other qtypes.
       continue;
@@ -137,6 +145,6 @@ async function probeSingleQuestion(
   }
 
   // No qtype yielded a non-empty answer.
-  return false;
+  return null;
 }
 

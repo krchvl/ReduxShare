@@ -7,6 +7,7 @@ import {
   hasExternalAnswerRows,
   isAbortError,
   normalizeExternalVariantsData,
+  probeExternalQuestionType,
   type ExternalVariantsPayload
 } from "../src/lib/externalProvider";
 
@@ -167,5 +168,55 @@ describe("fetchQuestionVariants", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain("external");
+  });
+});
+
+describe("probeExternalQuestionType", () => {
+  it("returns the first qtype with rows when the stored type is stale", async () => {
+    const requestedTypes: Array<string | null> = [];
+    stubFetch(async (url: string) => {
+      const parsed = new URL(url);
+      const questionType = parsed.searchParams.get("questionType");
+      requestedTypes.push(questionType);
+      const rows = questionType === "match" ? [{ anchor: ["", "1"] }] : [];
+      return new Response(JSON.stringify(rows), { status: 200 });
+    });
+
+    const hit = await probeExternalQuestionType(
+      basePayload(),
+      { questionId: "1349", questionType: "multichoice", questionHash: null },
+      "en"
+    );
+
+    expect(hit?.questionType).toBe("match");
+    expect(hit?.result.data).toEqual([{ anchor: ["", "1"] }]);
+    // The stale type itself is never requested again.
+    expect(requestedTypes).not.toContain("multichoice");
+  });
+
+  it("returns null when no qtype yields rows", async () => {
+    stubFetch(async () => new Response("[]", { status: 200 }));
+
+    const hit = await probeExternalQuestionType(
+      basePayload(),
+      { questionId: "1349", questionType: null, questionHash: null },
+      "ru"
+    );
+
+    expect(hit).toBeNull();
+  });
+
+  it("skips questions without an id without fetching", async () => {
+    const spy = vi.fn(async () => new Response("[]", { status: 200 }));
+    stubFetch(spy);
+
+    const hit = await probeExternalQuestionType(
+      basePayload(),
+      { questionId: null, questionType: "match", questionHash: null },
+      "ru"
+    );
+
+    expect(hit).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

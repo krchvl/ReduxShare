@@ -149,6 +149,47 @@ export function hasExternalAnswerRows(result: ExternalVariantResult) {
   return result.data !== null && result.data !== undefined;
 }
 
+export interface ExternalTypeProbeHit {
+  result: ExternalVariantResult;
+  questionType: string;
+}
+
+/**
+ * Bounded bruteforce over the known Moodle question types: the stored or
+ * DOM-read type can be stale (legacy names, renamed types), and the provider
+ * answers such requests with an empty list instead of an error. The first
+ * qtype that yields rows wins; anything else returns null so the caller can
+ * keep the original (empty) result instead of caching the miss.
+ */
+export async function probeExternalQuestionType(
+  payload: ExternalVariantsPayload,
+  question: ExternalQuestionRequest,
+  language?: LanguageSetting
+): Promise<ExternalTypeProbeHit | null> {
+  if (!question.questionId) {
+    return null;
+  }
+
+  const candidates = EXTERNAL_TYPE_PROBE_ORDER.filter((qtype) => qtype !== question.questionType).slice(
+    0,
+    EXTERNAL_TYPE_PROBE_LIMIT
+  );
+
+  for (const qtype of candidates) {
+    const probeResult = await fetchQuestionVariants(
+      payload,
+      { ...question, questionType: qtype },
+      language
+    );
+
+    if (hasExternalAnswerRows(probeResult)) {
+      return { result: probeResult, questionType: qtype };
+    }
+  }
+
+  return null;
+}
+
 export function buildExternalAnswerUrl(
   domain: string,
   courseId: number,
@@ -168,7 +209,7 @@ export function buildExternalAnswerUrl(
     language: language ?? "en"
   });
 
-  return `https://naloaty.me/quiz/solution?${params.toString()}`;
+  return `${getExternalVariantsUrl()}?${params.toString()}`;
 }
 
 export async function fetchExternalAnswer(
