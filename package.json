@@ -12,6 +12,10 @@
     "lint:firefox": "npx --yes web-ext@latest lint --source-dir dist/firefox",
     "sign:firefox": "npx --yes web-ext@latest sign --source-dir dist/firefox --artifacts-dir dist --channel unlisted",
     "typecheck": "tsc -b --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.config.ts",
     "test:db": "RUN_POCKETBASE_LIVE_TESTS=1 vitest run --config vitest.config.ts test/pocketbaseLiveSave.test.ts",
@@ -19,19 +23,27 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "pocketbase": "^0.28.0",
     "@vitejs/plugin-react": "^4.4.1",
+    "pocketbase": "^0.28.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/chrome": "^0.0.315",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitest/coverage-v8": "^4.1.5",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^17.12.0",
     "happy-dom": "^20.9.0",
+    "prettier": "^3.9.9",
+    "typescript-eslint": "^8.70.1",
     "vitest": "^4.1.5"
   }
 }
