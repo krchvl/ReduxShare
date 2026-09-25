@@ -959,6 +959,11 @@ button:focus-visible {
   color: var(--white);
 }
 
+.ai-provider-tab--active:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--accent);
+}
+
 .ai-provider-tab--active {
   border-color: var(--accent);
   background: rgba(255, 255, 255, 0.03);
