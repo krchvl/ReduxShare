@@ -18,20 +18,33 @@ import {
 } from "../state";
 import {
   beginQuizPreviewLoading,
+  getQuizPreviewPanelState,
   hideQuizPreviewPanel,
   isQuizPreviewPanelVisible,
   resetQuizPreviewPanelState,
   setQuizPreviewPanelQuizTitle,
+  setQuizPreviewRefreshHandler,
+  setQuizPreviewScanHandlers,
+  setQuizPreviewScanRunning,
   showQuizPreviewError,
   showQuizPreviewQuestions,
+  updateQuizPreviewScanProgress,
 } from "../ui/quizPreviewPanel";
+import {
+  normalizeQuizIdScanRange,
+  QUIZ_ID_SCAN_DEFAULT_FROM,
+  QUIZ_ID_SCAN_DEFAULT_TO,
+  scanExternalQuestionIds,
+  type QuizIdScanHit,
+} from "../lib/quizIdScan";
 import {
   preloadQuizQuestions,
   type PreloadQuizQuestionsPayload,
 } from "../lib/quizAttemptPreload";
 import { hotkeyMatchesEvent, isEditableHotkeyTarget, normalizeHotkeyCode, normalizeHotkeyValue } from "./quizAttempt/hotkeys";
 import { isQuizViewUrl } from "./quizAttempt/quizUrl";
-import type { QuizPreviewRequestPayload, QuizPreviewResponse } from "../model";
+import type { QuizPreviewQuestion, QuizPreviewRequestPayload, QuizPreviewResponse } from "../model";
+import { createEmptyAnswerData, getAnswerData } from "../data/answerData";
 import { getContentTranslator } from "../i18n/contentI18n";
 
 const QUIZ_PREVIEW_BUTTON_ID = "reduxshare-quiz-preview-button";
@@ -56,6 +69,120 @@ export function shouldCacheQuizPreviewResponse(response: QuizPreviewResponse) {
 
 function getQuizPreviewCacheKey(payload: QuizPreviewRequestPayload) {
   return `${payload.domain}/${payload.courseId}/${payload.quizId}`;
+}
+
+// Deep-scan state: question entries discovered by bruteforcing candidate IDs
+// (the view page exposes no question markup). They are merged into every panel
+// render for the same quiz because the background response knows nothing
+// about them.
+let scannedPreviewCacheKey: string | null = null;
+let scannedPreviewQuestions: QuizPreviewQuestion[] = [];
+let quizIdScanToken: { cancelled: boolean } | null = null;
+
+function getMergedPreviewQuestions(baseQuestions: QuizPreviewQuestion[], cacheKey: string) {
+  if (scannedPreviewCacheKey !== cacheKey || scannedPreviewQuestions.length === 0) {
+    return baseQuestions;
+  }
+
+  const knownIds = new Set(
+    baseQuestions.map((question) => question.questionId).filter((id): id is string => id !== null)
+  );
+
+  return [
+    ...baseQuestions,
+    ...scannedPreviewQuestions.filter(
+      (question) => question.questionId === null || !knownIds.has(question.questionId)
+    )
+  ];
+}
+
+function showMergedPreviewQuestions(baseQuestions: QuizPreviewQuestion[], authRequired: boolean, cacheKey: string) {
+  showQuizPreviewQuestions(getMergedPreviewQuestions(baseQuestions, cacheKey), authRequired);
+}
+
+function cancelQuizIdScan() {
+  if (quizIdScanToken) {
+    quizIdScanToken.cancelled = true;
+    quizIdScanToken = null;
+  }
+}
+
+function scannedHitToPreviewQuestion(hit: QuizIdScanHit): QuizPreviewQuestion {
+  return {
+    questionId: hit.questionId,
+    questionType: hit.questionType,
+    questionHash: null,
+    questionText: null,
+    answerOptions: [],
+    reduxshare: createEmptyAnswerData(),
+    external: getAnswerData({
+      questionId: hit.questionId,
+      questionType: hit.questionType,
+      questionHash: null,
+      ok: true,
+      data: hit.data
+    })
+  };
+}
+
+async function startQuizIdScan(cacheKey: string, fromRaw: unknown, toRaw: unknown, questionTypes?: string[]) {
+  const payload = collectQuizPreviewPayload();
+
+  if (!payload || payload.courseId === null || payload.quizId === null) {
+    return;
+  }
+
+  if (getQuizPreviewCacheKey(payload) !== cacheKey) {
+    return;
+  }
+
+  const range = normalizeQuizIdScanRange(fromRaw, toRaw) ?? {
+    from: QUIZ_ID_SCAN_DEFAULT_FROM,
+    to: QUIZ_ID_SCAN_DEFAULT_TO
+  };
+
+  cancelQuizIdScan();
+
+  const token = { cancelled: false };
+  quizIdScanToken = token;
+  setQuizPreviewScanRunning(true);
+
+  const reshowScanned = () => {
+    const panelState = getQuizPreviewPanelState();
+    showMergedPreviewQuestions(panelState.questions, panelState.authRequired, cacheKey);
+  };
+
+  try {
+    await scanExternalQuestionIds(payload.domain, payload.courseId, payload.quizId, range.from, range.to, {
+      language: currentStoredState?.settings?.language,
+      questionTypes,
+      isCancelled: () => token.cancelled,
+      onProgress: (progress) => {
+        updateQuizPreviewScanProgress(progress);
+      },
+      onHit: (hit) => {
+        if (scannedPreviewCacheKey !== cacheKey) {
+          scannedPreviewCacheKey = cacheKey;
+          scannedPreviewQuestions = [];
+        }
+
+        if (!scannedPreviewQuestions.some((question) => question.questionId === hit.questionId)) {
+          scannedPreviewQuestions.push(scannedHitToPreviewQuestion(hit));
+          // Show discoveries live: the merge dedupes, so re-showing is safe.
+          reshowScanned();
+        }
+      }
+    });
+  } finally {
+    if (quizIdScanToken === token) {
+      quizIdScanToken = null;
+    }
+
+    setQuizPreviewScanRunning(false);
+  }
+
+  // Re-render with whatever the scan discovered, even when it was cancelled.
+  reshowScanned();
 }
 
 function findQuizIdFromPageUrl() {
@@ -117,27 +244,33 @@ function collectQuizPreviewPayload(): QuizPreviewRequestPayload | null {
 
 function requestQuizPreview(payload: QuizPreviewRequestPayload): Promise<QuizPreviewResponse> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      {
-        type: FETCH_QUIZ_PREVIEW_MESSAGE,
-        payload
-      },
-      (response: QuizPreviewResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: FETCH_QUIZ_PREVIEW_MESSAGE,
+          payload
+        },
+        (response: QuizPreviewResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
 
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
-        }
-
-        resolve(
-          response ?? {
-            ok: false,
-            error: "Background script did not return a response."
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
           }
-        );
-      }
-    );
+
+          resolve(
+            response ?? {
+              ok: false,
+              error: "Background script did not return a response."
+            }
+          );
+        }
+      );
+    } catch (error) {
+      // Synchronous throw: the extension context is gone (reloaded/removed).
+      // Reject so callers handle it instead of spamming uncaught errors.
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 }
 
@@ -151,7 +284,7 @@ function findQuizTitleFromPage() {
   return heading?.textContent?.trim() || null;
 }
 
-async function openQuizPreview() {
+async function openQuizPreview(forceRefresh = false) {
   const payload = collectQuizPreviewPayload();
   const translator = getContentTranslator(currentStoredState?.settings?.language);
 
@@ -164,15 +297,21 @@ async function openQuizPreview() {
 
   const cacheKey = getQuizPreviewCacheKey(payload);
 
-  if (quizPreviewCache?.key === cacheKey) {
-    showQuizPreviewQuestions(quizPreviewCache.response.questions ?? [], quizPreviewCache.response.authRequired === true);
+  // A cached response means no request at all: force refresh skips the cache
+  // so the question list is collected again from both sources.
+  if (!forceRefresh && quizPreviewCache?.key === cacheKey) {
+    showMergedPreviewQuestions(
+      quizPreviewCache.response.questions ?? [],
+      quizPreviewCache.response.authRequired === true,
+      cacheKey
+    );
     return;
   }
 
   beginQuizPreviewLoading();
 
   try {
-    const response = await requestQuizPreview(payload);
+    const response = await requestQuizPreview({ ...payload, forceRefresh });
 
     if (!response.ok) {
       showQuizPreviewError(response.error ?? translator("quiz.preview.error"));
@@ -183,43 +322,52 @@ async function openQuizPreview() {
       quizPreviewCache = { key: cacheKey, response };
     }
 
-    showQuizPreviewQuestions(response.questions ?? [], response.authRequired === true);
+    showMergedPreviewQuestions(response.questions ?? [], response.authRequired === true, cacheKey);
     logReduxShareInfo(`ReduxShare: quiz preview loaded, ${response.questions?.length ?? 0} questions`);
 
-    // Preload external answers for all questions in parallel.
-    if (response.questions && response.questions.length > 0) {
-      logReduxShareInfo(`ReduxShare: starting preload for ${response.questions.length} questions`);
-
-      const preloadPayload: PreloadQuizQuestionsPayload = {
-        domain: payload.domain,
-        courseId: payload.courseId,
-        quizId: payload.quizId,
-        questions: response.questions.map((q) => ({
-          questionId: q.questionId,
-          questionType: q.questionType,
-          questionHash: q.questionHash,
-          questionText: q.questionText
-        }))
-      };
-
-      logReduxShareInfo(`ReduxShare: preload payload prepared:`, preloadPayload);
-
-      try {
-        const result = await preloadQuizQuestions(preloadPayload, currentStoredState?.settings?.language);
-        logReduxShareInfo(`ReduxShare: preload completed:`, result);
-        if (result.found > 0) {
-          logReduxShareInfo(`ReduxShare: preloaded ${result.found}/${result.total} questions from external sources`);
-        }
-      } catch (error) {
-        logReduxShareWarning("ReduxShare: quiz preview preloading failed", error);
-
-        // Handle extension context invalidated error.
-        if (error instanceof Error && error.message.includes("Extension context invalidated")) {
-          logReduxShareWarning("ReduxShare: extension context invalidated, preload skipped");
-        }
+    // No identities at all (fresh quiz, empty internal database): a forced
+    // refresh additionally bruteforces candidate question IDs with the same
+    // solution request the attempt page sends — unless a previous scan
+    // already discovered some (then the scan controls below take over).
+    if (!response.questions || response.questions.length === 0) {
+      if (forceRefresh && scannedPreviewCacheKey !== cacheKey) {
+        await startQuizIdScan(cacheKey, QUIZ_ID_SCAN_DEFAULT_FROM, QUIZ_ID_SCAN_DEFAULT_TO);
+      } else {
+        logReduxShareWarning("ReduxShare: no questions to preload");
       }
-    } else {
-      logReduxShareWarning("ReduxShare: no questions to preload");
+
+      return;
+    }
+    // Preload external answers for all known questions in parallel.
+    logReduxShareInfo(`ReduxShare: starting preload for ${response.questions.length} questions`);
+
+    const preloadPayload: PreloadQuizQuestionsPayload = {
+      domain: payload.domain,
+      courseId: payload.courseId,
+      quizId: payload.quizId,
+      questions: response.questions.map((q) => ({
+        questionId: q.questionId,
+        questionType: q.questionType,
+        questionHash: q.questionHash,
+        questionText: q.questionText
+      }))
+    };
+
+    logReduxShareInfo(`ReduxShare: preload payload prepared:`, preloadPayload);
+
+    try {
+      const result = await preloadQuizQuestions(preloadPayload, currentStoredState?.settings?.language);
+      logReduxShareInfo(`ReduxShare: preload completed:`, result);
+      if (result.found > 0) {
+        logReduxShareInfo(`ReduxShare: preloaded ${result.found}/${result.total} questions from external sources`);
+      }
+    } catch (error) {
+      logReduxShareWarning("ReduxShare: quiz preview preloading failed", error);
+
+      // Handle extension context invalidated error.
+      if (error instanceof Error && error.message.includes("Extension context invalidated")) {
+        logReduxShareWarning("ReduxShare: extension context invalidated, preload skipped");
+      }
     }
   } catch (error) {
     showQuizPreviewError(translator("quiz.preview.error"));
@@ -352,6 +500,23 @@ export async function initializeQuizPreviewFeatures() {
   syncLanguage(storedState);
   syncQuizPreviewHotkey(storedState);
   resetQuizPreviewPanelState();
+  setQuizPreviewRefreshHandler(() => {
+    void openQuizPreview(true);
+  });
+  setQuizPreviewScanHandlers({
+    onStartScan: (from, to, questionTypes) => {
+      const payload = collectQuizPreviewPayload();
+
+      if (!payload) {
+        return;
+      }
+
+      void startQuizIdScan(getQuizPreviewCacheKey(payload), from, to, questionTypes);
+    },
+    onCancelScan: () => {
+      cancelQuizIdScan();
+    }
+  });
   watchQuizPreviewButtonMount();
 
   if (!ensureQuizPreviewButton()) {

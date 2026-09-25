@@ -5,9 +5,13 @@ import {
   beginQuizPreviewLoading,
   getQuizPreviewPanelState,
   resetQuizPreviewPanelState,
+  setQuizPreviewRefreshHandler,
+  setQuizPreviewScanHandlers,
+  setQuizPreviewScanRunning,
   showQuizPreviewError,
   showQuizPreviewQuestions,
   setQuizPreviewPanelQuizTitle,
+  updateQuizPreviewScanProgress,
 } from "../src/ui/quizPreviewPanel";
 import { setCurrentStoredState, setCurrentT } from "../src/state";
 import { getContentTranslator } from "../src/i18n/contentI18n";
@@ -310,5 +314,164 @@ describe("quiz preview message request", () => {
     await initializeQuizPreviewFeatures();
 
     expect(document.querySelectorAll("#reduxshare-quiz-preview-button")).toHaveLength(1);
+  });
+});
+
+describe("quiz preview refresh action", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    resetQuizPreviewPanelState();
+    setCurrentStoredState(storedState());
+    setCurrentT(getContentTranslator("ru"));
+    setQuizPreviewRefreshHandler(null);
+  });
+
+  it("renders a force-refresh button in the modal header", () => {
+    showQuizPreviewQuestions([], false);
+
+    const refreshButton = getPreviewModal().querySelector<HTMLButtonElement>(
+      ".reduxshare-preview-refresh"
+    );
+
+    expect(refreshButton).toBeInstanceOf(HTMLButtonElement);
+    expect(refreshButton!.getAttribute("aria-label")).toBe("Обновить вопросы");
+    expect(refreshButton!.disabled).toBe(false);
+  });
+
+  it("disables the refresh button while loading", () => {
+    beginQuizPreviewLoading();
+
+    expect(
+      getPreviewModal().querySelector<HTMLButtonElement>(".reduxshare-preview-refresh")!.disabled
+    ).toBe(true);
+  });
+
+  it("forwards refresh clicks to the registered handler", () => {
+    const onRefresh = vi.fn();
+    setQuizPreviewRefreshHandler(onRefresh);
+    showQuizPreviewQuestions([], false);
+
+    getPreviewModal()
+      .querySelector<HTMLButtonElement>(".reduxshare-preview-refresh")!
+      .click();
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    setQuizPreviewRefreshHandler(null);
+  });
+
+  it("renders ID scan controls when the question list is empty", () => {
+    const onStartScan = vi.fn();
+    setQuizPreviewScanHandlers({ onStartScan, onCancelScan: vi.fn() });
+    showQuizPreviewQuestions([], false);
+
+    const modal = getPreviewModal();
+    const startButton = modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start");
+    expect(startButton?.textContent).toContain("Сканировать ID");
+
+    const typeCheckboxes = modal.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type");
+    expect(typeCheckboxes.length).toBeGreaterThan(0);
+    expect(
+      Array.from(typeCheckboxes).every((checkbox) => checkbox.checked)
+    ).toBe(true);
+
+    const fromInput = modal.querySelector<HTMLInputElement>("#reduxshare-preview-scan-from");
+    const toInput = modal.querySelector<HTMLInputElement>("#reduxshare-preview-scan-to");
+    fromInput!.value = "7";
+    toInput!.value = "42";
+    startButton!.click();
+
+    expect(onStartScan).toHaveBeenCalledTimes(1);
+    const [, , selectedTypes] = onStartScan.mock.calls[0] as [string, string, string[]];
+    expect(onStartScan).toHaveBeenCalledWith("7", "42", expect.any(Array));
+    expect(selectedTypes.length).toBe(typeCheckboxes.length);
+    setQuizPreviewScanHandlers(null);
+  });
+
+  it("passes only checked question types to the scan", () => {
+    const onStartScan = vi.fn();
+    setQuizPreviewScanHandlers({ onStartScan, onCancelScan: vi.fn() });
+    showQuizPreviewQuestions([], false);
+
+    const modal = getPreviewModal();
+    const checkboxes = Array.from(
+      modal.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+    );
+    checkboxes[0]!.checked = false;
+    checkboxes[0]!.dispatchEvent(new Event("change", { bubbles: true }));
+    modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start")!.click();
+
+    const [, , selectedTypes] = onStartScan.mock.calls[0] as [string, string, string[]];
+    expect(selectedTypes).toHaveLength(checkboxes.length - 1);
+    expect(selectedTypes).not.toContain(checkboxes[0]!.value);
+    setQuizPreviewScanHandlers(null);
+  });
+
+  it("toggles all question types and blocks starting with none selected", () => {
+    setQuizPreviewScanHandlers({ onStartScan: vi.fn(), onCancelScan: vi.fn() });
+    showQuizPreviewQuestions([], false);
+
+    const modal = getPreviewModal();
+    const startButton = modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start")!;
+    const checkboxes = () =>
+      Array.from(modal.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type"));
+
+    modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-select-none")!.click();
+    expect(checkboxes().every((checkbox) => !checkbox.checked)).toBe(true);
+    expect(startButton.disabled).toBe(true);
+
+    modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-select-all")!.click();
+    expect(checkboxes().every((checkbox) => checkbox.checked)).toBe(true);
+    expect(startButton.disabled).toBe(false);
+    setQuizPreviewScanHandlers(null);
+  });
+
+  it("keeps the scan controls available after discoveries", () => {
+    setQuizPreviewScanHandlers({ onStartScan: vi.fn(), onCancelScan: vi.fn() });
+    showQuizPreviewQuestions(
+      [
+        {
+          questionId: "7",
+          questionType: "match",
+          questionHash: null,
+          questionText: null,
+          answerOptions: [],
+          reduxshare: { anchors: [], suggestions: [], submissions: [], slots: [] },
+          external: {
+            anchors: [],
+            suggestions: [{ correctness: 2, confidence: 0.99, label: "Yandex" }],
+            submissions: [{ correctness: 2, count: 1, label: "Yandex" }],
+            slots: []
+          }
+        }
+      ],
+      false
+    );
+
+    const modal = getPreviewModal();
+    expect(modal.querySelector(".reduxshare-preview-list")).not.toBeNull();
+    expect(
+      modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start")?.textContent
+    ).toContain("Сканировать ID");
+    setQuizPreviewScanHandlers(null);
+  });
+
+  it("swaps the scan controls for progress and cancel while running", () => {
+    const onCancelScan = vi.fn();
+    setQuizPreviewScanHandlers({ onStartScan: vi.fn(), onCancelScan });
+    showQuizPreviewQuestions([], false);
+    setQuizPreviewScanRunning(true);
+
+    const modal = getPreviewModal();
+    expect(modal.querySelector(".reduxshare-preview-scan-start")).toBeNull();
+    const cancelButton = modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-cancel");
+    expect(cancelButton?.textContent).toContain("Остановить");
+    cancelButton!.click();
+    expect(onCancelScan).toHaveBeenCalledTimes(1);
+
+    updateQuizPreviewScanProgress({ checked: 10, total: 100, found: 2 });
+    expect(modal.querySelector("#reduxshare-preview-scan-progress")?.textContent).toContain("10");
+
+    setQuizPreviewScanRunning(false);
+    setQuizPreviewScanHandlers(null);
   });
 });

@@ -31,11 +31,11 @@ import {
   type PendingSaveFlushResult
 } from "./reviewSaveQueue";
 import {
-  EXTERNAL_TYPE_PROBE_LIMIT,
   EXTERNAL_TYPE_PROBE_ORDER,
   fetchQuestionVariants,
   hasExternalAnswerRows,
   fetchExternalAnswer,
+  probeExternalQuestionType,
   type ExternalQuestionRequest,
   type ExternalVariantResult,
   type ExternalVariantsPayload
@@ -700,11 +700,17 @@ async function handleFetchQuizPreview(payload: QuizPreviewRequestPayload): Promi
   // empty one, so a missing or stale type silently hides answers. Questions whose
   // type is not DOM-confirmed (no registry stub) get a bounded probe over the
   // known qtypes, and a hit is written back to the registry for next time.
+  // Force refresh probes every question without rows: a stale recorded type
+  // must not suppress the search.
   const discoveredTypes = new Map<string, string>();
 
   await Promise.all(
     externalRequests.map(async (question) => {
-      if (!question.questionId || stubTypeByQuestionId.has(question.questionId)) {
+      if (!question.questionId) {
+        return;
+      }
+
+      if (!payload.forceRefresh && stubTypeByQuestionId.has(question.questionId)) {
         return;
       }
 
@@ -714,24 +720,18 @@ async function handleFetchQuizPreview(payload: QuizPreviewRequestPayload): Promi
         return;
       }
 
-      const candidates = EXTERNAL_TYPE_PROBE_ORDER.filter((qtype) => qtype !== question.questionType).slice(
-        0,
-        EXTERNAL_TYPE_PROBE_LIMIT
+      const hit = await probeExternalQuestionType(
+        externalPayload,
+        question,
+        storedState.settings?.language
       );
 
-      for (const qtype of candidates) {
-        const probeResult = await fetchQuestionVariants(
-          externalPayload,
-          { ...question, questionType: qtype },
-          storedState.settings?.language
-        );
-
-        if (hasExternalAnswerRows(probeResult)) {
-          externalByQuestionId.set(question.questionId, probeResult);
-          discoveredTypes.set(question.questionId, qtype);
-          return;
-        }
+      if (!hit) {
+        return;
       }
+
+      externalByQuestionId.set(question.questionId, hit.result);
+      discoveredTypes.set(question.questionId, hit.questionType);
     })
   );
 

@@ -8,6 +8,8 @@ import {
 } from "../data/answerData";
 import { currentStoredState, currentT } from "../state";
 import { canUseQuizFeatures } from "../logic/settings";
+import { EXTERNAL_TYPE_PROBE_ORDER } from "../lib/externalProvider";
+import { QUIZ_ID_SCAN_DEFAULT_FROM, QUIZ_ID_SCAN_DEFAULT_TO } from "../lib/quizIdScan";
 import { getQuestionTypeLabel } from "../shared/questionTypes";
 import type {
   AnswerData,
@@ -109,6 +111,65 @@ const PREVIEW_STYLES = `
     color: #198754;
     font-weight: 700;
   }
+
+  .reduxshare-preview-refresh:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .reduxshare-preview-scan {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.125);
+    display: grid;
+    gap: 8px;
+  }
+
+  .reduxshare-preview-scan-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .reduxshare-preview-scan-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+  }
+
+  .reduxshare-preview-scan-row input {
+    width: 90px;
+  }
+
+  .reduxshare-preview-scan-progress {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    min-height: 1.2em;
+  }
+
+  .reduxshare-preview-scan-types {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+    font-size: 0.85rem;
+  }
+
+  .reduxshare-preview-scan-types-label {
+    font-weight: 700;
+  }
+
+  .reduxshare-preview-scan-type-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 0;
+    font-weight: 400;
+    cursor: pointer;
+  }
 `;
 
 function escapeHtml(value: string) {
@@ -128,6 +189,8 @@ export function resetQuizPreviewPanelState() {
   panelState.questions = [];
   panelState.quizTitle = null;
   panelState.activeTab = "internal";
+  quizPreviewScanRunning = false;
+  quizPreviewScanProgress = null;
   removeQuizPreviewPanel();
 }
 
@@ -205,6 +268,70 @@ export function showQuizPreviewQuestions(
 export function removeQuizPreviewPanel() {
   document.getElementById(QUIZ_PREVIEW_ROOT_ID)?.remove();
   document.body?.classList.remove("modal-open");
+}
+
+// Force-refresh entry point owned by the content script: the preview caches
+// responses and trusts recorded question types, either of which can hide
+// answers without any request being made. The panel only renders the button
+// and forwards the click.
+let quizPreviewRefreshHandler: (() => void) | null = null;
+
+export function setQuizPreviewRefreshHandler(handler: (() => void) | null) {
+  quizPreviewRefreshHandler = handler;
+}
+
+export interface QuizPreviewScanHandlers {
+  onStartScan: (from: string, to: string, questionTypes: string[]) => void;
+  onCancelScan: () => void;
+}
+
+export interface QuizPreviewScanProgress {
+  checked: number;
+  total: number;
+  found: number;
+}
+
+let quizPreviewScanHandlers: QuizPreviewScanHandlers | null = null;
+let quizPreviewScanRunning = false;
+let quizPreviewScanProgress: QuizPreviewScanProgress | null = null;
+
+export function setQuizPreviewScanHandlers(handlers: QuizPreviewScanHandlers | null) {
+  quizPreviewScanHandlers = handlers;
+}
+
+export function setQuizPreviewScanRunning(running: boolean) {
+  quizPreviewScanRunning = running;
+
+  if (!running) {
+    quizPreviewScanProgress = null;
+  }
+
+  renderQuizPreviewPanel();
+}
+
+export function updateQuizPreviewScanProgress(progress: QuizPreviewScanProgress) {
+  quizPreviewScanProgress = progress;
+  document.getElementById("reduxshare-preview-scan-progress")?.replaceChildren(
+    document.createTextNode(
+      currentT("quiz.preview.scanProgress", {
+        checked: progress.checked,
+        total: progress.total,
+        found: progress.found
+      })
+    )
+  );
+}
+
+function formatQuizPreviewScanProgress() {
+  if (!quizPreviewScanProgress) {
+    return "";
+  }
+
+  return currentT("quiz.preview.scanProgress", {
+    checked: quizPreviewScanProgress.checked,
+    total: quizPreviewScanProgress.total,
+    found: quizPreviewScanProgress.found
+  });
 }
 
 function getMetaText(
@@ -480,6 +607,10 @@ function renderModalBody() {
       ? currentT("quiz.preview.externalDiscovery")
       : currentT("quiz.menu.empty");
 
+  // The deep ID scan stays available even after discoveries: finding a few
+  // questions must not lock the user out of scanning further ranges/types.
+  const scanBlock = renderQuizPreviewScanBlock();
+
   return `
     <ul class="nav nav-tabs mb-3">
       ${renderTabButton("internal", currentT("quiz.menu.internalSources"), internalCount, panelState.activeTab === "internal")}
@@ -487,11 +618,64 @@ function renderModalBody() {
     </ul>
     ${
       tabQuestions.length === 0
-        ? `<div class="reduxshare-preview-placeholder">${escapeHtml(tabEmptyPlaceholder)}</div>`
+        ? `<div class="reduxshare-preview-placeholder">${escapeHtml(tabEmptyPlaceholder)}</div>${scanBlock}`
         : `<div class="reduxshare-preview-list">
             ${tabQuestions.map((question, index) => renderQuestionCard(question, index + 1, panelState.activeTab)).join("")}
-          </div>`
+          </div>${scanBlock}`
     }
+  `;
+}
+
+function renderQuizPreviewScanBlock() {
+  if (!quizPreviewScanHandlers) {
+    return "";
+  }
+
+  const actionButton = quizPreviewScanRunning
+    ? `<button type="button" class="btn btn-secondary btn-sm reduxshare-preview-scan-cancel">${escapeHtml(currentT("quiz.preview.scanCancel"))}</button>`
+    : `<button type="button" class="btn btn-primary btn-sm reduxshare-preview-scan-start">${escapeHtml(currentT("quiz.preview.scanStart"))}</button>`;
+
+  const language = currentStoredState?.settings?.language;
+  const typeOptions = EXTERNAL_TYPE_PROBE_ORDER.map(
+    (type) => `
+      <label class="reduxshare-preview-scan-type-option" title="${escapeHtml(type)}">
+        <input type="checkbox" class="reduxshare-preview-scan-type" value="${escapeHtml(type)}" checked />
+        ${escapeHtml(getQuestionTypeLabel(type, language))}
+      </label>
+    `
+  ).join("");
+
+  return `
+    <div class="reduxshare-preview-scan">
+      <div class="reduxshare-preview-scan-row">
+        <label>${escapeHtml(currentT("quiz.preview.scanRangeFrom"))}
+          <input
+            type="number"
+            min="1"
+            id="reduxshare-preview-scan-from"
+            class="form-control form-control-sm"
+            value="${QUIZ_ID_SCAN_DEFAULT_FROM}"
+          />
+        </label>
+        <label>${escapeHtml(currentT("quiz.preview.scanRangeTo"))}
+          <input
+            type="number"
+            min="1"
+            id="reduxshare-preview-scan-to"
+            class="form-control form-control-sm"
+            value="${QUIZ_ID_SCAN_DEFAULT_TO}"
+          />
+        </label>
+        ${actionButton}
+      </div>
+      <div class="reduxshare-preview-scan-types">
+        <span class="reduxshare-preview-scan-types-label">${escapeHtml(currentT("quiz.preview.scanTypes"))}:</span>
+        ${typeOptions}
+        <button type="button" class="btn btn-link btn-sm reduxshare-preview-scan-select-all">${escapeHtml(currentT("quiz.preview.scanSelectAll"))}</button>
+        <button type="button" class="btn btn-link btn-sm reduxshare-preview-scan-select-none">${escapeHtml(currentT("quiz.preview.scanClearAll"))}</button>
+      </div>
+      <div class="reduxshare-preview-scan-progress" id="reduxshare-preview-scan-progress">${escapeHtml(formatQuizPreviewScanProgress())}</div>
+    </div>
   `;
 }
 
@@ -555,6 +739,7 @@ function renderQuizPreviewPanel() {
   ensureQuizPreviewEscapeListener();
   const root = ensureQuizPreviewRoot();
   const closeLabel = currentT("quiz.panel.close");
+  const refreshLabel = currentT("quiz.preview.refreshQuestions");
 
   root.innerHTML = `
     <div class="modal-backdrop fade show"></div>
@@ -573,6 +758,9 @@ function renderQuizPreviewPanel() {
               ${escapeHtml(getQuizPreviewHeading())}
               <small class="text-muted d-block">${escapeHtml(currentT("quiz.preview.subtitle"))}</small>
             </h5>
+            <button type="button" class="close reduxshare-preview-refresh" aria-label="${escapeHtml(refreshLabel)}" title="${escapeHtml(refreshLabel)}" ${panelState.loading ? "disabled" : ""}>
+              <span aria-hidden="true">&#8635;</span>
+            </button>
             <button type="button" class="close reduxshare-preview-close" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -589,6 +777,85 @@ function renderQuizPreviewPanel() {
     .querySelector<HTMLElement>(".reduxshare-preview-close")
     ?.addEventListener("click", () => {
       hideQuizPreviewPanel();
+    });
+
+  root
+    .querySelector<HTMLElement>(".reduxshare-preview-refresh")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      quizPreviewRefreshHandler?.();
+    });
+
+  root
+    .querySelector<HTMLElement>(".reduxshare-preview-scan-start")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const fromInput = root.querySelector<HTMLInputElement>("#reduxshare-preview-scan-from");
+      const toInput = root.querySelector<HTMLInputElement>("#reduxshare-preview-scan-to");
+      const selectedTypes = Array.from(
+        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type:checked")
+      ).map((checkbox) => checkbox.value);
+      quizPreviewScanHandlers?.onStartScan(fromInput?.value ?? "", toInput?.value ?? "", selectedTypes);
+    });
+
+  const syncScanStartAvailability = () => {
+    const startButton = root.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start");
+
+    if (!startButton) {
+      return;
+    }
+
+    startButton.disabled =
+      root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type:checked").length === 0;
+  };
+
+  for (const typeCheckbox of Array.from(
+    root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+  )) {
+    typeCheckbox.addEventListener("change", () => {
+      syncScanStartAvailability();
+    });
+  }
+
+  root
+    .querySelector<HTMLElement>(".reduxshare-preview-scan-select-all")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      for (const typeCheckbox of Array.from(
+        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+      )) {
+        typeCheckbox.checked = true;
+      }
+
+      syncScanStartAvailability();
+    });
+
+  root
+    .querySelector<HTMLElement>(".reduxshare-preview-scan-select-none")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      for (const typeCheckbox of Array.from(
+        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+      )) {
+        typeCheckbox.checked = false;
+      }
+
+      syncScanStartAvailability();
+    });
+
+  root
+    .querySelector<HTMLElement>(".reduxshare-preview-scan-cancel")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      quizPreviewScanHandlers?.onCancelScan();
     });
 
   // Moodle's modal closes when the backdrop area (the scrolling .modal surface) is clicked.

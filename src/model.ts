@@ -126,6 +126,9 @@ export interface QuizPreviewRequestPayload {
   domain: string;
   courseId: number | null;
   quizId: number | null;
+  // Force refresh from the preview panel button: bypass cached responses and
+  // re-probe question types instead of trusting the recorded ones.
+  forceRefresh?: boolean;
 }
 
 export interface QuizPreviewQuestion {
