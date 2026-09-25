@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
@@ -68,7 +68,9 @@ export function App() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [registerMessage, setRegisterMessage] = useState<string | null>(null);
   const [, setSystemSchemeTick] = useState(0);
-  const t = getTranslator(settings.language);
+  // Stable translator identity: a fresh closure every render would retrigger
+  // every effect that (correctly) lists `t` in its dependencies.
+  const t = useMemo(() => getTranslator(settings.language), [settings.language]);
   const colorScheme = resolveColorScheme(settings.colorScheme);
 
   useEffect(() => {
