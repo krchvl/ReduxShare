@@ -1,4 +1,4 @@
-import type { AuthSession, Settings, UserProfile } from "./types";
+import type { AuthSession, Settings, UpdateState, UserProfile } from "./types";
 
 export const ANSWER_WIDGET_ATTR = "data-reduxshare-answer-widget";
 export const ANSWER_MENU_PORTAL_ATTR = "data-reduxshare-answer-menu-portal";
@@ -81,6 +81,7 @@ export interface StoredStateLike {
   authSession?: Partial<AuthSession> | null;
   userProfile?: Partial<UserProfile> | null;
   latestQuizAttemptContext?: QuizAttemptContext;
+  updateState?: UpdateState | null;
 }
 
 export interface MoodleConfig {

@@ -52,6 +52,10 @@ export const CONTENT_TRANSLATIONS = {
     "quiz.preview.externalDiscovery":
       "Ответы внешних источников появятся здесь после того, как вы откроете попытку этого квиза хотя бы один раз — так расширение узнает список заданий.",
     "quiz.preview.statistic": "Статистика",
+    "quiz.updateNotice.title": "Доступно обновление",
+    "quiz.updateNotice.body": "Вышла версия {version}, у вас {currentVersion}",
+    "quiz.updateNotice.open": "Скачать",
+    "quiz.updateNotice.later": "Позже",
   },
   en: {
     "quiz.panel.user": "User",
@@ -103,6 +107,10 @@ export const CONTENT_TRANSLATIONS = {
     "quiz.preview.externalDiscovery":
       "External answers will appear here after you open an attempt of this quiz at least once — that is how the extension learns the question list.",
     "quiz.preview.statistic": "Statistics",
+    "quiz.updateNotice.title": "Update available",
+    "quiz.updateNotice.body": "Version {version} is out — you have {currentVersion}",
+    "quiz.updateNotice.open": "Download",
+    "quiz.updateNotice.later": "Later",
   },
 } as const;
 

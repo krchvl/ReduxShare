@@ -145,6 +145,13 @@ import {
   setAttemptStatusPanelClosedInSession,
 } from "./quizAttempt/attemptStatusPanel";
 import { isQuizAttemptUrl, isQuizSummaryUrl, isQuizViewUrl } from "./quizAttempt/quizUrl";
+import {
+  applyUpdateNoticeStorageChanges,
+  loadUpdateNoticeDismissedState,
+  renderUpdateNotice,
+  resetUpdateNoticeState,
+  UPDATE_NOTICE_HOST_ID,
+} from "./quizAttempt/updateNotice";
 import { initializeQuizPreviewFeatures, syncQuizPreviewFeatures } from "./quizPreview";
 import {
   isExtensionContextValid,
@@ -233,6 +240,7 @@ declare global {
         watchStoredSettingsChanges: typeof watchStoredSettingsChanges;
         syncAttemptStatusPanelClosedState: typeof syncAttemptStatusPanelClosedState;
         setAttemptStatusPanelClosedInSession: typeof setAttemptStatusPanelClosedInSession;
+        resetUpdateNoticeState: typeof resetUpdateNoticeState;
         buildReviewAnswersForQuestion: typeof buildReviewAnswersForQuestion;
         collectReviewQuestionsForSave: typeof collectReviewQuestionsForSave;
         collectQuestionSummaries: typeof collectQuestionSummaries;
@@ -410,6 +418,12 @@ function syncContentColorScheme() {
 
   if (statusPanel instanceof HTMLElement) {
     statusPanel.dataset.theme = colorScheme;
+  }
+
+  const updateNotice = document.getElementById(UPDATE_NOTICE_HOST_ID);
+
+  if (updateNotice instanceof HTMLElement) {
+    updateNotice.dataset.theme = colorScheme;
   }
 }
 
@@ -1908,6 +1922,7 @@ function watchStoredSettingsChanges() {
     }
 
     applyAttemptStatusPanelStorageChanges(changes);
+    applyUpdateNoticeStorageChanges(changes);
 
     if (!changes[APP_STORAGE_KEY]) {
       return;
@@ -1919,6 +1934,7 @@ function watchStoredSettingsChanges() {
       getAnswerPipelineFingerprint(nextState) !== getAnswerPipelineFingerprint(currentStoredState);
 
     setCurrentStoredState(nextState);
+    renderUpdateNotice();
 
     if (isQuizViewUrl(window.location)) {
       if (pipelineChanged) {
@@ -2134,27 +2150,31 @@ async function bootstrapQuizPageDetection() {
   }
 
   installColorSchemeWatcher();
+  watchStoredSettingsChanges();
+  await loadUpdateNoticeDismissedState();
 
   if (isQuizAttemptUrl(window.location)) {
-    watchStoredSettingsChanges();
     ensureAutoSelectCancelListener();
     await initializeQuizAttemptFeatures();
+    renderUpdateNotice();
     return;
   }
 
   if (isQuizSummaryUrl(window.location)) {
     await initializeQuizSummaryTracking();
+    renderUpdateNotice();
     return;
   }
 
   if (isQuizReviewUrl(window.location)) {
     await initializeQuizReviewSave();
+    renderUpdateNotice();
     return;
   }
 
   if (isQuizViewUrl(window.location)) {
-    watchStoredSettingsChanges();
     await initializeQuizPreviewFeatures();
+    renderUpdateNotice();
   }
 }
 
@@ -2192,6 +2212,7 @@ function resetQuizAttemptTestState() {
   syncLanguage(currentStoredState);
   setAnswerWidgetsVisible(true);
   resetAttemptStatusPanelState();
+  resetUpdateNoticeState();
   void syncAttemptStatusPanelClosedState(currentStoredState);
 }
 
@@ -2206,6 +2227,7 @@ function installQuizAttemptTestApi() {
     watchStoredSettingsChanges,
     syncAttemptStatusPanelClosedState,
     setAttemptStatusPanelClosedInSession,
+    resetUpdateNoticeState,
     buildReviewAnswersForQuestion,
     collectReviewQuestionsForSave,
     collectQuestionSummaries,
