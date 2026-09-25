@@ -254,10 +254,6 @@ export function getDefaultAiModelForProvider(provider: AiProvider) {
   return getAiModelOptionsForProvider(provider)[0]?.value ?? "";
 }
 
-export function isAiModelForProvider(provider: AiProvider, value: unknown) {
-  return typeof value === "string" && getAiModelOptionsForProvider(provider).some((model) => model.value === value);
-}
-
 export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): AiSettings {
   const provider = isAiProvider(settings?.provider) ? settings.provider : DEFAULT_SETTINGS.ai.provider;
   const rawModel = typeof settings?.model === "string" ? settings.model.trim() : "";

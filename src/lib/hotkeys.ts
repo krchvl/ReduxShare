@@ -179,16 +179,3 @@ export function formatHotkeyBindingFromKeyboardEvent(event: KeyboardEvent): Hotk
   };
 }
 
-export function hotkeyMatchesEvent(hotkey: string, hotkeyCode: string | undefined, event: KeyboardEvent) {
-  if (event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) {
-    return false;
-  }
-
-  const eventBinding = formatHotkeyBindingFromKeyboardEvent(event);
-
-  if (!eventBinding) {
-    return false;
-  }
-
-  return eventBinding.code === normalizeHotkeyCode(hotkeyCode, hotkey);
-}

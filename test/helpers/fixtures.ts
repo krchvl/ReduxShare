@@ -8,10 +8,6 @@ export function getFixturePath(questionType: string, caseName: string) {
   return resolve(FIXTURE_ROOT, questionType, `${caseName}.html`);
 }
 
-export function hasQuestionFixture(questionType: string, caseName: string) {
-  return existsSync(getFixturePath(questionType, caseName));
-}
-
 export function isQuestionFixtureReady(questionType: string, caseName: string) {
   const path = getFixturePath(questionType, caseName);
 
