@@ -11,8 +11,7 @@ const contentPass = process.env.REDUXSHARE_BUNDLE === "content";
 const entryPoints: Record<string, string> = contentPass
   ? {
       stealthConsole: resolve(__dirname, "src/content/stealthConsole.ts"),
-      quizAttempt: resolve(__dirname, "src/content/quizAttempt.ts"),
-      quizPreview: resolve(__dirname, "src/content/quizPreview.ts")
+      quizAttempt: resolve(__dirname, "src/content/quizAttempt.ts")
     }
   : {
       popup: resolve(__dirname, "index.html"),

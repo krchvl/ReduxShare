@@ -27,9 +27,9 @@ for (const target of targets) {
     REDUXSHARE_BROWSER_TARGET: target,
     REDUXSHARE_BUNDLE: "content"
   });
-  await assertContentScriptsAreSelfContained(resolve(rootDir, "dist", target));
   await removeBuildJunk(resolve(rootDir, "dist", target));
   const manifest = await writeTargetManifest(target);
+  await assertContentScriptsAreSelfContained(resolve(rootDir, "dist", target));
   await createTargetArchive(target, manifest.version);
 }
 
