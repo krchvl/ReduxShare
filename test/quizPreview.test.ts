@@ -20,8 +20,8 @@ function storedState(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// Minimal view.php markup: start button block plus quizinfo, mirroring the live
-// Moodle page (see test.html at the repository root).
+// Minimal view.php markup: start button block plus quizinfo, mirroring a live
+// Moodle page.
 const VIEW_PAGE_HTML = `
   <div role="main">
     <div class="tertiary-navigation">
