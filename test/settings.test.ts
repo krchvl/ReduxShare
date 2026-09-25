@@ -58,6 +58,49 @@ describe("opacity settings", () => {
     expect(normalizeAutoSelectAvgSeconds(AUTO_SELECT_TEMPO_PRESETS.realistic)).toBe(12);
     expect(normalizeAutoSelectAvgSeconds(13.333)).toBe(13.3);
   });
+
+  it("defaults humanization flags to on and preserves explicit choices", () => {
+    expect(DEFAULT_SETTINGS.humanTyping).toBe(true);
+    expect(DEFAULT_SETTINGS.humanPrecursors).toBe(true);
+    expect(DEFAULT_SETTINGS.humanReading).toBe(true);
+    expect(DEFAULT_SETTINGS.humanOrder).toBe(true);
+
+    const normalized = normalizeSettings({
+      humanTyping: false,
+      humanPrecursors: false,
+      humanReading: false,
+      humanOrder: false,
+    });
+    expect(normalized.humanTyping).toBe(false);
+    expect(normalized.humanPrecursors).toBe(false);
+    expect(normalized.humanReading).toBe(false);
+    expect(normalized.humanOrder).toBe(false);
+
+    const defaults = normalizeSettings({});
+    expect(defaults.humanTyping).toBe(true);
+    expect(defaults.humanPrecursors).toBe(true);
+    expect(defaults.humanReading).toBe(true);
+    expect(defaults.humanOrder).toBe(true);
+  });
+
+  it("keeps humanization locale keys in sync between languages", async () => {
+    const en = (await import("../src/i18n/locales/en.json")).default as Record<string, string>;
+    const ru = (await import("../src/i18n/locales/ru.json")).default as Record<string, string>;
+    const keys = [
+      "settings.human.title",
+      "settings.human.line1",
+      "settings.human.line2",
+      "settings.humanTyping.title",
+      "settings.humanPrecursors.title",
+      "settings.humanReading.title",
+      "settings.humanOrder.title",
+    ];
+
+    for (const key of keys) {
+      expect(en[key], `en ${key}`).toBeTruthy();
+      expect(ru[key], `ru ${key}`).toBeTruthy();
+    }
+  });
 });
 
 describe("legacy theme migration", () => {

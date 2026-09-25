@@ -5,6 +5,7 @@ import {
   type SourceAnswerData,
   type StoredStateLike,
 } from "../../model";
+import { DEFAULT_SETTINGS } from "../../types";
 import { getPreferredSuggestionLabels } from "../../data/answerData";
 import { getAnswerLabelMatchKeys } from "../../dom/questionDom";
 import {
@@ -28,17 +29,20 @@ import {
   getAnswerEntries,
   getChoiceAnswerInputs,
   getChoiceAnswerSlotMatch,
+  getEssayAnswerTextareas,
   getExactBooleanChoiceSlotValue,
   getInputAnswerLabelText,
   getQuestionProgressId,
   getAnswerSlotForSelect,
   getSelectableAnswerControls,
+  getTextAnswerInputs,
   reportSolvedQuestions,
   selectNextSelectOptionByLabel,
   selectTextAnswerByLabel,
   setAnswerInputChecked,
   setSelectValue,
 } from "./answerControls";
+import { typeTextHumanLike } from "./textControls";
 import { autoSelectDdmarkerAnswers } from "./ddmarker";
 import { autoSelectDdwtosAnswers } from "./ddwtos";
 import { autoSelectDdimageOrTextAnswers } from "./ddimageortext";
@@ -52,12 +56,25 @@ import {
 
 const DEFAULT_AUTO_SELECT_AVG_SECONDS = 4;
 
-const AUTO_SELECT_DELAY_SPREAD_MIN = 0.25;
-const AUTO_SELECT_DELAY_SPREAD_MAX = 0.55;
+const HUMAN_DELAY_SIGMA = 0.55;
 const AUTO_SELECT_MIN_DELAY_MS = 1000;
 const AUTO_SELECT_MAX_DELAY_MS = 60000;
 
 const AUTO_SELECT_RUSH_TIME_FRACTION = 0.1;
+
+const READING_CHARS_PER_SECOND = 16;
+const READING_SECONDS_PER_OPTION = 1.2;
+const READING_MAX_SECONDS = 45;
+const PAGE_READ_BONUS_SECONDS = 6;
+const INTERACTIVE_MIN_GAP_MS = 5000;
+
+const STEP_PER_ACTION_BEHAVIOURS = new Set([
+  "interactive",
+  "adaptive",
+  "adaptiveno",
+  "immediatefeedback",
+]);
+const PAGE_LEVEL_BEHAVIOURS = new Set(["deferredfeedback", "deferredcbm"]);
 const AUTO_SELECT_PROGRESS_TICK_MS = 100;
 const QUIZ_TIME_LEFT_SELECTORS = [
   "#quiz-time-left",
@@ -78,6 +95,86 @@ type PendingAutoSelectAnswer = {
 
 const pendingAutoSelectAnswers = new Map<string, PendingAutoSelectAnswer>();
 let autoSelectCancelListenerInstalled = false;
+let autoSelectVisibilityListenerInstalled = false;
+let autoSelectHiddenSince: number | null = null;
+let autoSelectScheduledTotal = 0;
+
+const HUMAN_SCROLL_SETTLE_MIN_MS = 180;
+const HUMAN_SCROLL_SETTLE_MAX_MS = 400;
+const HUMAN_HOVER_MIN_MS = 120;
+const HUMAN_HOVER_MAX_MS = 300;
+const HIDDEN_RESCHEDULE_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function shiftPendingSchedulesBy(hiddenMs: number): void {
+  if (hiddenMs <= 0) {
+    return;
+  }
+
+  for (const pending of pendingAutoSelectAnswers.values()) {
+    pending.startedAt += hiddenMs;
+  }
+}
+
+function handleAutoSelectVisibilityChange(): void {
+  if (document.hidden) {
+    autoSelectHiddenSince ??= Date.now();
+    return;
+  }
+
+  if (autoSelectHiddenSince !== null) {
+    shiftPendingSchedulesBy(Date.now() - autoSelectHiddenSince);
+    autoSelectHiddenSince = null;
+  }
+}
+
+function ensureAutoSelectVisibilityListener(): void {
+  if (autoSelectVisibilityListenerInstalled || typeof document === "undefined") {
+    return;
+  }
+
+  autoSelectVisibilityListenerInstalled = true;
+  document.addEventListener("visibilitychange", handleAutoSelectVisibilityChange);
+}
+
+export async function runHumanPrecursors(
+  target: Element,
+  random: () => number = Math.random,
+): Promise<void> {
+  const element = target instanceof HTMLElement ? target : target.parentElement;
+
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+
+  try {
+    if (typeof element.scrollIntoView === "function") {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  } catch {
+    // scrollIntoView is best-effort (missing in some test DOMs).
+  }
+
+  await sleep(
+    HUMAN_SCROLL_SETTLE_MIN_MS +
+      random() * (HUMAN_SCROLL_SETTLE_MAX_MS - HUMAN_SCROLL_SETTLE_MIN_MS),
+  );
+
+  try {
+    if (typeof element.focus === "function") {
+      element.focus({ preventScroll: true });
+    }
+  } catch {
+    // Focus is best-effort.
+  }
+
+  await sleep(HUMAN_HOVER_MIN_MS + random() * (HUMAN_HOVER_MAX_MS - HUMAN_HOVER_MIN_MS));
+}
 
 function isAutoSelectEnabled(settings: StoredStateLike["settings"] | undefined): boolean {
   return settings?.extensionEnabled !== false && settings?.autoSelect !== false;
@@ -87,19 +184,43 @@ function isImmediateAutoSelectMode() {
   return Boolean(globalThis.__REDUXSHARE_TEST_MODE__);
 }
 
+export interface HumanDelayExtras {
+  readingSeconds?: number;
+  firstInPage?: boolean;
+  interactive?: boolean;
+}
+
+function randomNormal(random: () => number): number {
+  const uniform1 = Math.max(random(), Number.EPSILON);
+  const uniform2 = random();
+  return Math.sqrt(-2 * Math.log(uniform1)) * Math.cos(2 * Math.PI * uniform2);
+}
+
+function humanDelayMultiplier(random: () => number): number {
+  const mean = (-HUMAN_DELAY_SIGMA * HUMAN_DELAY_SIGMA) / 2;
+  return Math.exp(mean + HUMAN_DELAY_SIGMA * randomNormal(random));
+}
+
 export function computeAutoSelectDelayMs(
   avgSeconds: number,
   random: () => number = Math.random,
   timeLeftSeconds: number | null = null,
+  extras: HumanDelayExtras = {},
 ): number {
   const averageSeconds =
     Number.isFinite(avgSeconds) && avgSeconds > 0 ? avgSeconds : DEFAULT_AUTO_SELECT_AVG_SECONDS;
   const baseDelayMs = averageSeconds * 1000;
-  const spread =
-    AUTO_SELECT_DELAY_SPREAD_MIN +
-    (AUTO_SELECT_DELAY_SPREAD_MAX - AUTO_SELECT_DELAY_SPREAD_MIN) * random();
-  const variance = (random() * 2 - 1) * spread;
-  let delayMs = baseDelayMs * (1 + variance);
+  let delayMs = baseDelayMs * humanDelayMultiplier(random);
+
+  const readingMs =
+    Math.max(0, extras.readingSeconds ?? 0) * 1000 +
+    (extras.firstInPage ? PAGE_READ_BONUS_SECONDS * 1000 : 0);
+  delayMs += readingMs;
+
+  if (extras.interactive) {
+    delayMs = Math.max(delayMs, INTERACTIVE_MIN_GAP_MS * (0.8 + 0.4 * random()));
+  }
+
   const timeLeft =
     typeof timeLeftSeconds === "number" && Number.isFinite(timeLeftSeconds)
       ? timeLeftSeconds
@@ -112,6 +233,44 @@ export function computeAutoSelectDelayMs(
   return Math.round(
     Math.min(AUTO_SELECT_MAX_DELAY_MS, Math.max(AUTO_SELECT_MIN_DELAY_MS, delayMs)),
   );
+}
+
+export function estimateQuestionReadingSeconds(questionNode: Element): number {
+  const questionText =
+    questionNode.querySelector(".qtext")?.textContent ?? questionNode.textContent ?? "";
+  const optionCount = questionNode.querySelectorAll(
+    "input[type=radio], input[type=checkbox], select, input[type=text], textarea",
+  ).length;
+  const seconds =
+    questionText.length / READING_CHARS_PER_SECOND + optionCount * READING_SECONDS_PER_OPTION;
+  return Math.min(READING_MAX_SECONDS, Math.max(0, seconds));
+}
+
+export function getQuestionBehaviour(questionNode: Element): string | null {
+  for (const className of Array.from(questionNode.classList)) {
+    const name = className.toLowerCase();
+
+    if (STEP_PER_ACTION_BEHAVIOURS.has(name) || PAGE_LEVEL_BEHAVIOURS.has(name)) {
+      return name;
+    }
+  }
+
+  return null;
+}
+
+export function isStepPerActionBehaviour(behaviour: string | null): boolean {
+  return behaviour !== null && STEP_PER_ACTION_BEHAVIOURS.has(behaviour);
+}
+
+export function shuffleScheduleOrder<T>(entries: T[], random: () => number = Math.random): T[] {
+  const order = [...entries];
+
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+  }
+
+  return order;
 }
 
 export function parseQuizTimeLeftSeconds(text: string | null | undefined): number | null {
@@ -166,6 +325,10 @@ function getAutoSelectWidgetHosts(questionNode: Element, questionId: string | nu
 
 function startAutoSelectProgress(pending: PendingAutoSelectAnswer) {
   const updateProgress = () => {
+    if (document.hidden) {
+      return;
+    }
+
     const ratio = pending.delayMs > 0 ? (Date.now() - pending.startedAt) / pending.delayMs : 1;
 
     for (const host of pending.hosts) {
@@ -194,6 +357,54 @@ function dropAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer) {
   pendingAutoSelectAnswers.delete(key);
   window.clearTimeout(pending.timeoutId);
   stopAutoSelectProgress(pending);
+}
+
+async function applyTextAnswerHumanLike(
+  questionNode: Element,
+  questionId: string | null,
+  answerData: AnswerData,
+  settings: StoredStateLike["settings"] | undefined,
+): Promise<boolean> {
+  if (!(settings?.humanTyping ?? DEFAULT_SETTINGS.humanTyping)) {
+    return false;
+  }
+
+  const questionType = getSupportedAutoSelectQuestionType(questionNode);
+
+  if (!questionType || !TEXT_INPUT_QUESTION_TYPES.has(questionType)) {
+    return false;
+  }
+
+  const exactAnswerLabels = getExactAnswerLabels(answerData);
+
+  if (exactAnswerLabels.length !== 1) {
+    return false;
+  }
+
+  const control =
+    getTextAnswerInputs(questionNode)[0] ?? getEssayAnswerTextareas(questionNode)[0] ?? null;
+
+  if (!control) {
+    return false;
+  }
+
+  if (control instanceof HTMLTextAreaElement && control.dataset.fieldtype === "editor") {
+    return false;
+  }
+
+  const changed = await typeTextHumanLike(control, exactAnswerLabels[0]);
+
+  if (!changed) {
+    return false;
+  }
+
+  if (questionNode instanceof HTMLElement) {
+    questionNode.dataset.reduxshareAutoSelected = "true";
+  }
+
+  logReduxShareInfo("ReduxShare: auto-selected exact answers", 1);
+  void reportSolvedQuestions([getQuestionProgressId(questionNode, questionId)]);
+  return true;
 }
 
 function applyAutoSelectAnswer(
@@ -241,6 +452,7 @@ export function scheduleAutoSelectAnswer(
   }
 
   ensureAutoSelectCancelListener();
+  ensureAutoSelectVisibilityListener();
 
   const key = getAutoSelectScheduleKey(questionNode, questionId);
 
@@ -248,10 +460,19 @@ export function scheduleAutoSelectAnswer(
     return true;
   }
 
+  const settings = storedState?.settings;
+  const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
+  const firstInPage = autoSelectScheduledTotal === 0;
+  autoSelectScheduledTotal += 1;
   const delayMs = computeAutoSelectDelayMs(
-    storedState?.settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
+    settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
     Math.random,
     readQuizTimeLeftSeconds(),
+    {
+      readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
+      firstInPage: readingEnabled && firstInPage,
+      interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
+    },
   );
   const pending: PendingAutoSelectAnswer = {
     questionId,
@@ -262,20 +483,37 @@ export function scheduleAutoSelectAnswer(
     startedAt: Date.now(),
     delayMs,
   };
+  const firePendingAnswer = async () => {
+    if (document.hidden) {
+      pending.timeoutId = window.setTimeout(() => {
+        void firePendingAnswer();
+      }, HIDDEN_RESCHEDULE_MS);
+      return;
+    }
 
-  pending.timeoutId = window.setTimeout(() => {
+    if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
+      await runHumanPrecursors(questionNode);
+    }
+
+    const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
+      questionNode,
+      getAnswerDataForQuestion(questionId),
+      isLoggedInToExtension(currentStoredState),
+    );
+
+    if (await applyTextAnswerHumanLike(questionNode, questionId, freshAnswerData, settings)) {
+      pendingAutoSelectAnswers.delete(key);
+      stopAutoSelectProgress(pending);
+      return;
+    }
+
     pendingAutoSelectAnswers.delete(key);
     stopAutoSelectProgress(pending);
 
-    applyAutoSelectAnswer(
-      questionNode,
-      questionId,
-      getPreferredAutoSelectAnswerDataForQuestion(
-        questionNode,
-        getAnswerDataForQuestion(questionId),
-        isLoggedInToExtension(currentStoredState),
-      ),
-    );
+    applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
+  };
+  pending.timeoutId = window.setTimeout(() => {
+    void firePendingAnswer();
   }, delayMs);
   pendingAutoSelectAnswers.set(key, pending);
   startAutoSelectProgress(pending);
@@ -493,7 +731,13 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
   }
 
   if (!isImmediateAutoSelectMode()) {
-    for (const { questionId, questionNode } of getAnswerEntries()) {
+    const entries = getAnswerEntries().filter((entry) => entry.questionNode);
+    const ordered =
+      (storedState?.settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder)
+        ? shuffleScheduleOrder(entries)
+        : entries;
+
+    for (const { questionId, questionNode } of ordered) {
       if (questionNode) {
         scheduleAutoSelectAnswer(questionId, questionNode, storedState, false);
       }

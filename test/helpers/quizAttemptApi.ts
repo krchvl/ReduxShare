@@ -16,7 +16,22 @@ type QuizAttemptTestApi = {
     avgSeconds: number,
     random?: () => number,
     timeLeftSeconds?: number | null,
+    extras?: {
+      readingSeconds?: number;
+      firstInPage?: boolean;
+      interactive?: boolean;
+    },
   ) => number;
+  estimateQuestionReadingSeconds: (questionNode: Element) => number;
+  getQuestionBehaviour: (questionNode: Element) => string | null;
+  isStepPerActionBehaviour: (behaviour: string | null) => boolean;
+  runHumanPrecursors: (target: Element, random?: () => number) => Promise<void>;
+  shuffleScheduleOrder: <T>(entries: T[], random?: () => number) => T[];
+  typeTextHumanLike: (
+    control: HTMLInputElement | HTMLTextAreaElement,
+    label: string,
+    options?: { minIntervalMs?: number; maxIntervalMs?: number; random?: () => number },
+  ) => Promise<boolean>;
   parseQuizTimeLeftSeconds: (text: string | null | undefined) => number | null;
   scheduleAutoSelectAnswer: (
     questionId: string | null,

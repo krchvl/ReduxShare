@@ -82,10 +82,16 @@ import {
   cancelAutoSelectSchedule,
   computeAutoSelectDelayMs,
   ensureAutoSelectCancelListener,
+  estimateQuestionReadingSeconds,
+  getQuestionBehaviour,
+  isStepPerActionBehaviour,
   parseQuizTimeLeftSeconds,
+  runHumanPrecursors,
   scheduleAutoSelectAnswer,
   selectAnswerByLabel,
+  shuffleScheduleOrder,
 } from "./quizAttempt/autoSelect";
+import { typeTextHumanLike } from "./quizAttempt/textControls";
 import {
   applyQuizAnswerResults,
   clearReduxShareAnswerData,
@@ -253,7 +259,13 @@ declare global {
         createAnswerWidgetHost: typeof createAnswerWidgetHost;
         getAnswerMenuMarkup: typeof getAnswerMenuMarkup;
         computeAutoSelectDelayMs: typeof computeAutoSelectDelayMs;
+        estimateQuestionReadingSeconds: typeof estimateQuestionReadingSeconds;
+        getQuestionBehaviour: typeof getQuestionBehaviour;
+        isStepPerActionBehaviour: typeof isStepPerActionBehaviour;
         parseQuizTimeLeftSeconds: typeof parseQuizTimeLeftSeconds;
+        runHumanPrecursors: typeof runHumanPrecursors;
+        shuffleScheduleOrder: typeof shuffleScheduleOrder;
+        typeTextHumanLike: typeof typeTextHumanLike;
         scheduleAutoSelectAnswer: typeof scheduleAutoSelectAnswer;
         cancelAutoSelectSchedule: typeof cancelAutoSelectSchedule;
         createEmptySourceAnswerData: typeof createEmptySourceAnswerData;
@@ -2245,6 +2257,12 @@ function installQuizAttemptTestApi() {
     cancelAutoSelectSchedule,
     createEmptySourceAnswerData,
     createEmptyVariantCounts,
+    estimateQuestionReadingSeconds,
+    getQuestionBehaviour,
+    isStepPerActionBehaviour,
+    runHumanPrecursors,
+    shuffleScheduleOrder,
+    typeTextHumanLike,
   };
   resetQuizAttemptTestState();
 }

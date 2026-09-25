@@ -25,6 +25,77 @@ function dispatchTextControlEvents(control: HTMLElement) {
   control.dispatchEvent(createControlEvent(control, "change"));
 }
 
+export interface HumanTypingOptions {
+  minIntervalMs?: number;
+  maxIntervalMs?: number;
+  random?: () => number;
+}
+
+const HUMAN_TYPING_MIN_INTERVAL_MS = 45;
+const HUMAN_TYPING_MAX_INTERVAL_MS = 190;
+
+function dispatchKeyEvent(control: HTMLElement, type: string, key: string): void {
+  const EventConstructor = control.ownerDocument.defaultView?.KeyboardEvent ?? window.KeyboardEvent;
+  control.dispatchEvent(new EventConstructor(type, { key, bubbles: true, cancelable: true }));
+}
+
+function sleepTyping(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+export async function typeTextHumanLike(
+  control: HTMLInputElement | HTMLTextAreaElement,
+  label: string,
+  options: HumanTypingOptions = {},
+): Promise<boolean> {
+  const nextValue = label.trim();
+
+  if (!nextValue) {
+    return false;
+  }
+
+  const random = options.random ?? Math.random;
+  const minInterval = options.minIntervalMs ?? HUMAN_TYPING_MIN_INTERVAL_MS;
+  const maxInterval = Math.max(minInterval, options.maxIntervalMs ?? HUMAN_TYPING_MAX_INTERVAL_MS);
+
+  try {
+    if (typeof control.focus === "function") {
+      control.focus({ preventScroll: true });
+    }
+  } catch {
+    // Focus is best-effort.
+  }
+
+  const previousValue = control.value;
+  const InputConstructor =
+    control.ownerDocument.defaultView?.HTMLInputElement ?? window.HTMLInputElement;
+  const setValue =
+    control instanceof InputConstructor
+      ? (value: string) => setNativeInputValue(control, value)
+      : (value: string) => {
+          control.value = value;
+        };
+  setValue("");
+
+  for (const char of nextValue) {
+    dispatchKeyEvent(control, "keydown", char);
+    dispatchKeyEvent(control, "keypress", char);
+    setValue(control.value + char);
+    control.dispatchEvent(createControlEvent(control, "input"));
+    dispatchKeyEvent(control, "keyup", char);
+    await sleepTyping(minInterval + random() * (maxInterval - minInterval));
+  }
+
+  if (control.getAttribute("value") !== nextValue) {
+    control.setAttribute("value", nextValue);
+  }
+
+  control.dispatchEvent(createControlEvent(control, "change"));
+  return previousValue !== nextValue;
+}
+
 export function setTextAnswerValue(input: HTMLInputElement, label: string) {
   const nextValue = label.trim();
 

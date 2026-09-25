@@ -1140,6 +1140,33 @@ export function MainScreen({
             }
           />
         )}
+        {settings.autoSelect && (
+          <SettingPanelRow
+            title={t("settings.human.title")}
+            lines={[t("settings.human.line1"), t("settings.human.line2")]}
+            control={
+              <div className="human-behavior">
+                {(
+                  [
+                    ["humanTyping", "settings.humanTyping"],
+                    ["humanPrecursors", "settings.humanPrecursors"],
+                    ["humanReading", "settings.humanReading"],
+                    ["humanOrder", "settings.humanOrder"],
+                  ] as const
+                ).map(([settingKey, keyPrefix]) => (
+                  <label key={settingKey} className="human-behavior__row">
+                    <Switch
+                      checked={settings[settingKey]}
+                      label={t(`${keyPrefix}.title`)}
+                      onChange={(checked) => updateSetting(settingKey, checked)}
+                    />
+                    <span className="human-behavior__label">{t(`${keyPrefix}.title`)}</span>
+                  </label>
+                ))}
+              </div>
+            }
+          />
+        )}
         <SettingPanelRow
           title={t("settings.attemptStatusPanel.title")}
           lines={

@@ -1222,18 +1222,143 @@ describe("human-like auto-select scheduling", () => {
     expect(mean).toBeLessThan(5000);
   });
 
-  it("randomizes the delay spread between questions", async () => {
+  it("draws delays from a heavy-tailed distribution around the average", async () => {
     const api = await getQuizAttemptTestApi();
     const random = deterministicRandom();
     const delays = Array.from({ length: 300 }, () => api.computeAutoSelectDelayMs(4, random, null));
 
     for (const delay of delays) {
-      expect(delay).toBeGreaterThanOrEqual(1800);
-      expect(delay).toBeLessThanOrEqual(6200);
+      expect(delay).toBeGreaterThanOrEqual(1000);
+      expect(delay).toBeLessThanOrEqual(60000);
     }
 
-    const maxDeviation = Math.max(...delays.map((delay) => Math.abs(delay - 4000) / 4000));
-    expect(maxDeviation).toBeGreaterThan(0.42);
+    const sorted = [...delays].sort((a, b) => a - b);
+    const mean = delays.reduce((sum, delay) => sum + delay, 0) / delays.length;
+    const median = sorted[Math.floor(sorted.length / 2)];
+    expect(mean).toBeGreaterThan(3000);
+    expect(mean).toBeLessThan(5000);
+    expect(median).toBeLessThan(mean);
+    expect(sorted[sorted.length - 1]).toBeGreaterThan(8000);
+  });
+
+  it("adds reading time, first-question bonus and interactive floor", async () => {
+    const api = await getQuizAttemptTestApi();
+    const steady = () => 0.5;
+    const base = api.computeAutoSelectDelayMs(4, steady, null, {});
+
+    const withReading = api.computeAutoSelectDelayMs(4, steady, null, { readingSeconds: 10 });
+    expect(withReading - base).toBeGreaterThanOrEqual(9999);
+    expect(withReading - base).toBeLessThanOrEqual(10001);
+
+    const withFirstBonus = api.computeAutoSelectDelayMs(4, steady, null, { firstInPage: true });
+    expect(withFirstBonus - base).toBeGreaterThanOrEqual(5999);
+    expect(withFirstBonus - base).toBeLessThanOrEqual(6001);
+
+    const interactive = api.computeAutoSelectDelayMs(4, steady, null, { interactive: true });
+    expect(interactive).toBeGreaterThanOrEqual(4000);
+    expect(interactive).toBeGreaterThan(base);
+  });
+
+  it("estimates reading time from question text and options", async () => {
+    const api = await getQuizAttemptTestApi();
+    const node = document.createElement("div");
+    node.className = "que multichoice deferredfeedback";
+    node.innerHTML = `<div class="qtext">${"x".repeat(160)}</div>
+      <input type="radio" name="a" /><input type="radio" name="a" />
+      <input type="radio" name="a" /><input type="radio" name="a" />`;
+
+    const seconds = api.estimateQuestionReadingSeconds(node);
+    expect(seconds).toBeGreaterThanOrEqual(160 / 16 + 4 * 1.2 - 0.001);
+    expect(seconds).toBeLessThanOrEqual(45);
+
+    const huge = document.createElement("div");
+    huge.textContent = "x".repeat(100000);
+    expect(api.estimateQuestionReadingSeconds(huge)).toBe(45);
+
+    const empty = document.createElement("div");
+    expect(api.estimateQuestionReadingSeconds(empty)).toBe(0);
+  });
+
+  it("detects step-per-action behaviours from the question class", async () => {
+    const api = await getQuizAttemptTestApi();
+    const interactive = document.createElement("div");
+    interactive.className = "que multichoice interactive";
+    const deferred = document.createElement("div");
+    deferred.className = "que numerical deferredfeedback";
+    const unknown = document.createElement("div");
+    unknown.className = "que foo bar";
+
+    expect(api.getQuestionBehaviour(interactive)).toBe("interactive");
+    expect(api.getQuestionBehaviour(deferred)).toBe("deferredfeedback");
+    expect(api.getQuestionBehaviour(unknown)).toBeNull();
+    expect(api.isStepPerActionBehaviour("interactive")).toBe(true);
+    expect(api.isStepPerActionBehaviour("adaptive")).toBe(true);
+    expect(api.isStepPerActionBehaviour("immediatefeedback")).toBe(true);
+    expect(api.isStepPerActionBehaviour("deferredfeedback")).toBe(false);
+    expect(api.isStepPerActionBehaviour(null)).toBe(false);
+  });
+
+  it("shuffles schedule order deterministically without mutating input", async () => {
+    const api = await getQuizAttemptTestApi();
+    const entries = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8"];
+
+    function seeded(seed: number) {
+      let value = seed;
+      return () => {
+        value = (value * 1103515245 + 12345) % 2147483648;
+        return value / 2147483648;
+      };
+    }
+
+    const first = api.shuffleScheduleOrder(entries, seeded(7));
+    const second = api.shuffleScheduleOrder(entries, seeded(7));
+    expect(first).toEqual(second);
+    expect([...first].sort()).toEqual([...entries].sort());
+    expect(entries).toEqual(["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8"]);
+
+    const other = api.shuffleScheduleOrder(entries, seeded(99));
+    expect(other).not.toEqual(first);
+  });
+
+  it("types text answers character by character with keyboard events", async () => {
+    const api = await getQuizAttemptTestApi();
+    const input = document.createElement("input");
+    input.type = "text";
+    document.body.append(input);
+
+    const seen: string[] = [];
+    for (const type of ["keydown", "keypress", "input", "keyup", "change"]) {
+      input.addEventListener(type, () => seen.push(type));
+    }
+
+    const changed = await api.typeTextHumanLike(input, "hi", {
+      minIntervalMs: 1,
+      maxIntervalMs: 2,
+      random: () => 0.5,
+    });
+
+    expect(changed).toBe(true);
+    expect(input.value).toBe("hi");
+
+    for (const type of ["keydown", "keypress", "input", "keyup", "change"]) {
+      expect(seen.filter((event) => event === type).length).toBeGreaterThanOrEqual(
+        type === "change" ? 1 : 2,
+      );
+    }
+
+    expect(await api.typeTextHumanLike(input, "   ")).toBe(false);
+    input.remove();
+  });
+
+  it("runs scroll and focus precursors without throwing", async () => {
+    const api = await getQuizAttemptTestApi();
+    const node = document.createElement("div");
+    node.tabIndex = -1;
+    document.body.append(node);
+
+    await api.runHumanPrecursors(node, () => 0.5);
+    expect(document.activeElement).toBe(node);
+    node.remove();
   });
 
   it("falls back to safe defaults for invalid averages", async () => {

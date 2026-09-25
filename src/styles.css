@@ -706,6 +706,23 @@ button:focus-visible {
   justify-items: end;
 }
 
+.human-behavior {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.human-behavior__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.human-behavior__label {
+  font-size: 13px;
+}
+
 .autoselect-timing__chips {
   display: inline-flex;
   gap: 8px;
