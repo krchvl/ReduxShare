@@ -328,6 +328,11 @@ export function MainScreen({
   // is already verified. This prevents data loss when the user accidentally
   // closes the popup without clicking "Save".
   const prevAiSettingsRef = useRef<AiSettings>(settings.ai);
+
+  const hasAiConnectionTarget = aiDraft.provider === "custom"
+    ? Boolean(aiDraft.customEndpoint?.trim() && aiDraft.customModelName?.trim())
+    : Boolean(aiDraft.model.trim());
+
   const canSaveAiSettings = aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget;
 
   useEffect(() => {
@@ -413,10 +418,8 @@ export function MainScreen({
     : [t("settings.hotkey.line1"), t("settings.hotkey.line2")];
 
   const isAiConnectionChecking = aiTestState.status === "checking";
-  const hasAiConnectionTarget = aiDraft.provider === "custom"
-    ? Boolean(aiDraft.customEndpoint?.trim() && aiDraft.customModelName?.trim())
-    : Boolean(aiDraft.model.trim());
   const isAiModelsLoading = aiModelsState.status === "loading";
+
   const aiModelsAutoRequestKey = activeTab === "ai" &&
     aiDraft.provider !== "custom" &&
     (

@@ -149,6 +149,66 @@ export function hasExternalAnswerRows(result: ExternalVariantResult) {
   return result.data !== null && result.data !== undefined;
 }
 
+export function buildExternalAnswerUrl(
+  domain: string,
+  courseId: number,
+  quizId: number,
+  question: ExternalQuestionRequest,
+  language?: string
+): string {
+  const params = new URLSearchParams({
+    host: domain,
+    courseId: String(courseId),
+    quizId: String(quizId),
+    moodleId: "1",
+    questionId: question.questionId ?? "",
+    attemptId: "1",
+    client: EXTERNAL_CLIENT_VERSION,
+    questionType: question.questionType ?? "",
+    language: language ?? "en"
+  });
+
+  return `https://naloaty.me/quiz/solution?${params.toString()}`;
+}
+
+export async function fetchExternalAnswer(
+  question: ExternalQuestionRequest,
+  domain: string,
+  courseId: number,
+  quizId: number,
+  language?: string,
+  timeoutMs: number = EXTERNAL_REQUEST_TIMEOUT_MS
+): Promise<{ ok: boolean; data: unknown | null }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const url = buildExternalAnswerUrl(domain, courseId, quizId, question, language);
+    const response = await fetchWithTimeout(url, {
+      method: "GET",
+      headers: { Accept: "*/*" }
+    }, timeoutMs);
+
+    clearTimeout(timeoutId);
+
+    const text = await response.text();
+
+    if (!text) {
+      return { ok: false, data: null };
+    }
+
+    try {
+      const data = JSON.parse(text);
+      return { ok: response.ok, data };
+    } catch {
+      return { ok: false, data: null };
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    return { ok: false, data: null };
+  }
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

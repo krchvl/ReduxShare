@@ -35,6 +35,7 @@ import {
   EXTERNAL_TYPE_PROBE_ORDER,
   fetchQuestionVariants,
   hasExternalAnswerRows,
+  fetchExternalAnswer,
   type ExternalQuestionRequest,
   type ExternalVariantResult,
   type ExternalVariantsPayload
@@ -64,9 +65,11 @@ import {
   FETCH_QUIZ_ANSWERS_MESSAGE,
   FETCH_QUIZ_PREVIEW_MESSAGE,
   GET_UPDATE_STATE_MESSAGE,
+  PRELOAD_QUIZ_QUESTIONS_MESSAGE,
   RECORD_QUIZ_PROGRESS_MESSAGE,
   SAVE_REVIEW_ANSWERS_MESSAGE
 } from "../shared/messages";
+import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
 import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
 import type { AnswerData, QuizPreviewRequestPayload } from "../model";
@@ -114,6 +117,18 @@ interface FetchQuizPreviewMessage {
   payload: QuizPreviewRequestPayload;
 }
 
+interface PreloadQuizQuestionsPayload {
+  domain: string;
+  courseId: number | null;
+  quizId: number | null;
+  questions: Array<ExternalQuestionRequest & { questionText?: string | null }>;
+}
+
+interface PreloadQuizQuestionsMessage {
+  type: typeof PRELOAD_QUIZ_QUESTIONS_MESSAGE;
+  payload: PreloadQuizQuestionsPayload;
+}
+
 interface QuizPreviewQuestionResult {
   questionId: string | null;
   questionType: string | null;
@@ -148,6 +163,12 @@ interface QuizAnswersResponse {
   error?: string;
   reduxshareResults?: QuizVariantResult[];
   externalResults?: QuizVariantResult[];
+}
+
+interface PreloadQuizQuestionsResponse {
+  ok: boolean;
+  found: number;
+  total: number;
 }
 
 interface RecordQuizProgressResponse {
@@ -202,6 +223,16 @@ function isFetchQuizPreviewMessage(message: unknown): message is FetchQuizPrevie
   const candidate = message as Partial<FetchQuizPreviewMessage>;
 
   return candidate.type === FETCH_QUIZ_PREVIEW_MESSAGE && typeof candidate.payload === "object";
+}
+
+function isPreloadQuizQuestionsMessage(message: unknown): message is PreloadQuizQuestionsMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<PreloadQuizQuestionsMessage>;
+
+  return candidate.type === PRELOAD_QUIZ_QUESTIONS_MESSAGE && typeof candidate.payload === "object";
 }
 
 function isCheckUpdateMessage(message: unknown): message is CheckUpdateMessage {
@@ -455,6 +486,93 @@ function getStoredAuthSession(storedState: Partial<StoredState>) {
     reduxshareResults: reduxshareResponse.results,
     externalResults
   };
+}
+
+async function handlePreloadQuizQuestions(
+  payload: PreloadQuizQuestionsPayload
+): Promise<{ ok: boolean; found: number; total: number }> {
+  const { domain, courseId, quizId, questions } = payload;
+
+  logReduxShareInfo(`ReduxShare: handlePreloadQuizQuestions called:`, payload);
+
+  if (courseId === null || quizId === null) {
+    logReduxShareWarning(`ReduxShare: handlePreloadQuizQuestions: courseId or quizId is null`);
+    return { ok: true, found: 0, total: questions.length };
+  }
+
+  const storedState = await loadStoredState();
+
+  // Check if we already have cached answers for these questions.
+  const existingStubs = await getQuizQuestionStubs(domain, courseId, quizId);
+  const existingIds = new Set(existingStubs.map((stub) => stub.questionId));
+
+  const newQuestions = questions.filter((q) => !existingIds.has(q.questionId ?? ""));
+
+  if (newQuestions.length === 0) {
+    logReduxShareInfo(`ReduxShare: handlePreloadQuizQuestions: all questions already cached`);
+    return { ok: true, found: existingStubs.length, total: questions.length };
+  }
+
+  logReduxShareInfo(
+    `ReduxShare: preloading ${newQuestions.length} quiz questions for ${domain}/${courseId}/${quizId}`
+  );
+
+  let found = 0;
+
+  // Probe each question with qtypes in order until we find a non-empty answer.
+  for (const question of newQuestions) {
+    const questionId = question.questionId?.trim();
+
+    if (!questionId) {
+      continue;
+    }
+
+    logReduxShareInfo(`ReduxShare: probing question ${questionId}`);
+
+    for (const qtype of EXTERNAL_TYPE_PROBE_ORDER) {
+      const probeRequest: ExternalQuestionRequest = {
+        questionId,
+        questionType: qtype,
+        questionHash: question.questionHash?.trim() || null
+      };
+
+      try {
+        logReduxShareInfo(`ReduxShare: fetching external answer for question ${questionId} (${qtype})`);
+        const response = await fetchExternalAnswer(probeRequest, domain, courseId, quizId, storedState.settings?.language);
+
+        logReduxShareInfo(`ReduxShare: response for question ${questionId} (${qtype}):`, response);
+
+        if (!response.ok) {
+          logReduxShareInfo(`ReduxShare: request failed for question ${questionId} (${qtype}), continuing...`);
+          continue;
+        }
+
+        // Empty array [] means no answer found.
+        if (Array.isArray(response.data) && response.data.length === 0) {
+          logReduxShareInfo(`ReduxShare: empty answer for question ${questionId} (${qtype}), continuing...`);
+          continue;
+        }
+
+        // Non-empty result found: stop probing this question.
+        found++;
+        logReduxShareInfo(
+          `ReduxShare: preloaded question ${questionId} (${qtype}) from external source for ${domain}/${courseId}/${quizId}`
+        );
+        break;
+      } catch (error) {
+        logReduxShareWarning(`ReduxShare: error probing question ${questionId} (${qtype}):`, error);
+        continue;
+      }
+    }
+  }
+
+  // Record all successfully probed questions in the registry.
+  if (found > 0) {
+    logReduxShareInfo(`ReduxShare: recording ${found} probed questions to registry`);
+    await recordQuizQuestions(domain, courseId, quizId, newQuestions);
+  }
+
+  return { ok: true, found, total: questions.length };
 }
 
 async function handleFetchQuizPreview(payload: QuizPreviewRequestPayload): Promise<QuizPreviewResponse> {
@@ -906,6 +1024,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
 
   if (isFetchQuizPreviewMessage(message)) {
     void handleFetchQuizPreview(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse);
+      });
+
+    return true;
+  }
+
+  if (isPreloadQuizQuestionsMessage(message)) {
+    void handlePreloadQuizQuestions(message.payload)
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse);

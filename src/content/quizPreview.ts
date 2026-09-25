@@ -26,11 +26,10 @@ import {
   showQuizPreviewQuestions,
 } from "../ui/quizPreviewPanel";
 import {
-  hotkeyMatchesEvent,
-  isEditableHotkeyTarget,
-  normalizeHotkeyCode,
-  normalizeHotkeyValue,
-} from "./quizAttempt/hotkeys";
+  preloadQuizQuestions,
+  type PreloadQuizQuestionsPayload,
+} from "../lib/quizAttemptPreload";
+import { hotkeyMatchesEvent, isEditableHotkeyTarget, normalizeHotkeyCode, normalizeHotkeyValue } from "./quizAttempt/hotkeys";
 import { isQuizViewUrl } from "./quizAttempt/quizUrl";
 import type { QuizPreviewRequestPayload, QuizPreviewResponse } from "../model";
 import { getContentTranslator } from "../i18n/contentI18n";
@@ -186,6 +185,42 @@ async function openQuizPreview() {
 
     showQuizPreviewQuestions(response.questions ?? [], response.authRequired === true);
     logReduxShareInfo(`ReduxShare: quiz preview loaded, ${response.questions?.length ?? 0} questions`);
+
+    // Preload external answers for all questions in parallel.
+    if (response.questions && response.questions.length > 0) {
+      logReduxShareInfo(`ReduxShare: starting preload for ${response.questions.length} questions`);
+
+      const preloadPayload: PreloadQuizQuestionsPayload = {
+        domain: payload.domain,
+        courseId: payload.courseId,
+        quizId: payload.quizId,
+        questions: response.questions.map((q) => ({
+          questionId: q.questionId,
+          questionType: q.questionType,
+          questionHash: q.questionHash,
+          questionText: q.questionText
+        }))
+      };
+
+      logReduxShareInfo(`ReduxShare: preload payload prepared:`, preloadPayload);
+
+      try {
+        const result = await preloadQuizQuestions(preloadPayload, currentStoredState?.settings?.language);
+        logReduxShareInfo(`ReduxShare: preload completed:`, result);
+        if (result.found > 0) {
+          logReduxShareInfo(`ReduxShare: preloaded ${result.found}/${result.total} questions from external sources`);
+        }
+      } catch (error) {
+        logReduxShareWarning("ReduxShare: quiz preview preloading failed", error);
+
+        // Handle extension context invalidated error.
+        if (error instanceof Error && error.message.includes("Extension context invalidated")) {
+          logReduxShareWarning("ReduxShare: extension context invalidated, preload skipped");
+        }
+      }
+    } else {
+      logReduxShareWarning("ReduxShare: no questions to preload");
+    }
   } catch (error) {
     showQuizPreviewError(translator("quiz.preview.error"));
     logReduxShareWarning("ReduxShare: quiz preview request failed", error);
