@@ -8,7 +8,7 @@ import {
   isAbortError,
   normalizeExternalVariantsData,
   probeExternalQuestionType,
-  type ExternalVariantsPayload
+  type ExternalVariantsPayload,
 } from "../src/lib/externalProvider";
 
 function basePayload(overrides: Partial<ExternalVariantsPayload> = {}): ExternalVariantsPayload {
@@ -17,7 +17,7 @@ function basePayload(overrides: Partial<ExternalVariantsPayload> = {}): External
     courseId: 66,
     quizId: 789,
     questions: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -35,8 +35,8 @@ describe("buildVariantsUrl", () => {
       buildVariantsUrl(basePayload({ attemptId: "95", moodleUserId: "20" }), {
         questionId: "1349",
         questionType: "match",
-        questionHash: "hash"
-      })
+        questionHash: "hash",
+      }),
     );
 
     expect(url.searchParams.get("host")).toBe("school.moodledemo.net");
@@ -54,8 +54,8 @@ describe("buildVariantsUrl", () => {
       buildVariantsUrl(basePayload(), {
         questionId: "1349",
         questionType: null,
-        questionHash: null
-      })
+        questionHash: null,
+      }),
     );
 
     expect(url.searchParams.get("attemptId")).toBe("1");
@@ -67,12 +67,21 @@ describe("buildVariantsUrl", () => {
 describe("normalizeExternalVariantsData", () => {
   it("passes through null, arrays, and row objects unchanged", () => {
     expect(normalizeExternalVariantsData(null)).toEqual({ data: null, invalid: false });
-    expect(normalizeExternalVariantsData([{ anchor: [] }])).toEqual({ data: [{ anchor: [] }], invalid: false });
-    expect(normalizeExternalVariantsData({ anchor: [] })).toEqual({ data: { anchor: [] }, invalid: false });
+    expect(normalizeExternalVariantsData([{ anchor: [] }])).toEqual({
+      data: [{ anchor: [] }],
+      invalid: false,
+    });
+    expect(normalizeExternalVariantsData({ anchor: [] })).toEqual({
+      data: { anchor: [] },
+      invalid: false,
+    });
   });
 
   it("flags primitives such as HTML error pages as invalid", () => {
-    expect(normalizeExternalVariantsData("<html>blocked</html>")).toEqual({ data: null, invalid: true });
+    expect(normalizeExternalVariantsData("<html>blocked</html>")).toEqual({
+      data: null,
+      invalid: true,
+    });
     expect(normalizeExternalVariantsData(42)).toEqual({ data: null, invalid: true });
   });
 });
@@ -114,7 +123,7 @@ describe("fetchQuestionVariants", () => {
     const result = await fetchQuestionVariants(
       basePayload(),
       { questionId: "1349", questionType: "match", questionHash: "hash" },
-      "en"
+      "en",
     );
 
     expect(result).toMatchObject({ ok: true, status: 200, questionId: "1349" });
@@ -128,7 +137,7 @@ describe("fetchQuestionVariants", () => {
     const result = await fetchQuestionVariants(
       basePayload(),
       { questionId: null, questionType: "match", questionHash: null },
-      "ru"
+      "ru",
     );
 
     expect(result.ok).toBe(false);
@@ -141,7 +150,7 @@ describe("fetchQuestionVariants", () => {
     const result = await fetchQuestionVariants(
       basePayload(),
       { questionId: "1349", questionType: "match", questionHash: null },
-      "ru"
+      "ru",
     );
 
     expect(result.ok).toBe(false);
@@ -156,14 +165,14 @@ describe("fetchQuestionVariants", () => {
           init?.signal?.addEventListener("abort", () => {
             reject(new DOMException("The operation was aborted.", "AbortError"));
           });
-        })
+        }),
     );
 
     const result = await fetchQuestionVariants(
       basePayload(),
       { questionId: "1349", questionType: "match", questionHash: null },
       "ru",
-      20
+      20,
     );
 
     expect(result.ok).toBe(false);
@@ -185,12 +194,12 @@ describe("probeExternalQuestionType", () => {
     const hit = await probeExternalQuestionType(
       basePayload(),
       { questionId: "1349", questionType: "multichoice", questionHash: null },
-      "en"
+      "en",
     );
 
     expect(hit?.questionType).toBe("match");
     expect(hit?.result.data).toEqual([{ anchor: ["", "1"] }]);
-    // The stale type itself is never requested again.
+
     expect(requestedTypes).not.toContain("multichoice");
   });
 
@@ -200,7 +209,7 @@ describe("probeExternalQuestionType", () => {
     const hit = await probeExternalQuestionType(
       basePayload(),
       { questionId: "1349", questionType: null, questionHash: null },
-      "ru"
+      "ru",
     );
 
     expect(hit).toBeNull();
@@ -213,7 +222,7 @@ describe("probeExternalQuestionType", () => {
     const hit = await probeExternalQuestionType(
       basePayload(),
       { questionId: null, questionType: "match", questionHash: null },
-      "ru"
+      "ru",
     );
 
     expect(hit).toBeNull();

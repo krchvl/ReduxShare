@@ -1,4 +1,10 @@
-import type { AiAnswerState, AnswerData, AnswerVariantCounts, SourceAnswerData, StoredStateLike } from "../../src/model";
+import type {
+  AiAnswerState,
+  AnswerData,
+  AnswerVariantCounts,
+  SourceAnswerData,
+  StoredStateLike,
+} from "../../src/model";
 
 type QuizAttemptTestApi = {
   reset: () => void;
@@ -6,13 +12,17 @@ type QuizAttemptTestApi = {
   setAttemptStatusPanelClosedInSession: (closed: boolean) => Promise<void>;
   setStoredState: (state: StoredStateLike | undefined) => void;
   getStoredState: () => StoredStateLike | undefined;
-  computeAutoSelectDelayMs: (avgSeconds: number, random?: () => number, timeLeftSeconds?: number | null) => number;
+  computeAutoSelectDelayMs: (
+    avgSeconds: number,
+    random?: () => number,
+    timeLeftSeconds?: number | null,
+  ) => number;
   parseQuizTimeLeftSeconds: (text: string | null | undefined) => number | null;
   scheduleAutoSelectAnswer: (
     questionId: string | null,
     questionNode: Element,
     storedState: StoredStateLike | undefined,
-    immediate?: boolean
+    immediate?: boolean,
   ) => boolean;
   cancelAutoSelectSchedule: (questionId: string | null) => void;
   buildReviewAnswersForQuestion: (questionNode: Element, questionType: string | null) => unknown[];
@@ -22,7 +32,10 @@ type QuizAttemptTestApi = {
     questionHash: string | null;
     answers: unknown[];
   }>;
-  buildAiAnswerRequestPayload: (questionNode: Element, questionId: string | null) => Promise<unknown>;
+  buildAiAnswerRequestPayload: (
+    questionNode: Element,
+    questionId: string | null,
+  ) => Promise<unknown>;
   collectQuestionSummaries: () => Array<{
     questionId: string | null;
     questionType: string | null;
@@ -31,9 +44,16 @@ type QuizAttemptTestApi = {
     answerLabels: string[];
   }>;
   buildReviewSaveRequestPayload: (state: StoredStateLike | undefined) => unknown;
-  setSourceAnswerData: (questionId: string | null, source: keyof SourceAnswerData, data: AnswerData) => void;
+  setSourceAnswerData: (
+    questionId: string | null,
+    source: keyof SourceAnswerData,
+    data: AnswerData,
+  ) => void;
   applyAiAnswerForQuestion: (questionNode: Element, state: AiAnswerState) => boolean;
-  autoSelectQuestionAnswers: (questionNode: Element, answerData: SourceAnswerData["reduxshare"]) => boolean;
+  autoSelectQuestionAnswers: (
+    questionNode: Element,
+    answerData: SourceAnswerData["reduxshare"],
+  ) => boolean;
   mountAnswerWidgets: (accentColor: string) => void;
   createAnswerWidgetHost: (
     accentColor: string,
@@ -41,14 +61,14 @@ type QuizAttemptTestApi = {
     variantCounts: AnswerVariantCounts,
     answerData: SourceAnswerData,
     slotIndex?: number | null,
-    isInline?: boolean
+    isInline?: boolean,
   ) => HTMLElement;
   getAnswerMenuMarkup: (
     answerData: SourceAnswerData,
     aiSettingsSaved: boolean,
     aiAnswerState: AiAnswerState,
     aiToolsEnabled?: boolean,
-    externalOnly?: boolean
+    externalOnly?: boolean,
   ) => string;
   createEmptySourceAnswerData: () => SourceAnswerData;
   createEmptyVariantCounts: () => AnswerVariantCounts;

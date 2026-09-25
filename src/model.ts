@@ -1,14 +1,12 @@
 import type { AuthSession, Settings, UserProfile } from "./types";
 
-// chrome.storage keys live in src/shared/storageKeys.ts and message names in
-// src/shared/messages.ts, so both bundles share one declaration of each.
 export const ANSWER_WIDGET_ATTR = "data-reduxshare-answer-widget";
 export const ANSWER_MENU_PORTAL_ATTR = "data-reduxshare-answer-menu-portal";
 export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
 export const LEGACY_THEME_ACCENTS = {
   Night: "#9cb9f6",
   Devil: "#ff6b6f",
-  Peace: "#76d982"
+  Peace: "#76d982",
 } as const;
 export const DEFAULT_HOTKEY = "R";
 export const DEFAULT_HOTKEY_CODE = "KeyR";
@@ -16,10 +14,24 @@ export const MAX_METADATA_WAIT_MS = 10_000;
 export const METADATA_POLL_MS = 250;
 export const FULL_PAGE_LOAD_MAX_WAIT_MS = 8_000;
 
-export const TEXT_INPUT_QUESTION_TYPES = new Set(["shortanswer", "numerical", "calculated", "calculatedsimple"]);
-export const CHOICE_QUESTION_TYPES = new Set(["multichoice", "multichoiceset", "truefalse", "calculatedmulti"]);
+export const TEXT_INPUT_QUESTION_TYPES = new Set([
+  "shortanswer",
+  "numerical",
+  "calculated",
+  "calculatedsimple",
+]);
+export const CHOICE_QUESTION_TYPES = new Set([
+  "multichoice",
+  "multichoiceset",
+  "truefalse",
+  "calculatedmulti",
+]);
 export const MATCHING_QUESTION_TYPES = new Set(["match", "randomsamatch"]);
-export const SELECTABLE_QUESTION_TYPES = new Set(["gapselect", "gapfill", ...MATCHING_QUESTION_TYPES]);
+export const SELECTABLE_QUESTION_TYPES = new Set([
+  "gapselect",
+  "gapfill",
+  ...MATCHING_QUESTION_TYPES,
+]);
 export const COMPOUND_QUESTION_TYPES = new Set(["multianswer"]);
 export const DRAG_TEXT_QUESTION_TYPES = new Set(["ddwtos"]);
 export const DRAG_MARKER_QUESTION_TYPES = new Set(["ddmarker"]);
@@ -35,7 +47,7 @@ export const SUPPORTED_REVIEW_QUESTION_TYPES = new Set([
   ...DRAG_TEXT_QUESTION_TYPES,
   ...DRAG_MARKER_QUESTION_TYPES,
   ...DRAG_IMAGE_OR_TEXT_QUESTION_TYPES,
-  "ordering"
+  "ordering",
 ]);
 export const SUPPORTED_AUTO_SELECT_QUESTION_TYPES = new Set([
   ...CHOICE_QUESTION_TYPES,
@@ -45,7 +57,7 @@ export const SUPPORTED_AUTO_SELECT_QUESTION_TYPES = new Set([
   ...DRAG_TEXT_QUESTION_TYPES,
   ...DRAG_MARKER_QUESTION_TYPES,
   ...DRAG_IMAGE_OR_TEXT_QUESTION_TYPES,
-  "ordering"
+  "ordering",
 ]);
 export const SUPPORTED_WIDGET_QUESTION_TYPES = new Set([
   ...CHOICE_QUESTION_TYPES,
@@ -56,19 +68,14 @@ export const SUPPORTED_WIDGET_QUESTION_TYPES = new Set([
   ...DRAG_MARKER_QUESTION_TYPES,
   ...DRAG_IMAGE_OR_TEXT_QUESTION_TYPES,
   ...ESSAY_QUESTION_TYPES,
-  "ordering"
+  "ordering",
 ]);
 export const UNSUPPORTED_DRAG_DROP_QUESTION_TYPES = new Set<string>();
 
 export type { LanguageSetting } from "./types";
 
-// What the content script can read back from chrome.storage: whatever the popup wrote, possibly
-// from an older version of the extension, so every field stays optional. The shape is derived
-// from the popup's Settings/AuthSession/UserProfile so a new setting never needs to be declared
-// a second time here.
 export interface StoredStateLike {
   settings?: Partial<Settings> & {
-    // Legacy theme name, still read for accounts that never picked an accent color.
     theme?: string;
   };
   authSession?: Partial<AuthSession> | null;
@@ -119,15 +126,11 @@ export interface QuizAnswersResponse {
   externalResults?: QuizVariantResult[];
 }
 
-// Quiz view page (no attempt started): the answer database is queried per quiz
-// instead of per question, so the stored questions themselves act as the quiz's
-// question list.
 export interface QuizPreviewRequestPayload {
   domain: string;
   courseId: number | null;
   quizId: number | null;
-  // Force refresh from the preview panel button: bypass cached responses and
-  // re-probe question types instead of trusting the recorded ones.
+
   forceRefresh?: boolean;
 }
 
@@ -135,11 +138,9 @@ export interface QuizPreviewQuestion {
   questionId: string | null;
   questionType: string | null;
   questionHash: string | null;
-  // Statement of the task, stored with the internal answers. Null for questions the
-  // database has answers for but never saw the markup of.
+
   questionText: string | null;
-  // Every option the question ever offered (radio/checkbox/select labels), deduplicated.
-  // Empty for free-form question types like shortanswer.
+
   answerOptions?: string[];
   reduxshare: AnswerData;
   external: AnswerData;
@@ -248,11 +249,9 @@ export interface ReviewQuestionPayload {
   questionId: string | null;
   questionType: string | null;
   questionHash: string | null;
-  // Question statement as read from the review page. Stored with the answers so the
-  // quiz view page (which has no question markup) can show the conditions.
+
   questionText?: string | null;
-  // Every option the review page rendered for the question (radio/checkbox/select
-  // labels). Stored once per question as the option pool, separate from answers.
+
   answerOptions?: string[];
   answers: ReviewAnswerPayload[];
 }
@@ -311,8 +310,7 @@ export interface AiQuestionImage {
   height?: number | null;
   naturalWidth?: number | null;
   naturalHeight?: number | null;
-  /** Pre-fetched bytes: the content script inlines same-origin images so the
-   *  service worker never needs host access to the arbitrary quiz origin. */
+
   dataUrl?: string | null;
 }
 

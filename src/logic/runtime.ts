@@ -1,10 +1,13 @@
-// Moved out of src/content/quizAttempt.ts.
 import { setAnswerMenuTranslator } from "../ui/answerMenu";
 import { renderAttemptStatusPanel } from "../content/quizAttempt/attemptStatusPanel";
 import { getContentTranslator } from "../i18n/contentI18n";
 import { FULL_PAGE_LOAD_MAX_WAIT_MS, type StoredStateLike } from "../model";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
-import { COPY_UNLOCK_MESSAGE, STEALTH_MESSAGE_SOURCE, STEALTH_MODE_MESSAGE } from "../shared/messages";
+import {
+  COPY_UNLOCK_MESSAGE,
+  STEALTH_MESSAGE_SOURCE,
+  STEALTH_MODE_MESSAGE,
+} from "../shared/messages";
 import { canUseQuizFeatures } from "./settings";
 import {
   currentT,
@@ -14,18 +17,6 @@ import {
   stealthModeEnabled,
 } from "../state";
 
-// Moved out of src/content/quizAttempt.ts.
-
-
-
-
-
-// After the extension is reloaded, updated, or uninstalled, content scripts
-// already running in open tabs keep executing with a dead extension context:
-// every chrome.* call then throws "Extension context invalidated". The quiz
-// pages mutate constantly (timers, observers), so an unguarded hot path turns
-// into console spam. chrome.runtime.id is only present while the context is
-// alive, which makes it a cheap synchronous liveness check.
 export function isExtensionContextValid() {
   try {
     return typeof chrome !== "undefined" && !!chrome.runtime?.id;
@@ -47,14 +38,16 @@ export function syncLanguage(storedState: StoredStateLike | undefined) {
 }
 
 export function syncStealthMode(storedState: StoredStateLike | undefined) {
-  setStealthModeEnabled(canUseQuizFeatures(storedState) && storedState?.settings?.stealthMode !== false);
+  setStealthModeEnabled(
+    canUseQuizFeatures(storedState) && storedState?.settings?.stealthMode !== false,
+  );
   window.postMessage(
     {
       source: STEALTH_MESSAGE_SOURCE,
       type: STEALTH_MODE_MESSAGE,
-      enabled: stealthModeEnabled
+      enabled: stealthModeEnabled,
     },
-    window.location.origin
+    window.location.origin,
   );
   renderAttemptStatusPanel();
 }
@@ -65,9 +58,9 @@ export function syncCopyUnlock(storedState: StoredStateLike | undefined) {
     {
       source: STEALTH_MESSAGE_SOURCE,
       type: COPY_UNLOCK_MESSAGE,
-      enabled
+      enabled,
     },
-    window.location.origin
+    window.location.origin,
   );
 }
 

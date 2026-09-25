@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getPocketBaseLabel, measurePocketBasePing, pingStatusForLatency } from "../src/lib/pocketbase";
+import {
+  getPocketBaseLabel,
+  measurePocketBasePing,
+  pingStatusForLatency,
+} from "../src/lib/pocketbase";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -24,7 +28,10 @@ describe("pingStatusForLatency", () => {
 
 describe("measurePocketBasePing", () => {
   it("returns round-trip time for healthy servers", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"code":200}', { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response('{"code":200}', { status: 200 })),
+    );
 
     const latency = await measurePocketBasePing("https://pb.example.com");
 
@@ -33,12 +40,18 @@ describe("measurePocketBasePing", () => {
   });
 
   it("returns null on failure or unhealthy status", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => {
-      throw new Error("down");
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("down");
+      }),
+    );
     await expect(measurePocketBasePing("https://pb.example.com")).resolves.toBeNull();
 
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("oops", { status: 500 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("oops", { status: 500 })),
+    );
     await expect(measurePocketBasePing("https://pb.example.com")).resolves.toBeNull();
   });
 });

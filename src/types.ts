@@ -1,11 +1,16 @@
-import { DEFAULT_HOTKEY, DEFAULT_HOTKEY_CODE, normalizeHotkeyCode, normalizeHotkeyValue } from "./lib/hotkeys";
+import {
+  DEFAULT_HOTKEY,
+  DEFAULT_HOTKEY_CODE,
+  normalizeHotkeyCode,
+  normalizeHotkeyValue,
+} from "./lib/hotkeys";
 
 export type ViewName = "login" | "register" | "main";
 
 const LEGACY_THEME_OPTIONS = [
   { name: "Night", accent: "#9cb9f6" },
   { name: "Devil", accent: "#ff6b6f" },
-  { name: "Peace", accent: "#76d982" }
+  { name: "Peace", accent: "#76d982" },
 ] as const;
 
 export type LegacyTheme = "Night" | "Devil" | "Peace";
@@ -16,13 +21,10 @@ export interface LegacyStoredSettings {
 
 export type AutoSelectTempoPreset = "realistic" | "balanced" | "brisk";
 
-// Avg answer time per tempo. `autoSelectAvgSeconds` stays the source of truth in storage, so a
-// manual slider value simply stops matching any preset (and no chip renders as active).
-// Avg answer time per tempo. "Balanced" doubles as the default, so a fresh install highlights it.
 export const AUTO_SELECT_TEMPO_PRESETS = {
   realistic: 12,
   balanced: 4,
-  brisk: 1.5
+  brisk: 1.5,
 } as const satisfies Record<AutoSelectTempoPreset, number>;
 
 export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
@@ -39,7 +41,7 @@ export const AI_PROVIDER_OPTIONS = [
   { value: "mistral", label: "Mistral" },
   { value: "xai", label: "xAI" },
   { value: "deepseek", label: "DeepSeek" },
-  { value: "custom", label: "Custom" }
+  { value: "custom", label: "Custom" },
 ] as const;
 
 export type AiProvider = (typeof AI_PROVIDER_OPTIONS)[number]["value"];
@@ -58,7 +60,7 @@ export const AI_MODEL_OPTIONS_BY_PROVIDER: Record<BuiltInAiProvider, readonly Ai
   groq: [],
   mistral: [],
   xai: [],
-  deepseek: []
+  deepseek: [],
 };
 
 export interface AiSettings {
@@ -77,8 +79,7 @@ export interface Settings {
   copyUnlock: boolean;
   autoSelect: boolean;
   autoSelectAvgSeconds: number;
-  // Turned off by closing the attempt status panel with its close button; flipping it back on
-  // in the popup re-renders the panel on the open attempt page. Not persisted.
+
   attemptStatusPanelClosed: boolean;
   hotkey: string;
   hotkeyCode: string;
@@ -179,8 +180,8 @@ export const DEFAULT_SETTINGS: Settings = {
     model: "",
     apiKey: "",
     connectionVerified: false,
-    verifiedAt: null
-  }
+    verifiedAt: null,
+  },
 };
 
 export const DEFAULT_UPDATE_STATE: UpdateState = {
@@ -191,7 +192,7 @@ export const DEFAULT_UPDATE_STATE: UpdateState = {
   checkedAt: null,
   nextCheckAt: null,
   releaseUrl: null,
-  error: null
+  error: null,
 };
 
 export const DEFAULT_STORED_STATE: StoredState = {
@@ -199,7 +200,7 @@ export const DEFAULT_STORED_STATE: StoredState = {
   authSession: null,
   userProfile: null,
   latestQuizAttemptContext: null,
-  updateState: DEFAULT_UPDATE_STATE
+  updateState: DEFAULT_UPDATE_STATE,
 };
 
 export function isLanguageSetting(value: unknown): value is LanguageSetting {
@@ -255,21 +256,30 @@ export function getDefaultAiModelForProvider(provider: AiProvider) {
 }
 
 export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): AiSettings {
-  const provider = isAiProvider(settings?.provider) ? settings.provider : DEFAULT_SETTINGS.ai.provider;
+  const provider = isAiProvider(settings?.provider)
+    ? settings.provider
+    : DEFAULT_SETTINGS.ai.provider;
   const rawModel = typeof settings?.model === "string" ? settings.model.trim() : "";
-  const model = provider === "custom"
-    ? (rawModel || DEFAULT_SETTINGS.ai.model)
-    : rawModel || getDefaultAiModelForProvider(provider);
+  const model =
+    provider === "custom"
+      ? rawModel || DEFAULT_SETTINGS.ai.model
+      : rawModel || getDefaultAiModelForProvider(provider);
   const apiKey = typeof settings?.apiKey === "string" ? settings.apiKey.trim() : "";
-  const verifiedAt = typeof settings?.verifiedAt === "string" && settings.verifiedAt ? settings.verifiedAt : null;
-  const customEndpoint = provider === "custom" && typeof settings?.customEndpoint === "string"
-    ? settings.customEndpoint.trim()
-    : undefined;
-  const customModelName = provider === "custom" && typeof settings?.customModelName === "string"
-    ? settings.customModelName.trim()
-    : undefined;
-  const hasConnectionTarget = provider === "custom" ? Boolean(customEndpoint && customModelName) : Boolean(model.trim());
-  const connectionVerified = Boolean(settings?.connectionVerified && apiKey && verifiedAt && hasConnectionTarget);
+  const verifiedAt =
+    typeof settings?.verifiedAt === "string" && settings.verifiedAt ? settings.verifiedAt : null;
+  const customEndpoint =
+    provider === "custom" && typeof settings?.customEndpoint === "string"
+      ? settings.customEndpoint.trim()
+      : undefined;
+  const customModelName =
+    provider === "custom" && typeof settings?.customModelName === "string"
+      ? settings.customModelName.trim()
+      : undefined;
+  const hasConnectionTarget =
+    provider === "custom" ? Boolean(customEndpoint && customModelName) : Boolean(model.trim());
+  const connectionVerified = Boolean(
+    settings?.connectionVerified && apiKey && verifiedAt && hasConnectionTarget,
+  );
 
   return {
     provider,
@@ -278,7 +288,7 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
     connectionVerified,
     verifiedAt: connectionVerified ? verifiedAt : null,
     customEndpoint,
-    customModelName
+    customModelName,
   };
 }
 
@@ -298,7 +308,9 @@ export function normalizeAutoSelectAvgSeconds(value: unknown) {
   return Math.min(30, Math.max(1, Math.round(value * 10) / 10));
 }
 
-export function normalizeSettings(settings: Partial<Settings> & Partial<LegacyStoredSettings> | undefined): Settings {
+export function normalizeSettings(
+  settings: (Partial<Settings> & Partial<LegacyStoredSettings>) | undefined,
+): Settings {
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
     stealthMode: settings?.stealthMode ?? DEFAULT_SETTINGS.stealthMode,
@@ -308,11 +320,15 @@ export function normalizeSettings(settings: Partial<Settings> & Partial<LegacySt
     autoSelectAvgSeconds: normalizeAutoSelectAvgSeconds(settings?.autoSelectAvgSeconds),
     hotkey: normalizeHotkeyValue(settings?.hotkey),
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
-    accentColor: normalizeAccentColor(settings?.accentColor ?? (settings as Partial<LegacyStoredSettings>)?.theme),
+    accentColor: normalizeAccentColor(
+      settings?.accentColor ?? (settings as Partial<LegacyStoredSettings>)?.theme,
+    ),
     language: isLanguageSetting(settings?.language) ? settings.language : DEFAULT_SETTINGS.language,
-    colorScheme: isColorSchemeSetting(settings?.colorScheme) ? settings.colorScheme : DEFAULT_SETTINGS.colorScheme,
+    colorScheme: isColorSchemeSetting(settings?.colorScheme)
+      ? settings.colorScheme
+      : DEFAULT_SETTINGS.colorScheme,
     popupOpacity: settings?.popupOpacity ?? DEFAULT_SETTINGS.popupOpacity,
     pageOverlayOpacity: settings?.pageOverlayOpacity ?? DEFAULT_SETTINGS.pageOverlayOpacity,
-    ai: normalizeAiSettings(settings?.ai)
+    ai: normalizeAiSettings(settings?.ai),
   };
 }

@@ -6,7 +6,8 @@ export const UPDATE_ALARM_NAME = "reduxshare-update-check";
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const UPDATE_RETRY_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export const UPDATE_SOURCE: UpdateSource = "github";
-export const GITHUB_VERSION_URL = "https://raw.githubusercontent.com/krchvl/ReduxShare/refs/heads/main/.VERSION";
+export const GITHUB_VERSION_URL =
+  "https://raw.githubusercontent.com/krchvl/ReduxShare/refs/heads/main/.VERSION";
 export const GITHUB_LATEST_RELEASE_URL = "https://github.com/krchvl/ReduxShare/releases/latest";
 
 export type UpdateCheckReason = "startup" | "installed" | "alarm" | "popup" | "manual";
@@ -47,13 +48,13 @@ export function getCurrentExtensionVersion() {
 
 export function normalizeUpdateState(
   state: Partial<UpdateState> | null | undefined,
-  currentVersion = getCurrentExtensionVersion()
+  currentVersion = getCurrentExtensionVersion(),
 ): UpdateState {
   return {
     ...DEFAULT_UPDATE_STATE,
     ...state,
     currentVersion,
-    source: state?.source ?? UPDATE_SOURCE
+    source: state?.source ?? UPDATE_SOURCE,
   };
 }
 
@@ -98,8 +99,8 @@ export async function fetchLatestUpdateInfo(currentVersion: string): Promise<Lat
   const response = await fetch(GITHUB_VERSION_URL, {
     cache: "no-store",
     headers: {
-      Accept: "text/plain"
-    }
+      Accept: "text/plain",
+    },
   });
 
   if (!response.ok) {
@@ -114,8 +115,9 @@ export async function fetchLatestUpdateInfo(currentVersion: string): Promise<Lat
 
   return {
     version: latestVersion,
-    releaseUrl: compareVersions(latestVersion, currentVersion) > 0 ? GITHUB_LATEST_RELEASE_URL : null,
-    source: UPDATE_SOURCE
+    releaseUrl:
+      compareVersions(latestVersion, currentVersion) > 0 ? GITHUB_LATEST_RELEASE_URL : null,
+    source: UPDATE_SOURCE,
   };
 }
 
@@ -131,7 +133,9 @@ function canUseRuntimeMessaging() {
   );
 }
 
-function sendRuntimeMessage<TResponse>(message: CheckUpdateMessage | GetUpdateStateMessage): Promise<TResponse> {
+function sendRuntimeMessage<TResponse>(
+  message: CheckUpdateMessage | GetUpdateStateMessage,
+): Promise<TResponse> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response: TResponse) => {
       const lastError = chrome.runtime.lastError;
@@ -140,7 +144,7 @@ function sendRuntimeMessage<TResponse>(message: CheckUpdateMessage | GetUpdateSt
         resolve({
           ok: false,
           updateState: normalizeUpdateState(null),
-          error: lastError.message ?? getTranslator(undefined)("errors.backgroundConnection")
+          error: lastError.message ?? getTranslator(undefined)("errors.backgroundConnection"),
         } as TResponse);
         return;
       }
@@ -154,7 +158,7 @@ export async function requestUpdateState(): Promise<UpdateCheckResponse> {
   if (!canUseRuntimeMessaging()) {
     return {
       ok: true,
-      updateState: normalizeUpdateState(null)
+      updateState: normalizeUpdateState(null),
     };
   }
 
@@ -164,12 +168,14 @@ export async function requestUpdateState(): Promise<UpdateCheckResponse> {
     return {
       ok: false,
       updateState: normalizeUpdateState(null),
-      error: getUpdateCheckErrorMessage(error)
+      error: getUpdateCheckErrorMessage(error),
     };
   }
 }
 
-export async function requestUpdateCheck(payload: CheckUpdatePayload = {}): Promise<UpdateCheckResponse> {
+export async function requestUpdateCheck(
+  payload: CheckUpdatePayload = {},
+): Promise<UpdateCheckResponse> {
   if (!canUseRuntimeMessaging()) {
     return {
       ok: true,
@@ -177,21 +183,21 @@ export async function requestUpdateCheck(payload: CheckUpdatePayload = {}): Prom
         status: "up-to-date",
         latestVersion: getCurrentExtensionVersion(),
         checkedAt: new Date().toISOString(),
-        nextCheckAt: new Date(Date.now() + UPDATE_CHECK_INTERVAL_MS).toISOString()
-      })
+        nextCheckAt: new Date(Date.now() + UPDATE_CHECK_INTERVAL_MS).toISOString(),
+      }),
     };
   }
 
   try {
     return await sendRuntimeMessage<UpdateCheckResponse>({
       type: CHECK_UPDATE_MESSAGE,
-      payload
+      payload,
     });
   } catch (error) {
     return {
       ok: false,
       updateState: normalizeUpdateState(null),
-      error: getUpdateCheckErrorMessage(error)
+      error: getUpdateCheckErrorMessage(error),
     };
   }
 }

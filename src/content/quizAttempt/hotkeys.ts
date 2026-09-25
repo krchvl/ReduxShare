@@ -10,7 +10,7 @@ const NON_BINDABLE_HOTKEYS = new Set([
   "Process",
   "Shift",
   "Tab",
-  "Unidentified"
+  "Unidentified",
 ]);
 
 const NON_BINDABLE_HOTKEY_CODES = new Set([
@@ -25,7 +25,7 @@ const NON_BINDABLE_HOTKEY_CODES = new Set([
   "ShiftLeft",
   "ShiftRight",
   "Tab",
-  "Unidentified"
+  "Unidentified",
 ]);
 
 const HOTKEY_CODE_LABELS: Record<string, string> = {
@@ -40,7 +40,7 @@ const HOTKEY_CODE_LABELS: Record<string, string> = {
   Quote: "'",
   Semicolon: ";",
   Slash: "/",
-  Space: "Space"
+  Space: "Space",
 };
 
 export function normalizeHotkeyValue(value: unknown) {
@@ -139,7 +139,7 @@ function formatHotkeyBindingFromKeyboardEvent(event: KeyboardEvent) {
     if (codeLabel) {
       return {
         label: codeLabel,
-        code: event.code
+        code: event.code,
       };
     }
   }
@@ -156,7 +156,7 @@ function formatHotkeyBindingFromKeyboardEvent(event: KeyboardEvent) {
 
   return {
     label: hotkey,
-    code: (inferCodeFromHotkey(hotkey) ?? event.code) || hotkey
+    code: (inferCodeFromHotkey(hotkey) ?? event.code) || hotkey,
   };
 }
 
@@ -165,10 +165,11 @@ export function hotkeyMatchesEvent(hotkey: string, hotkeyCode: string, event: Ke
     return false;
   }
 
-  return formatHotkeyBindingFromKeyboardEvent(event)?.code === normalizeHotkeyCode(hotkeyCode, hotkey);
+  return (
+    formatHotkeyBindingFromKeyboardEvent(event)?.code === normalizeHotkeyCode(hotkeyCode, hotkey)
+  );
 }
 
-// Typing into an input, a textarea or a rich-text field must never be swallowed by the hotkey.
 export function isEditableHotkeyTarget(event: KeyboardEvent) {
   const firstElementTarget = event
     .composedPath()
@@ -186,16 +187,9 @@ export function isEditableHotkeyTarget(event: KeyboardEvent) {
     return true;
   }
 
-  if (
-    firstElementTarget instanceof HTMLElement &&
-    firstElementTarget.isContentEditable
-  ) {
+  if (firstElementTarget instanceof HTMLElement && firstElementTarget.isContentEditable) {
     return true;
   }
 
-  return Boolean(
-    firstElementTarget.closest(
-      "[contenteditable=''], [contenteditable='true']",
-    ),
-  );
+  return Boolean(firstElementTarget.closest("[contenteditable=''], [contenteditable='true']"));
 }

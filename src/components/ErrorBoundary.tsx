@@ -1,4 +1,5 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import type { ErrorInfo, ReactNode } from "react";
+import { Component } from "react";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -22,10 +23,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ReduxShare Error Boundary caught an error:', error, errorInfo);
-    
-    // В продакшене можно отправлять ошибку в сервис мониторинга
-    if (process.env.NODE_ENV === 'production') {
+    console.error("ReduxShare Error Boundary caught an error:", error, errorInfo);
+
+    if (process.env.NODE_ENV === "production") {
       // TODO: Отправить ошибку в сервис мониторинга
     }
   }
@@ -40,16 +40,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="error-boundary">
           <h2>Something went wrong</h2>
           <p>The application encountered an unexpected error. Please try refreshing the popup.</p>
-          {process.env.NODE_ENV === 'development' && this.state.error && (
+          {process.env.NODE_ENV === "development" && this.state.error && (
             <details>
               <summary>Error details (development only)</summary>
               <p>{this.state.error.toString()}</p>
               <p>{this.state.errorInfo?.componentStack}</p>
             </details>
           )}
-          <button onClick={() => window.location.reload()}>
-            Reload Popup
-          </button>
+          <button onClick={() => window.location.reload()}>Reload Popup</button>
         </div>
       );
     }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
@@ -12,7 +12,7 @@ import {
   type AutoSelectTempoPreset,
   type AiSettings,
   type Settings,
-  type UpdateState
+  type UpdateState,
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
 import { Button } from "./Button";
@@ -24,9 +24,14 @@ import {
   isBroadHostPermissionGrantedSync,
   needsBroadHostPermission,
   refreshBroadPermissionCache,
-  requestBroadHostPermission
+  requestBroadHostPermission,
 } from "../lib/optionalPermissions";
-import { getPocketBaseLabel, measurePocketBasePing, pingStatusForLatency, tryGetPocketBaseUrl } from "../lib/pocketbase";
+import {
+  getPocketBaseLabel,
+  measurePocketBasePing,
+  pingStatusForLatency,
+  tryGetPocketBaseUrl,
+} from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import githubIcon from "../assets/github.svg";
 import telegramIcon from "../assets/telegram.svg";
@@ -75,7 +80,8 @@ interface AiModelsState {
   message: string | null;
 }
 
-function GearIcon() {  return (
+function GearIcon() {
+  return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <path d="M20.7 5.8h6.6l1.4 5.6c1.2.4 2.3.8 3.3 1.4l5-3 4.7 4.7-3 5c.6 1.1 1.1 2.2 1.4 3.4l5.6 1.3v6.6l-5.6 1.4a18 18 0 0 1-1.4 3.3l3 5-4.7 4.7-5-3c-1 .6-2.1 1.1-3.3 1.4l-1.4 5.6h-6.6l-1.4-5.6a18 18 0 0 1-3.3-1.4l-5 3-4.7-4.7 3-5a18 18 0 0 1-1.4-3.3l-5.6-1.4v-6.6l5.6-1.3c.4-1.2.8-2.3 1.4-3.4l-3-5L11 9.8l5 3c1.1-.6 2.2-1 3.3-1.4l1.4-5.6Z" />
       <circle cx="24" cy="27" r="7" />
@@ -129,7 +135,7 @@ const SETTINGS_TABS: TabConfig[] = [
   { key: "ui", label: "main.tabs.ui", icon: <PaletteIcon /> },
   { key: "security", label: "main.tabs.security", icon: <ShieldIcon /> },
   { key: "ai", label: "main.tabs.ai", icon: <AiIcon /> },
-  { key: "extra", label: "main.tabs.extra", icon: <DotsIcon /> }
+  { key: "extra", label: "main.tabs.extra", icon: <DotsIcon /> },
 ];
 
 function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
@@ -156,6 +162,8 @@ function ServerPicker() {
     }
 
     let cancelled = false;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch status reset for the new URL
     setLatencyMs(undefined);
 
     void measurePocketBasePing(pocketBaseUrl).then((latency) => {
@@ -175,13 +183,27 @@ function ServerPicker() {
 
   const status = latencyMs === undefined ? null : pingStatusForLatency(latencyMs);
   const statusColor =
-    status === "good" ? "#4ade80" : status === "warn" ? "#ffd166" : status === "bad" ? "#f87171" : "#8a8f9e";
+    status === "good"
+      ? "#4ade80"
+      : status === "warn"
+        ? "#ffd166"
+        : status === "bad"
+          ? "#f87171"
+          : "#8a8f9e";
   const pingText =
-    latencyMs === undefined ? "…" : latencyMs === null ? t("settings.server.offline") : `${latencyMs} ${t("settings.server.ms")}`;
+    latencyMs === undefined
+      ? "…"
+      : latencyMs === null
+        ? t("settings.server.offline")
+        : `${latencyMs} ${t("settings.server.ms")}`;
 
   return (
     <div className="server-picker">
-      <select className="ai-select server-picker__select" defaultValue="primary" aria-label={t("settings.server.title")}>
+      <select
+        className="ai-select server-picker__select"
+        defaultValue="primary"
+        aria-label={t("settings.server.title")}
+      >
         <option value="primary">{getPocketBaseLabel()}</option>
       </select>
       <span className="server-picker__ping">
@@ -201,36 +223,42 @@ function formatUpdateDate(value: string | null, locale: string, t: TranslateFn) 
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
-function getUpdateLines(updateState: UpdateState, locale: string, t: TranslateFn): [string, string] {
+function getUpdateLines(
+  updateState: UpdateState,
+  locale: string,
+  t: TranslateFn,
+): [string, string] {
   if (updateState.status === "checking") {
     return [t("updates.checking.line1"), t("updates.checking.line2")];
   }
 
   if (updateState.status === "available") {
     return [
-      t("updates.available.line1", { version: updateState.latestVersion ?? updateState.currentVersion }),
+      t("updates.available.line1", {
+        version: updateState.latestVersion ?? updateState.currentVersion,
+      }),
       t("updates.available.line2", {
         currentVersion: updateState.currentVersion,
-        date: formatUpdateDate(updateState.checkedAt, locale, t)
-      })
+        date: formatUpdateDate(updateState.checkedAt, locale, t),
+      }),
     ];
   }
 
   if (updateState.status === "error") {
     return [
       updateState.error ?? t("updates.error.fallback"),
-      t("updates.error.line2", { date: formatUpdateDate(updateState.nextCheckAt, locale, t) })
+      t("updates.error.line2", { date: formatUpdateDate(updateState.nextCheckAt, locale, t) }),
     ];
   }
 
   if (updateState.status === "up-to-date") {
     return [
       t("updates.uptodate.line1", { version: updateState.currentVersion }),
-      t("updates.uptodate.line2", { date: formatUpdateDate(updateState.checkedAt, locale, t) })
+      t("updates.uptodate.line2", { date: formatUpdateDate(updateState.checkedAt, locale, t) }),
     ];
   }
 
@@ -245,12 +273,22 @@ function getAiProviderLabel(provider: AiSettings["provider"], t: TranslateFn) {
   return AI_PROVIDER_OPTIONS.find((option) => option.value === provider)?.label ?? provider;
 }
 
-function getAiModelLabel(provider: AiSettings["provider"], model: AiSettings["model"], dynamicModels: AiModelOption[] = []) {
-  const modelOption = [...dynamicModels, ...getAiModelOptionsForProvider(provider)].find((option) => option.value === model);
+function getAiModelLabel(
+  provider: AiSettings["provider"],
+  model: AiSettings["model"],
+  dynamicModels: AiModelOption[] = [],
+) {
+  const modelOption = [...dynamicModels, ...getAiModelOptionsForProvider(provider)].find(
+    (option) => option.value === model,
+  );
   return modelOption?.label ?? model;
 }
 
-function mergeAiModelOptions(dynamicModels: AiModelOption[], fallbackModels: readonly AiModelOption[], currentModel: string) {
+function mergeAiModelOptions(
+  dynamicModels: AiModelOption[],
+  fallbackModels: readonly AiModelOption[],
+  currentModel: string,
+) {
   const mergedModels: AiModelOption[] = [];
   const seenModelIds = new Set<string>();
 
@@ -266,7 +304,7 @@ function mergeAiModelOptions(dynamicModels: AiModelOption[], fallbackModels: rea
   if (currentModel.trim() && !seenModelIds.has(currentModel)) {
     mergedModels.unshift({
       value: currentModel,
-      label: currentModel
+      label: currentModel,
     });
   }
 
@@ -289,7 +327,7 @@ export function MainScreen({
   onSettingsChange,
   onCheckUpdates,
   onResetSettings,
-  onLogout
+  onLogout,
 }: MainScreenProps) {
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("main");
@@ -298,25 +336,19 @@ export function MainScreen({
   const [aiTestState, setAiTestState] = useState<AiTestState>({
     status: settings.ai.connectionVerified ? "saved" : "idle",
     message: null,
-    verifiedAt: settings.ai.verifiedAt
+    verifiedAt: settings.ai.verifiedAt,
   });
   const [aiModelsState, setAiModelsState] = useState<AiModelsState>({
     provider: null,
     requestKey: null,
     status: "idle",
     models: [],
-    message: null
+    message: null,
   });
-  // Latest-value refs: async model fetches outlive provider switches, and the
-  // completion handlers must decide staleness against *current* state, not the
-  // snapshot captured when the request was issued.
+
   const aiDraftRef = useRef(aiDraft);
   const aiModelsStateRef = useRef(aiModelsState);
 
-  // Sync the in-memory permission cache with the browser's actual state.
-  // This must happen synchronously on component mount: the permission prompt
-  // must be shown from a user gesture, and the UI must reflect the current
-  // grant status before the user interacts with the form.
   useEffect(() => {
     refreshBroadPermissionCache().catch(() => {
       // Ignore errors; the permission cache will fall back to `null`,
@@ -324,16 +356,15 @@ export function MainScreen({
     });
   }, []);
 
-  // Auto-save AI settings when the user changes the form, if the connection
-  // is already verified. This prevents data loss when the user accidentally
-  // closes the popup without clicking "Save".
   const prevAiSettingsRef = useRef<AiSettings>(settings.ai);
 
-  const hasAiConnectionTarget = aiDraft.provider === "custom"
-    ? Boolean(aiDraft.customEndpoint?.trim() && aiDraft.customModelName?.trim())
-    : Boolean(aiDraft.model.trim());
+  const hasAiConnectionTarget =
+    aiDraft.provider === "custom"
+      ? Boolean(aiDraft.customEndpoint?.trim() && aiDraft.customModelName?.trim())
+      : Boolean(aiDraft.model.trim());
 
-  const canSaveAiSettings = aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget;
+  const canSaveAiSettings =
+    aiTestState.status === "success" && Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget;
 
   useEffect(() => {
     prevAiSettingsRef.current = settings.ai;
@@ -341,12 +372,15 @@ export function MainScreen({
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      if (canSaveAiSettings && JSON.stringify(prevAiSettingsRef.current) !== JSON.stringify(aiDraft)) {
+      if (
+        canSaveAiSettings &&
+        JSON.stringify(prevAiSettingsRef.current) !== JSON.stringify(aiDraft)
+      ) {
         const nextAiSettings = normalizeAiSettings({
           ...aiDraft,
           apiKey: aiDraft.apiKey.trim(),
           connectionVerified: true,
-          verifiedAt: aiTestState.verifiedAt
+          verifiedAt: aiTestState.verifiedAt,
         });
         onSettingsChange({ ...settings, ai: nextAiSettings });
       }
@@ -372,7 +406,7 @@ export function MainScreen({
     setAiTestState({
       status: settings.ai.connectionVerified ? "saved" : "idle",
       message: null,
-      verifiedAt: settings.ai.verifiedAt
+      verifiedAt: settings.ai.verifiedAt,
     });
   }, [settings.ai]);
 
@@ -418,17 +452,15 @@ export function MainScreen({
     : [t("settings.hotkey.line1"), t("settings.hotkey.line2")];
 
   const isAiConnectionChecking = aiTestState.status === "checking";
-  const isAiModelsLoading = aiModelsState.status === "loading";
 
-  const aiModelsAutoRequestKey = activeTab === "ai" &&
+  const aiModelsAutoRequestKey =
+    activeTab === "ai" &&
     aiDraft.provider !== "custom" &&
-    (
-      aiDraft.provider === "openrouter" ||
-      Boolean(aiDraft.apiKey.trim())
-    )
-    ? `${aiDraft.provider}:${aiDraft.provider === "openrouter" ? "public" : aiDraft.apiKey.trim()}`
-    : null;
-  const canTestAiConnection = Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
+    (aiDraft.provider === "openrouter" || Boolean(aiDraft.apiKey.trim()))
+      ? `${aiDraft.provider}:${aiDraft.provider === "openrouter" ? "public" : aiDraft.apiKey.trim()}`
+      : null;
+  const canTestAiConnection =
+    Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
   const hasSavedAiKey = settings.ai.connectionVerified && Boolean(settings.ai.apiKey.trim());
 
   function updateAiDraft(patch: Partial<AiSettings>) {
@@ -437,7 +469,7 @@ export function MainScreen({
       ...patch,
       apiKey: patch.apiKey ?? draft.apiKey,
       connectionVerified: false,
-      verifiedAt: null
+      verifiedAt: null,
     }));
     setAiTestState({ status: "idle", message: null, verifiedAt: null });
   }
@@ -448,24 +480,21 @@ export function MainScreen({
       requestKey: null,
       status: "idle",
       models: [],
-      message: null
+      message: null,
     });
     updateAiDraft({
       provider,
       model: getDefaultAiModelForProvider(provider),
       customEndpoint: provider === "custom" ? aiDraft.customEndpoint : undefined,
-      customModelName: provider === "custom" ? aiDraft.customModelName : undefined
+      customModelName: provider === "custom" ? aiDraft.customModelName : undefined,
     });
   }
 
-  async function handleFetchAiModels(requestKey: string) {
+  const handleFetchAiModels = useEffectEvent(async (requestKey: string) => {
     if (aiDraft.provider === "custom") {
       return;
     }
 
-    // Capture the provider/payload now: the await below can outlive a provider
-    // switch, and reading aiDraft after it would stamp a response with whatever
-    // provider is current at that later moment.
     const requestProvider = aiDraft.provider;
     const requestDraft = { ...aiDraft, apiKey: aiDraft.apiKey.trim() };
 
@@ -474,54 +503,61 @@ export function MainScreen({
       requestKey,
       status: "loading",
       models: [],
-      message: null
+      message: null,
     });
 
     try {
       const response = await requestAiModels(requestDraft);
 
       if (!response.ok || !response.models?.length) {
-        setAiModelsState((current) => current.requestKey === requestKey
-          ? {
-            provider: requestProvider,
-            requestKey,
-            status: "error",
-            models: [],
-            message: response.error ?? t("settings.ai.status.modelsError")
-          }
-          : current);
+        setAiModelsState((current) =>
+          current.requestKey === requestKey
+            ? {
+                provider: requestProvider,
+                requestKey,
+                status: "error",
+                models: [],
+                message: response.error ?? t("settings.ai.status.modelsError"),
+              }
+            : current,
+        );
         return;
       }
 
       const models = response.models;
 
-      setAiModelsState((current) => current.requestKey === requestKey
-        ? {
-          provider: requestProvider,
-          requestKey,
-          status: "success",
-          models,
-          message: t("settings.ai.status.modelsLoaded", { count: String(models.length) })
-        }
-        : current);
+      setAiModelsState((current) =>
+        current.requestKey === requestKey
+          ? {
+              provider: requestProvider,
+              requestKey,
+              status: "success",
+              models,
+              message: t("settings.ai.status.modelsLoaded", { count: String(models.length) }),
+            }
+          : current,
+      );
 
-      // The response still describes models for requestProvider; only reset the
-      // draft's model if the user has not switched providers meanwhile.
-      if (aiDraftRef.current.provider === requestProvider && !models.some((model) => model.value === aiDraftRef.current.model)) {
+      if (
+        aiDraftRef.current.provider === requestProvider &&
+        !models.some((model) => model.value === aiDraftRef.current.model)
+      ) {
         updateAiDraft({ model: models[0].value });
       }
     } catch (error) {
-      setAiModelsState((current) => current.requestKey === requestKey
-        ? {
-          provider: requestProvider,
-          requestKey,
-          status: "error",
-          models: [],
-          message: error instanceof Error ? error.message : t("settings.ai.status.modelsError")
-        }
-        : current);
+      setAiModelsState((current) =>
+        current.requestKey === requestKey
+          ? {
+              provider: requestProvider,
+              requestKey,
+              status: "error",
+              models: [],
+              message: error instanceof Error ? error.message : t("settings.ai.status.modelsError"),
+            }
+          : current,
+      );
     }
-  }
+  });
 
   useEffect(() => {
     if (!aiModelsAutoRequestKey || aiModelsState.requestKey === aiModelsAutoRequestKey) {
@@ -538,21 +574,23 @@ export function MainScreen({
   }, [aiModelsAutoRequestKey, aiModelsState.requestKey]);
 
   async function handleTestAiConnection() {
-    // The custom-endpoint flow needs the optional broad host permission; the
-    // browser prompt must open synchronously inside this user gesture, so it is
-    // the very first thing the handler does.
-    const requiresBroadPermission = isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint);
+    const requiresBroadPermission =
+      isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint);
 
     if (requiresBroadPermission && !(await requestBroadHostPermission())) {
       setAiTestState({
         status: "error",
         message: t("settings.ai.status.permissionDenied"),
-        verifiedAt: null
+        verifiedAt: null,
       });
       return;
     }
 
-    setAiTestState({ status: "checking", message: t("settings.ai.status.checking"), verifiedAt: null });
+    setAiTestState({
+      status: "checking",
+      message: t("settings.ai.status.checking"),
+      verifiedAt: null,
+    });
 
     try {
       const verifiedAt = new Date().toISOString();
@@ -560,14 +598,14 @@ export function MainScreen({
         ...aiDraft,
         apiKey: aiDraft.apiKey.trim(),
         connectionVerified: true,
-        verifiedAt
+        verifiedAt,
       });
 
       if (!response.ok) {
         setAiTestState({
           status: "error",
           message: response.error ?? t("settings.ai.status.error"),
-          verifiedAt: null
+          verifiedAt: null,
         });
         return;
       }
@@ -575,13 +613,13 @@ export function MainScreen({
       setAiTestState({
         status: "success",
         message: t("settings.ai.status.success"),
-        verifiedAt
+        verifiedAt,
       });
     } catch (error) {
       setAiTestState({
         status: "error",
         message: error instanceof Error ? error.message : t("settings.ai.status.error"),
-        verifiedAt: null
+        verifiedAt: null,
       });
     }
   }
@@ -591,14 +629,11 @@ export function MainScreen({
       return;
     }
 
-    // Saving is also a user gesture, but the permission is requested on the
-    // Test button (the prompt must open synchronously); here we only refuse to
-    // persist a custom endpoint while the grant is missing.
     if (isCustomProviderFlow(aiDraft) && !isBroadHostPermissionGrantedSync()) {
       setAiTestState({
         status: "error",
         message: t("settings.ai.status.permissionDenied"),
-        verifiedAt: null
+        verifiedAt: null,
       });
       return;
     }
@@ -607,14 +642,14 @@ export function MainScreen({
       ...aiDraft,
       apiKey: aiDraft.apiKey.trim(),
       connectionVerified: true,
-      verifiedAt: aiTestState.verifiedAt
+      verifiedAt: aiTestState.verifiedAt,
     });
 
     onSettingsChange({ ...settings, ai: nextAiSettings });
     setAiTestState({
       status: "saved",
       message: t("settings.ai.status.saved"),
-      verifiedAt: nextAiSettings.verifiedAt
+      verifiedAt: nextAiSettings.verifiedAt,
     });
   }
 
@@ -665,7 +700,9 @@ export function MainScreen({
                   step={5}
                   value={Math.round(settings.popupOpacity * 100)}
                   aria-label={t("settings.opacity.popup.title")}
-                  onChange={(event) => updateSetting("popupOpacity", Number(event.target.value) / 100)}
+                  onChange={(event) =>
+                    updateSetting("popupOpacity", Number(event.target.value) / 100)
+                  }
                 />
                 <span className="opacity-value">{`${Math.round(settings.popupOpacity * 100)}%`}</span>
               </div>
@@ -684,7 +721,9 @@ export function MainScreen({
                   step={5}
                   value={Math.round(settings.pageOverlayOpacity * 100)}
                   aria-label={t("settings.opacity.overlay.title")}
-                  onChange={(event) => updateSetting("pageOverlayOpacity", Number(event.target.value) / 100)}
+                  onChange={(event) =>
+                    updateSetting("pageOverlayOpacity", Number(event.target.value) / 100)
+                  }
                 />
                 <span className="opacity-value">{`${Math.round(settings.pageOverlayOpacity * 100)}%`}</span>
               </div>
@@ -735,13 +774,14 @@ export function MainScreen({
 
     if (activeTab === "ai") {
       const isCustomProvider = aiDraft.provider === "custom";
-      const dynamicAiModelOptions = aiModelsState.status === "success" && aiModelsState.provider === aiDraft.provider
-        ? aiModelsState.models
-        : [];
+      const dynamicAiModelOptions =
+        aiModelsState.status === "success" && aiModelsState.provider === aiDraft.provider
+          ? aiModelsState.models
+          : [];
       const aiModelOptions = mergeAiModelOptions(
         dynamicAiModelOptions,
         getAiModelOptionsForProvider(aiDraft.provider),
-        aiDraft.model
+        aiDraft.model,
       );
 
       return (
@@ -752,21 +792,34 @@ export function MainScreen({
               <p>{t("settings.ai.line1")}</p>
               <p>{t("settings.ai.line2")}</p>
               <div className="ai-settings-summary" aria-label={t("settings.ai.summary.title")}>
-                <span className={hasSavedAiKey ? "ai-settings-summary__ok" : "ai-settings-summary__not-stated"}>
-                  {hasSavedAiKey ? t("settings.ai.summary.keySaved") : t("settings.ai.summary.keyMissing")}
+                <span
+                  className={
+                    hasSavedAiKey ? "ai-settings-summary__ok" : "ai-settings-summary__not-stated"
+                  }
+                >
+                  {hasSavedAiKey
+                    ? t("settings.ai.summary.keySaved")
+                    : t("settings.ai.summary.keyMissing")}
                 </span>
                 {hasSavedAiKey && (
                   <>
                     <span>
                       {t("settings.ai.provider")}:{" "}
-                      <span className="ai-settings-summary__name">{getAiProviderLabel(settings.ai.provider, t)}</span>
+                      <span className="ai-settings-summary__name">
+                        {getAiProviderLabel(settings.ai.provider, t)}
+                      </span>
                     </span>
                     <span>
                       {t("settings.ai.model")}:{" "}
                       <span className="ai-settings-summary__name">
                         {settings.ai.provider === "custom"
-                          ? settings.ai.customModelName?.trim() || t("settings.ai.customModelPlaceholder")
-                          : getAiModelLabel(settings.ai.provider, settings.ai.model, dynamicAiModelOptions)}
+                          ? settings.ai.customModelName?.trim() ||
+                            t("settings.ai.customModelPlaceholder")
+                          : getAiModelLabel(
+                              settings.ai.provider,
+                              settings.ai.model,
+                              dynamicAiModelOptions,
+                            )}
                       </span>
                     </span>
                   </>
@@ -779,7 +832,9 @@ export function MainScreen({
                 <select
                   className="ai-select"
                   value={aiDraft.provider}
-                  onChange={(event) => updateAiProvider(event.target.value as AiSettings["provider"])}
+                  onChange={(event) =>
+                    updateAiProvider(event.target.value as AiSettings["provider"])
+                  }
                 >
                   {AI_PROVIDER_OPTIONS.map((provider) => (
                     <option key={provider.value} value={provider.value}>
@@ -852,7 +907,9 @@ export function MainScreen({
                   disabled={!canTestAiConnection}
                   onClick={handleTestAiConnection}
                 >
-                  {isAiConnectionChecking ? t("settings.ai.actions.checking") : t("settings.ai.actions.test")}
+                  {isAiConnectionChecking
+                    ? t("settings.ai.actions.checking")
+                    : t("settings.ai.actions.test")}
                 </Button>
                 <Button
                   className="secondary-wide-button"
@@ -864,10 +921,14 @@ export function MainScreen({
                 </Button>
               </div>
               {aiTestState.message && (
-                <p className={`ai-status ai-status--${aiTestState.status}`}>{aiTestState.message}</p>
+                <p className={`ai-status ai-status--${aiTestState.status}`}>
+                  {aiTestState.message}
+                </p>
               )}
               {aiModelsState.provider === aiDraft.provider && aiModelsState.message && (
-                <p className={`ai-status ai-status--${aiModelsState.status === "error" ? "error" : "success"}`}>
+                <p
+                  className={`ai-status ai-status--${aiModelsState.status === "error" ? "error" : "success"}`}
+                >
                   {aiModelsState.message}
                 </p>
               )}
@@ -919,13 +980,22 @@ export function MainScreen({
             </Button>
             <Button className="secondary-wide-button" variant="outline" onClick={onLogout}>
               {t("settings.actions.logout")}
-            </Button>            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
-            <button className="social-button" type="button" aria-label={t("settings.social.github")}>
-              <img src={githubIcon} alt="" />
-            </button>
+            </Button>{" "}
+            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
+              <button
+                className="social-button"
+                type="button"
+                aria-label={t("settings.social.github")}
+              >
+                <img src={githubIcon} alt="" />
+              </button>
             </a>
             <a href="https://t.me/a1b2c3d4e5f6g7h8i9j10k11l12m17" target="_blank">
-              <button className="social-button" type="button" aria-label={t("settings.social.telegram")}>
+              <button
+                className="social-button"
+                type="button"
+                aria-label={t("settings.social.telegram")}
+              >
                 <img src={telegramIcon} alt="" />
               </button>
             </a>
@@ -972,21 +1042,29 @@ export function MainScreen({
             lines={[t("settings.autoselectAvg.line"), ""]}
             control={
               <div className="autoselect-timing">
-                <div className="autoselect-timing__chips" role="group" aria-label={t("settings.autoselectAvg.title")}>
-                  {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      className={`autoselect-timing__chip ${
-                        settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
-                          ? "autoselect-timing__chip--active"
-                          : ""
-                      }`}
-                      onClick={() => updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])}
-                    >
-                      {t(`settings.autoselectTempo.${preset}`)}
-                    </button>
-                  ))}
+                <div
+                  className="autoselect-timing__chips"
+                  role="group"
+                  aria-label={t("settings.autoselectAvg.title")}
+                >
+                  {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map(
+                    (preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        className={`autoselect-timing__chip ${
+                          settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
+                            ? "autoselect-timing__chip--active"
+                            : ""
+                        }`}
+                        onClick={() =>
+                          updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])
+                        }
+                      >
+                        {t(`settings.autoselectTempo.${preset}`)}
+                      </button>
+                    ),
+                  )}
                 </div>
                 <div className="autoselect-timing__slider">
                   <input
@@ -997,7 +1075,9 @@ export function MainScreen({
                     step={0.5}
                     value={settings.autoSelectAvgSeconds}
                     aria-label={t("settings.autoselectAvg.title")}
-                    onChange={(event) => updateSetting("autoSelectAvgSeconds", Number(event.target.value))}
+                    onChange={(event) =>
+                      updateSetting("autoSelectAvgSeconds", Number(event.target.value))
+                    }
                   />
                   <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
                 </div>
@@ -1009,8 +1089,14 @@ export function MainScreen({
           title={t("settings.attemptStatusPanel.title")}
           lines={
             settings.attemptStatusPanelClosed
-              ? [t("settings.attemptStatusPanel.off.line1"), t("settings.attemptStatusPanel.off.line2")]
-              : [t("settings.attemptStatusPanel.on.line1"), t("settings.attemptStatusPanel.on.line2")]
+              ? [
+                  t("settings.attemptStatusPanel.off.line1"),
+                  t("settings.attemptStatusPanel.off.line2"),
+                ]
+              : [
+                  t("settings.attemptStatusPanel.on.line1"),
+                  t("settings.attemptStatusPanel.on.line2"),
+                ]
           }
           control={
             <Switch

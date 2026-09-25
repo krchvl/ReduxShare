@@ -1,10 +1,4 @@
-// Shared interactive behavior for the answer menu markup produced by
-// answerMenu.ts: tab switching, hover/focus activation of menu items and
-// clearing of the active flyout. Used by the content-script portal and the
-// settings preview alike so both stay in sync.
-
 export interface AttachAnswerMenuBehaviorOptions {
-  // Fires only when the active menu item actually changes; null clears it.
   onActiveMenuItemChange?: (nextItem: HTMLElement | null) => void;
 }
 
@@ -16,13 +10,19 @@ export interface AnswerMenuBehaviorController {
 
 export function attachAnswerMenuBehavior(
   shadowRoot: ShadowRoot,
-  options: AttachAnswerMenuBehaviorOptions = {}
+  options: AttachAnswerMenuBehaviorOptions = {},
 ): AnswerMenuBehaviorController {
   const menuTabsContainer = shadowRoot.querySelector<HTMLElement>(".menu-tabs");
-  const menuTabs = Array.from(shadowRoot.querySelectorAll<HTMLButtonElement>(".menu-tab[data-menu-tab]"));
-  const menuPanels = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-panel[data-menu-panel]"));
+  const menuTabs = Array.from(
+    shadowRoot.querySelectorAll<HTMLButtonElement>(".menu-tab[data-menu-tab]"),
+  );
+  const menuPanels = Array.from(
+    shadowRoot.querySelectorAll<HTMLElement>(".menu-panel[data-menu-panel]"),
+  );
   const menuItems = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".menu-item"));
-  const aiActionButtons = Array.from(shadowRoot.querySelectorAll<HTMLButtonElement>(".menu-ai-button"));
+  const aiActionButtons = Array.from(
+    shadowRoot.querySelectorAll<HTMLButtonElement>(".menu-ai-button"),
+  );
   const menuBox = shadowRoot.querySelector<HTMLElement>(".menu");
 
   let activeMenuItem: HTMLElement | null = null;
@@ -31,7 +31,7 @@ export function attachAnswerMenuBehavior(
   const on = <K extends keyof HTMLElementEventMap>(
     target: HTMLElement,
     type: K,
-    listener: (event: HTMLElementEventMap[K]) => void
+    listener: (event: HTMLElementEventMap[K]) => void,
   ) => {
     target.addEventListener(type, listener as EventListener);
     cleanups.push(() => target.removeEventListener(type, listener as EventListener));
@@ -142,6 +142,6 @@ export function attachAnswerMenuBehavior(
       }
 
       cleanups.length = 0;
-    }
+    },
   };
 }

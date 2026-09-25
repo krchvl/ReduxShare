@@ -21,12 +21,10 @@ import type { QuizPreviewQuestion } from "../src/model";
 function storedState(overrides: Record<string, unknown> = {}) {
   return {
     settings: { extensionEnabled: true, stealthMode: false, language: "ru" },
-    ...overrides
+    ...overrides,
   };
 }
 
-// Minimal view.php markup: start button block plus quizinfo, mirroring a live
-// Moodle page.
 const VIEW_PAGE_HTML = `
   <div role="main">
     <div class="tertiary-navigation">
@@ -57,11 +55,25 @@ function getPreviewModal(): HTMLDivElement {
 
 describe("isQuizViewUrl", () => {
   it("matches only https quiz view pages", () => {
-    expect(isQuizViewUrl({ protocol: "https:", pathname: "/mod/quiz/view.php" } as Location)).toBe(true);
-    expect(isQuizViewUrl({ protocol: "https:", pathname: "/course/mod/quiz/view.php" } as Location)).toBe(true);
-    expect(isQuizViewUrl({ protocol: "https:", pathname: "/mod/quiz/view.php", search: "?id=789" } as unknown as Location)).toBe(true);
-    expect(isQuizViewUrl({ protocol: "http:", pathname: "/mod/quiz/view.php" } as Location)).toBe(false);
-    expect(isQuizViewUrl({ protocol: "https:", pathname: "/mod/quiz/attempt.php" } as Location)).toBe(false);
+    expect(isQuizViewUrl({ protocol: "https:", pathname: "/mod/quiz/view.php" } as Location)).toBe(
+      true,
+    );
+    expect(
+      isQuizViewUrl({ protocol: "https:", pathname: "/course/mod/quiz/view.php" } as Location),
+    ).toBe(true);
+    expect(
+      isQuizViewUrl({
+        protocol: "https:",
+        pathname: "/mod/quiz/view.php",
+        search: "?id=789",
+      } as unknown as Location),
+    ).toBe(true);
+    expect(isQuizViewUrl({ protocol: "http:", pathname: "/mod/quiz/view.php" } as Location)).toBe(
+      false,
+    );
+    expect(
+      isQuizViewUrl({ protocol: "https:", pathname: "/mod/quiz/attempt.php" } as Location),
+    ).toBe(false);
   });
 });
 
@@ -78,10 +90,10 @@ describe("quiz preview answer conversion", () => {
           suggestions: [{ label: "Верно", correctness: 2, confidence: 0.95 }],
           submissions: [
             { label: "Верно", correctness: 2, count: 5 },
-            { label: "Неверно", correctness: 0, count: 2 }
-          ]
-        }
-      ]
+            { label: "Неверно", correctness: 0, count: 2 },
+          ],
+        },
+      ],
     });
 
     expect(data.slots).toHaveLength(1);
@@ -100,9 +112,9 @@ describe("quiz preview panel", () => {
 
   it("renders internal and external source tabs, pairing external answers with the internal statement", () => {
     beginQuizPreviewLoading();
-    expect(getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent).toContain(
-      "Загрузка вопросов"
-    );
+    expect(
+      getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent,
+    ).toContain("Загрузка вопросов");
 
     const question: QuizPreviewQuestion = {
       questionId: "3699",
@@ -120,54 +132,64 @@ describe("quiz preview panel", () => {
             hasExplicitIndex: true,
             anchors: [],
             suggestions: [{ correctness: 2, confidence: 1, label: "Верно" }],
-            submissions: [{ correctness: 2, count: 3, label: "Верно" }]
-          }
-        ]
+            submissions: [{ correctness: 2, count: 3, label: "Верно" }],
+          },
+        ],
       },
       external: {
         anchors: [],
         suggestions: [{ correctness: 2, confidence: 0.99, label: "Yandex" }],
         submissions: [{ correctness: 2, count: 1, label: "Yandex" }],
-        slots: []
-      }
+        slots: [],
+      },
     };
 
     showQuizPreviewQuestions([question], false);
 
     const modal = getPreviewModal();
 
-    // The internal tab is active by default and shows only internal answers.
     const tabs = Array.from(modal.querySelectorAll<HTMLButtonElement>(".reduxshare-preview-tab"));
     expect(tabs.map((tab) => tab.dataset.tab)).toEqual(["internal", "external"]);
     expect(tabs[0].classList.contains("active")).toBe(true);
 
     const internalCard = modal.querySelector<HTMLElement>(".reduxshare-preview-question")!;
     expect(internalCard.querySelector(".reduxshare-preview-condition")?.textContent).toBe(
-      "Социальные сети полезны для общества"
+      "Социальные сети полезны для общества",
     );
-    expect(internalCard.querySelector(".reduxshare-preview-answers")?.textContent).toContain("Верно");
-    expect(internalCard.querySelector(".reduxshare-preview-answers")?.textContent).not.toContain("Yandex");
-    // Slot labels ("Слот N") are not rendered.
+    expect(internalCard.querySelector(".reduxshare-preview-answers")?.textContent).toContain(
+      "Верно",
+    );
+    expect(internalCard.querySelector(".reduxshare-preview-answers")?.textContent).not.toContain(
+      "Yandex",
+    );
+
     expect(internalCard.querySelector(".reduxshare-preview-answer-slot")).toBeNull();
 
-    // The stored option pool renders as chips on the internal tab; the exact answer is highlighted.
     const options = internalCard.querySelectorAll(".reduxshare-preview-option");
     expect(options).toHaveLength(3);
-    expect(internalCard.querySelector(".reduxshare-preview-options")?.textContent).toContain("Варианты ответов");
-    expect(internalCard.querySelector(".reduxshare-preview-option--exact")?.textContent).toBe("Верно");
+    expect(internalCard.querySelector(".reduxshare-preview-options")?.textContent).toContain(
+      "Варианты ответов",
+    );
+    expect(internalCard.querySelector(".reduxshare-preview-option--exact")?.textContent).toBe(
+      "Верно",
+    );
 
-    // The external tab shows the external answers under the statement taken from
-    // the internal record.
     tabs[1].click();
     const externalModal = getPreviewModal();
-    expect(externalModal.querySelector(".reduxshare-preview-tab.active")?.textContent).toContain("Внешние источники");
+    expect(externalModal.querySelector(".reduxshare-preview-tab.active")?.textContent).toContain(
+      "Внешние источники",
+    );
     const externalCard = externalModal.querySelector<HTMLElement>(".reduxshare-preview-question")!;
     expect(externalCard.querySelector(".reduxshare-preview-condition")?.textContent).toBe(
-      "Социальные сети полезны для общества"
+      "Социальные сети полезны для общества",
     );
-    expect(externalCard.querySelector(".reduxshare-preview-answers")?.textContent).toContain("Yandex");
-    expect(externalCard.querySelector(".reduxshare-preview-answers")?.textContent).not.toContain("Верно");
-    // Option chips belong to the internal tab only.
+    expect(externalCard.querySelector(".reduxshare-preview-answers")?.textContent).toContain(
+      "Yandex",
+    );
+    expect(externalCard.querySelector(".reduxshare-preview-answers")?.textContent).not.toContain(
+      "Верно",
+    );
+
     expect(externalCard.querySelector(".reduxshare-preview-options")).toBeNull();
   });
 
@@ -182,18 +204,17 @@ describe("quiz preview panel", () => {
         anchors: [],
         suggestions: [{ correctness: 2, confidence: 0.99, label: "Evernote" }],
         submissions: [],
-        slots: []
-      }
+        slots: [],
+      },
     };
 
     showQuizPreviewQuestions([question], false);
 
     expect(getQuizPreviewPanelState().activeTab).toBe("external");
     const card = getPreviewModal().querySelector<HTMLElement>(".reduxshare-preview-question")!;
-    // No internal record: the card shows the placeholder instead of a statement,
-    // but the external answers are still rendered.
+
     expect(card.querySelector(".reduxshare-preview-condition--missing")?.textContent).toBe(
-      "Условие задания не найдено"
+      "Условие задания не найдено",
     );
     expect(card.querySelector(".reduxshare-preview-answers")?.textContent).toContain("Evernote");
   });
@@ -202,18 +223,17 @@ describe("quiz preview panel", () => {
     setQuizPreviewPanelQuizTitle("Итоговый тест по математике");
     beginQuizPreviewLoading();
     expect(getPreviewModal().querySelector(".modal-title")?.textContent).toContain(
-      "Итоговый тест по математике"
+      "Итоговый тест по математике",
     );
 
     const longName = "Очень длинное название квиза про интегралы, пределы и ряды Фурье в действии";
     setQuizPreviewPanelQuizTitle(longName);
     beginQuizPreviewLoading();
     const title = getPreviewModal().querySelector(".modal-title")?.textContent ?? "";
-    // 64 characters of the name, then an ellipsis.
+
     expect(title).toContain("Очень длинное название квиза про интегралы, пределы и ряды Фурье…");
     expect(title).not.toContain("в действии");
 
-    // Without a quiz name the generic title is used as the fallback.
     setQuizPreviewPanelQuizTitle(null);
     beginQuizPreviewLoading();
     expect(getPreviewModal().querySelector(".modal-title")?.textContent).toContain("Вопросы квиза");
@@ -224,14 +244,16 @@ describe("quiz preview panel", () => {
 
     const state = getQuizPreviewPanelState();
     expect(state.authRequired).toBe(true);
-    expect(getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent).toContain(
-      "Войдите в аккаунт расширения"
-    );
+    expect(
+      getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent,
+    ).toContain("Войдите в аккаунт расширения");
   });
 
   it("shows an error message and allows closing the modal", () => {
     showQuizPreviewError("boom");
-    expect(getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent).toBe("boom");
+    expect(getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent).toBe(
+      "boom",
+    );
 
     getPreviewModal().querySelector<HTMLButtonElement>(".reduxshare-preview-close")!.click();
     expect(document.getElementById("reduxshare-quiz-preview-modal")).toBeNull();
@@ -241,7 +263,9 @@ describe("quiz preview panel", () => {
     beginQuizPreviewLoading();
     expect(document.getElementById("reduxshare-quiz-preview-modal")).not.toBeNull();
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
     expect(document.getElementById("reduxshare-quiz-preview-modal")).toBeNull();
   });
 
@@ -258,17 +282,17 @@ describe("quiz preview message request", () => {
     const sendMessage = vi.fn((message: unknown, callback: (response: unknown) => void) => {
       expect(message).toMatchObject({
         type: "REDUXSHARE_FETCH_QUIZ_PREVIEW",
-        payload: { domain: "localhost", courseId: 66, quizId: 789 }
+        payload: { domain: "localhost", courseId: 66, quizId: 789 },
       });
       callback({ ok: true, authRequired: false, questions: [] });
     });
     vi.stubGlobal("chrome", {
       ...globalThis.chrome,
       runtime: {
-        ...(globalThis as { chrome?: { runtime?: unknown } }).chrome?.runtime as object,
+        ...((globalThis as { chrome?: { runtime?: unknown } }).chrome?.runtime as object),
         lastError: null,
-        sendMessage
-      }
+        sendMessage,
+      },
     });
 
     document.body.innerHTML = VIEW_PAGE_HTML;
@@ -280,12 +304,13 @@ describe("quiz preview message request", () => {
     const { initializeQuizPreviewFeatures } = await import("../src/content/quizPreview");
     await initializeQuizPreviewFeatures();
 
-    // The button sits right after the start button block, labeled in the stored language.
     const previewButton = document.getElementById("reduxshare-quiz-preview-button");
     expect(previewButton).toBeInstanceOf(HTMLButtonElement);
     expect(previewButton!.textContent).toBe("Показать вопросы");
     expect(
-      previewButton!.closest(".singlebutton")!.previousElementSibling?.classList.contains("quizstartbuttondiv")
+      previewButton!
+        .closest(".singlebutton")!
+        .previousElementSibling?.classList.contains("quizstartbuttondiv"),
     ).toBe(true);
 
     previewButton!.click();
@@ -303,8 +328,8 @@ describe("quiz preview message request", () => {
       ...(globalThis as { chrome?: object }).chrome,
       runtime: {
         lastError: null,
-        sendMessage: vi.fn()
-      }
+        sendMessage: vi.fn(),
+      },
     });
 
     document.body.innerHTML = VIEW_PAGE_HTML;
@@ -331,7 +356,7 @@ describe("quiz preview refresh action", () => {
     showQuizPreviewQuestions([], false);
 
     const refreshButton = getPreviewModal().querySelector<HTMLButtonElement>(
-      ".reduxshare-preview-refresh"
+      ".reduxshare-preview-refresh",
     );
 
     expect(refreshButton).toBeInstanceOf(HTMLButtonElement);
@@ -343,7 +368,7 @@ describe("quiz preview refresh action", () => {
     beginQuizPreviewLoading();
 
     expect(
-      getPreviewModal().querySelector<HTMLButtonElement>(".reduxshare-preview-refresh")!.disabled
+      getPreviewModal().querySelector<HTMLButtonElement>(".reduxshare-preview-refresh")!.disabled,
     ).toBe(true);
   });
 
@@ -352,9 +377,7 @@ describe("quiz preview refresh action", () => {
     setQuizPreviewRefreshHandler(onRefresh);
     showQuizPreviewQuestions([], false);
 
-    getPreviewModal()
-      .querySelector<HTMLButtonElement>(".reduxshare-preview-refresh")!
-      .click();
+    getPreviewModal().querySelector<HTMLButtonElement>(".reduxshare-preview-refresh")!.click();
 
     expect(onRefresh).toHaveBeenCalledTimes(1);
     setQuizPreviewRefreshHandler(null);
@@ -369,11 +392,11 @@ describe("quiz preview refresh action", () => {
     const startButton = modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start");
     expect(startButton?.textContent).toContain("Сканировать ID");
 
-    const typeCheckboxes = modal.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type");
+    const typeCheckboxes = modal.querySelectorAll<HTMLInputElement>(
+      ".reduxshare-preview-scan-type",
+    );
     expect(typeCheckboxes.length).toBeGreaterThan(0);
-    expect(
-      Array.from(typeCheckboxes).every((checkbox) => checkbox.checked)
-    ).toBe(true);
+    expect(Array.from(typeCheckboxes).every((checkbox) => checkbox.checked)).toBe(true);
 
     const fromInput = modal.querySelector<HTMLInputElement>("#reduxshare-preview-scan-from");
     const toInput = modal.querySelector<HTMLInputElement>("#reduxshare-preview-scan-to");
@@ -395,7 +418,7 @@ describe("quiz preview refresh action", () => {
 
     const modal = getPreviewModal();
     const checkboxes = Array.from(
-      modal.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+      modal.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type"),
     );
     checkboxes[0]!.checked = false;
     checkboxes[0]!.dispatchEvent(new Event("change", { bubbles: true }));
@@ -441,17 +464,17 @@ describe("quiz preview refresh action", () => {
             anchors: [],
             suggestions: [{ correctness: 2, confidence: 0.99, label: "Yandex" }],
             submissions: [{ correctness: 2, count: 1, label: "Yandex" }],
-            slots: []
-          }
-        }
+            slots: [],
+          },
+        },
       ],
-      false
+      false,
     );
 
     const modal = getPreviewModal();
     expect(modal.querySelector(".reduxshare-preview-list")).not.toBeNull();
     expect(
-      modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start")?.textContent
+      modal.querySelector<HTMLButtonElement>(".reduxshare-preview-scan-start")?.textContent,
     ).toContain("Сканировать ID");
     setQuizPreviewScanHandlers(null);
   });
@@ -479,11 +502,12 @@ describe("quiz preview refresh action", () => {
 
 describe("extension context guard", () => {
   function stubChromeRuntimeId(id: string | undefined) {
-    const ambientChrome = (globalThis as unknown as { chrome?: Record<string, unknown> }).chrome ?? {};
+    const ambientChrome =
+      (globalThis as unknown as { chrome?: Record<string, unknown> }).chrome ?? {};
     const ambientRuntime = (ambientChrome.runtime as Record<string, unknown> | undefined) ?? {};
     vi.stubGlobal("chrome", {
       ...ambientChrome,
-      runtime: { ...ambientRuntime, id }
+      runtime: { ...ambientRuntime, id },
     });
   }
 

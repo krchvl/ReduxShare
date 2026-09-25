@@ -5,7 +5,7 @@ export async function getActiveTabHostname(): Promise<string | null> {
 
   const [activeTab] = await chrome.tabs.query({
     active: true,
-    currentWindow: true
+    currentWindow: true,
   });
 
   if (!activeTab?.url) {

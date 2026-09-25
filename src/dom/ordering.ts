@@ -1,7 +1,11 @@
-// Ordering question helpers: reading the ordering list, working out the expected order and
-// writing a position back into the response input Moodle reads on submit.
 import { getPreferredSuggestionLabels } from "../data/answerData";
-import type { AnswerData, AnswerSlotData, ReviewObservation, SubmissionItem, SuggestionItem } from "../model";
+import type {
+  AnswerData,
+  AnswerSlotData,
+  ReviewObservation,
+  SubmissionItem,
+  SuggestionItem,
+} from "../model";
 import { getMoodleAnswerLabelText, labelsMatch, splitSequentialAnswerLabels } from "./questionDom";
 import { currentT } from "../state";
 
@@ -33,7 +37,7 @@ export function getOrderingPositionObservation(position: number, label: string):
   return {
     label,
     slotKey: `position:${position}`,
-    slotIndex: position
+    slotIndex: position,
   };
 }
 
@@ -49,13 +53,19 @@ function getOrderingItemForTrigger(trigger: HTMLButtonElement) {
 }
 
 export function getOrderingResponseInput(questionNode: Element) {
-  const itemIds = getOrderingItems(questionNode).map((item) => item.id).filter(Boolean);
-  const inputs = Array.from(questionNode.querySelectorAll<HTMLInputElement>('input[type="hidden"]'));
+  const itemIds = getOrderingItems(questionNode)
+    .map((item) => item.id)
+    .filter(Boolean);
+  const inputs = Array.from(
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="hidden"]'),
+  );
 
   return (
     inputs.find((input) => {
       const nameOrId = `${input.name} ${input.id}`;
-      return nameOrId.includes("_response") && itemIds.some((itemId) => input.value.includes(itemId));
+      return (
+        nameOrId.includes("_response") && itemIds.some((itemId) => input.value.includes(itemId))
+      );
     }) ??
     inputs.find((input) => `${input.name} ${input.id}`.includes("_response")) ??
     null
@@ -64,7 +74,9 @@ export function getOrderingResponseInput(questionNode: Element) {
 
 export function syncOrderingResponseInput(questionNode: Element) {
   const input = getOrderingResponseInput(questionNode);
-  const itemIds = getOrderingItems(questionNode).map((item) => item.id).filter(Boolean);
+  const itemIds = getOrderingItems(questionNode)
+    .map((item) => item.id)
+    .filter(Boolean);
 
   if (!input || itemIds.length === 0) {
     return false;
@@ -95,7 +107,11 @@ function moveOrderingItemToPosition(questionNode: Element, item: HTMLLIElement, 
   const referenceItem = remainingItems[clampedIndex] ?? null;
 
   list.insertBefore(item, referenceItem);
-  const changed = previousOrder !== getOrderingItems(questionNode).map((currentItem) => currentItem.id).join(",");
+  const changed =
+    previousOrder !==
+    getOrderingItems(questionNode)
+      .map((currentItem) => currentItem.id)
+      .join(",");
   const inputChanged = syncOrderingResponseInput(questionNode);
   return changed || inputChanged;
 }
@@ -109,7 +125,7 @@ export function selectOrderingPositionByTrigger(
   trigger: HTMLButtonElement,
   questionNode: Element,
   label: string,
-  actionSlotIndex: number | null
+  actionSlotIndex: number | null,
 ) {
   const item = getOrderingItemForTrigger(trigger);
   const position = actionSlotIndex ?? getOrderingPositionFromLabel(label);
@@ -121,25 +137,31 @@ export function selectOrderingPositionByTrigger(
   return moveOrderingItemToPosition(questionNode, item, position);
 }
 
-export function mapSuggestionToOrderingPosition(suggestion: SuggestionItem, position: number): SuggestionItem {
+export function mapSuggestionToOrderingPosition(
+  suggestion: SuggestionItem,
+  position: number,
+): SuggestionItem {
   const positionLabel = getOrderingPositionLabel(position);
 
   return {
     ...suggestion,
     label: positionLabel,
     displayLabel: positionLabel,
-    actionSlotIndex: position
+    actionSlotIndex: position,
   };
 }
 
-export function mapSubmissionToOrderingPosition(submission: SubmissionItem, position: number): SubmissionItem {
+export function mapSubmissionToOrderingPosition(
+  submission: SubmissionItem,
+  position: number,
+): SubmissionItem {
   const positionLabel = getOrderingPositionLabel(position);
 
   return {
     ...submission,
     label: positionLabel,
     displayLabel: positionLabel,
-    actionSlotIndex: position
+    actionSlotIndex: position,
   };
 }
 
@@ -147,7 +169,11 @@ export function answerDataHasZeroBasedOrderingSlots(answerData: AnswerData) {
   return answerData.slots.some((slot) => slot.index === 0);
 }
 
-export function getOrderingSlotPosition(slot: AnswerSlotData, itemCount: number, hasZeroBasedSlots = false) {
+export function getOrderingSlotPosition(
+  slot: AnswerSlotData,
+  itemCount: number,
+  hasZeroBasedSlots = false,
+) {
   if (hasZeroBasedSlots && slot.index >= 0 && slot.index < itemCount) {
     return slot.index + 1;
   }
@@ -181,14 +207,20 @@ export function getOrderingExactOrder(answerData: AnswerData, questionNode: Elem
   }
 
   if (labelsByPosition.size === itemCount) {
-    const slottedLabels = Array.from({ length: itemCount }, (_, index) => labelsByPosition.get(index + 1) ?? "");
+    const slottedLabels = Array.from(
+      { length: itemCount },
+      (_, index) => labelsByPosition.get(index + 1) ?? "",
+    );
 
     if (slottedLabels.every(Boolean)) {
       return slottedLabels;
     }
   }
 
-  const sequentialLabels = splitSequentialAnswerLabels(getPreferredSuggestionLabels(answerData.suggestions), itemCount);
+  const sequentialLabels = splitSequentialAnswerLabels(
+    getPreferredSuggestionLabels(answerData.suggestions),
+    itemCount,
+  );
   return sequentialLabels.length === itemCount ? sequentialLabels : [];
 }
 
@@ -204,7 +236,10 @@ export function applyOrderingOrder(questionNode: Element, orderedLabels: string[
   const orderedItems: HTMLLIElement[] = [];
 
   for (const label of orderedLabels) {
-    const item = items.find((candidate) => !usedItems.has(candidate) && labelsMatch(getOrderingItemLabel(candidate), label));
+    const item = items.find(
+      (candidate) =>
+        !usedItems.has(candidate) && labelsMatch(getOrderingItemLabel(candidate), label),
+    );
 
     if (!item) {
       return false;
@@ -224,7 +259,11 @@ export function applyOrderingOrder(questionNode: Element, orderedLabels: string[
     list.append(item);
   }
 
-  const changed = previousOrder !== getOrderingItems(questionNode).map((item) => item.id).join(",");
+  const changed =
+    previousOrder !==
+    getOrderingItems(questionNode)
+      .map((item) => item.id)
+      .join(",");
   const inputChanged = syncOrderingResponseInput(questionNode);
   return changed || inputChanged;
 }

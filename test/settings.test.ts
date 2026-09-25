@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { LegacyStoredSettings, LegacyTheme } from "../src/types";
 import {
   AUTO_SELECT_TEMPO_PRESETS,
   DEFAULT_SETTINGS,
-  LegacyStoredSettings,
-  LegacyTheme,
   normalizeAutoSelectAvgSeconds,
   normalizeOpacity,
   normalizeSettings,
-  resolveColorScheme
+  resolveColorScheme,
 } from "../src/types";
 
 describe("opacity settings", () => {
@@ -69,8 +68,12 @@ describe("legacy theme migration", () => {
   });
 
   it("prefers explicit accentColor over legacy theme", () => {
-    expect(normalizeSettings({ theme: "Night", accentColor: "#ff0000" }).accentColor).toBe("#ff0000");
-    expect(normalizeSettings({ theme: "Devil", accentColor: "#00ff00" }).accentColor).toBe("#00ff00");
+    expect(normalizeSettings({ theme: "Night", accentColor: "#ff0000" }).accentColor).toBe(
+      "#ff0000",
+    );
+    expect(normalizeSettings({ theme: "Devil", accentColor: "#00ff00" }).accentColor).toBe(
+      "#00ff00",
+    );
   });
 
   it("handles unknown legacy theme values", () => {

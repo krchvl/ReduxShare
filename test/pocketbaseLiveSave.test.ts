@@ -12,7 +12,9 @@ function getLiveCredentials() {
   const password = process.env.POCKETBASE_TEST_PASSWORD;
 
   if (!email || !password) {
-    throw new Error("Set POCKETBASE_TEST_EMAIL and POCKETBASE_TEST_PASSWORD to run live PocketBase DB tests.");
+    throw new Error(
+      "Set POCKETBASE_TEST_EMAIL and POCKETBASE_TEST_PASSWORD to run live PocketBase DB tests.",
+    );
   }
 
   return { email, password };
@@ -25,11 +27,13 @@ async function loginOrRegister(email: string, password: string): Promise<AuthSes
     const result = await registerWithPocketBase({
       email,
       username: `livetest_${Date.now().toString(36)}`,
-      password
+      password,
     });
 
     if (!result.authSession) {
-      throw new Error("Live PocketBase test user requires login (email verification may be enabled).");
+      throw new Error(
+        "Live PocketBase test user requires login (email verification may be enabled).",
+      );
     }
 
     return result.authSession;
@@ -56,11 +60,11 @@ function liveCalculatedPayload(uniqueKey: string): SaveReduxShareReviewPayload {
             slotIndex: null,
             correctness: 2,
             isCorrect: true,
-            wasSelected: false
-          }
-        ]
-      }
-    ]
+            wasSelected: false,
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -83,8 +87,8 @@ describe.skipIf(!runLiveTests)("live PocketBase review save", () => {
       questions: payload.questions.map((question) => ({
         questionId: question.questionId,
         questionType: question.questionType,
-        questionHash: question.questionHash
-      }))
+        questionHash: question.questionHash,
+      })),
     });
 
     expect(fetchResult.results).toHaveLength(1);
@@ -92,7 +96,7 @@ describe.skipIf(!runLiveTests)("live PocketBase review save", () => {
       ok: true,
       questionId: "calculated-live-3699",
       questionType: "calculated",
-      questionHash: payload.questions[0].questionHash
+      questionHash: payload.questions[0].questionHash,
     });
     expect(JSON.stringify(fetchResult.results[0].data)).toContain("20.10");
   });
@@ -121,7 +125,7 @@ describe.skipIf(!runLiveTests)("live PocketBase review save", () => {
     const progressed = await recordUserQuizProgress(touched.authSession, {
       moodleDomain: "moodle.live-test.local",
       solvedTestsDelta: 1,
-      solvedTasksDelta: 2
+      solvedTasksDelta: 2,
     });
     expect(progressed.userProfile.solvedTestsCount).toBeGreaterThanOrEqual(1);
     expect(progressed.userProfile.solvedTasksCount).toBeGreaterThanOrEqual(2);

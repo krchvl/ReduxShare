@@ -1,21 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// ReduxShare storage slimming: per-question content hashes replace the
-// per-answer dedup collection.
-//
-// Before: every imported answer created one row in
-// `reduxshare_review_answer_imports` (user × domain × attempt × question ×
-// hash × slot × answer) — unbounded growth, one REST call per answer.
-// After: one `review_imports` row per attempt carries
-// `imported_question_hashes` ({ "<questionId>\n<questionHash>": "<fnv1a>" }).
-// Identical re-imports are skipped per question; a changed question (e.g.
-// after a regrade) gets a new hash and is counted again.
-//
-// NOTE: dropping the collection destroys old per-answer dedup rows. Attempts
-// revisited after this migration are treated as new and counted once more
-// (bounded one-time effect). The `users` profile fields and all
-// created/updated timestamps are untouched.
-
 migrate(
   (app) => {
     const reviewImports = app.findCollectionByNameOrId("reduxshare_review_imports");
@@ -29,16 +13,14 @@ migrate(
         presentable: false,
         required: false,
         system: false,
-        type: "json"
-      })
+        type: "json",
+      }),
     );
     app.save(reviewImports);
 
     app.delete(app.findCollectionByNameOrId("reduxshare_review_answer_imports"));
   },
   (app) => {
-    // Rollback restores the collection SCHEMA only — imported rows deleted by
-    // the forward migration cannot be recovered.
     const users = app.findCollectionByNameOrId("users");
     const reviewAnswerImports = new Collection({
       createRule: "@request.auth.id != ''",
@@ -56,7 +38,7 @@ migrate(
           primaryKey: true,
           required: true,
           system: true,
-          type: "text"
+          type: "text",
         },
         {
           cascadeDelete: true,
@@ -69,7 +51,7 @@ migrate(
           presentable: false,
           required: true,
           system: false,
-          type: "relation"
+          type: "relation",
         },
         {
           autogeneratePattern: "",
@@ -83,7 +65,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -97,7 +79,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -111,7 +93,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -125,7 +107,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -139,7 +121,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -153,7 +135,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -163,7 +145,7 @@ migrate(
           onUpdate: false,
           presentable: false,
           system: false,
-          type: "autodate"
+          type: "autodate",
         },
         {
           hidden: false,
@@ -173,20 +155,20 @@ migrate(
           onUpdate: true,
           presentable: false,
           system: false,
-          type: "autodate"
-        }
+          type: "autodate",
+        },
       ],
       id: "pbc_rs_review_answer_imports",
       indexes: [
-        'CREATE UNIQUE INDEX "idx_reduxshare_review_answer_imports_identity" ON "reduxshare_review_answer_imports" ("user", "moodle_domain", "attempt_key", "question_id", "question_hash", "slot_key", "answer_key")'
+        'CREATE UNIQUE INDEX "idx_reduxshare_review_answer_imports_identity" ON "reduxshare_review_answer_imports" ("user", "moodle_domain", "attempt_key", "question_id", "question_hash", "slot_key", "answer_key")',
       ],
       listRule: "@request.auth.id != ''",
       name: "reduxshare_review_answer_imports",
       system: false,
       type: "base",
       updateRule: "@request.auth.id != ''",
-      viewRule: "@request.auth.id != ''"
+      viewRule: "@request.auth.id != ''",
     });
     app.save(reviewAnswerImports);
-  }
+  },
 );

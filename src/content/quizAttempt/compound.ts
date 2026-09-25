@@ -1,4 +1,3 @@
-// Compound (multianswer) questions: each subquestion holds its own select, text or choice control.
 import type { AnswerData } from "../../model";
 import { getPreferredSuggestionLabels } from "../../data/answerData";
 import { getAnswerLabelMatchKeys } from "../../dom/questionDom";
@@ -13,7 +12,7 @@ import {
   getSelectableAnswerControls,
   getTextAnswerInputs,
   setAnswerInputChecked,
-  setSelectValue
+  setSelectValue,
 } from "./answerControls";
 import { setTextAnswerValue } from "./textControls";
 
@@ -95,5 +94,5 @@ export {
   getTextAnswerInputs,
   setAnswerInputChecked,
   setSelectValue,
-  setTextAnswerValue
+  setTextAnswerValue,
 };

@@ -2,22 +2,19 @@ import type { AiModelOption, AiSettings } from "../types";
 import {
   FETCH_AI_MODELS_MESSAGE,
   GENERATE_AI_ANSWER_MESSAGE,
-  TEST_AI_CONNECTION_MESSAGE
+  TEST_AI_CONNECTION_MESSAGE,
 } from "../shared/messages";
 import type {
   AiAnswerAction,
   AiAnswerResponse,
   AiQuestionControl,
   AiQuestionImage,
-  AiQuestionOption
+  AiQuestionOption,
 } from "../model";
 
-// The canonical shapes of the AI wire data live in src/model.ts next to the other shared
-// answer-data types; this module owns the message protocol on top of them.
 export type { AiAnswerAction, AiQuestionControl, AiQuestionImage, AiQuestionOption };
 
-// Historic name of AiAnswerResponse, kept for the background handlers and tests.
-export interface AiResponse extends AiAnswerResponse {}
+export type AiResponse = AiAnswerResponse;
 
 export const AI_DISABLED_QUESTION_TYPES = new Set(["ddimageortext", "ddmarker"]);
 
@@ -55,27 +52,27 @@ export interface AiModelsResponse {
 export function isTestAiConnectionMessage(message: unknown): message is TestAiConnectionMessage {
   return Boolean(
     message &&
-      typeof message === "object" &&
-      (message as Partial<TestAiConnectionMessage>).type === TEST_AI_CONNECTION_MESSAGE &&
-      typeof (message as Partial<TestAiConnectionMessage>).payload === "object"
+    typeof message === "object" &&
+    (message as Partial<TestAiConnectionMessage>).type === TEST_AI_CONNECTION_MESSAGE &&
+    typeof (message as Partial<TestAiConnectionMessage>).payload === "object",
   );
 }
 
 export function isFetchAiModelsMessage(message: unknown): message is FetchAiModelsMessage {
   return Boolean(
     message &&
-      typeof message === "object" &&
-      (message as Partial<FetchAiModelsMessage>).type === FETCH_AI_MODELS_MESSAGE &&
-      typeof (message as Partial<FetchAiModelsMessage>).payload === "object"
+    typeof message === "object" &&
+    (message as Partial<FetchAiModelsMessage>).type === FETCH_AI_MODELS_MESSAGE &&
+    typeof (message as Partial<FetchAiModelsMessage>).payload === "object",
   );
 }
 
 export function isGenerateAiAnswerMessage(message: unknown): message is GenerateAiAnswerMessage {
   return Boolean(
     message &&
-      typeof message === "object" &&
-      (message as Partial<GenerateAiAnswerMessage>).type === GENERATE_AI_ANSWER_MESSAGE &&
-      typeof (message as Partial<GenerateAiAnswerMessage>).payload === "object"
+    typeof message === "object" &&
+    (message as Partial<GenerateAiAnswerMessage>).type === GENERATE_AI_ANSWER_MESSAGE &&
+    typeof (message as Partial<GenerateAiAnswerMessage>).payload === "object",
   );
 }
 
@@ -84,7 +81,7 @@ export function requestAiModels(settings: AiSettings): Promise<AiModelsResponse>
     chrome.runtime.sendMessage(
       {
         type: FETCH_AI_MODELS_MESSAGE,
-        payload: settings
+        payload: settings,
       },
       (response: AiModelsResponse | undefined) => {
         const runtimeError = chrome.runtime.lastError;
@@ -95,7 +92,7 @@ export function requestAiModels(settings: AiSettings): Promise<AiModelsResponse>
         }
 
         resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      }
+      },
     );
   });
 }
@@ -105,7 +102,7 @@ export function requestAiConnectionTest(settings: AiSettings): Promise<AiRespons
     chrome.runtime.sendMessage(
       {
         type: TEST_AI_CONNECTION_MESSAGE,
-        payload: settings
+        payload: settings,
       },
       (response: AiResponse | undefined) => {
         const runtimeError = chrome.runtime.lastError;
@@ -116,7 +113,7 @@ export function requestAiConnectionTest(settings: AiSettings): Promise<AiRespons
         }
 
         resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      }
+      },
     );
   });
 }

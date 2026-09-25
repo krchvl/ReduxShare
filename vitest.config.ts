@@ -13,12 +13,7 @@ export default defineConfig({
       reporter: ["text", "text-summary", "html"],
       reportsDirectory: "coverage",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: [
-        "src/**/*.d.ts",
-        "src/main.tsx",
-        "src/vite-env.d.ts",
-        "src/aiPrompts/**"
-      ]
-    }
-  }
+      exclude: ["src/**/*.d.ts", "src/main.tsx", "src/vite-env.d.ts", "src/aiPrompts/**"],
+    },
+  },
 });

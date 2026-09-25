@@ -1,7 +1,8 @@
 import { ANSWER_WIDGET_ATTR } from "../../model";
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
-  const InputConstructor = input.ownerDocument.defaultView?.HTMLInputElement ?? window.HTMLInputElement;
+  const InputConstructor =
+    input.ownerDocument.defaultView?.HTMLInputElement ?? window.HTMLInputElement;
   const ownSetter = Object.getOwnPropertyDescriptor(input, "value")?.set;
   const prototypeSetter = Object.getOwnPropertyDescriptor(InputConstructor.prototype, "value")?.set;
   const setter = prototypeSetter && ownSetter !== prototypeSetter ? prototypeSetter : ownSetter;
@@ -70,7 +71,10 @@ function plainTextToEditorHtml(value: string) {
 }
 
 function getTextareaEditorContainer(textarea: HTMLTextAreaElement) {
-  return textarea.closest(".qtype_essay_editor, .qtype_essay_response, .editor_atto, .editor_tiny") ?? textarea.parentElement;
+  return (
+    textarea.closest(".qtype_essay_editor, .qtype_essay_response, .editor_atto, .editor_tiny") ??
+    textarea.parentElement
+  );
 }
 
 function getTinyMceIframeForTextarea(textarea: HTMLTextAreaElement) {
@@ -83,7 +87,11 @@ function getTinyMceIframeForTextarea(textarea: HTMLTextAreaElement) {
   }
 
   const container = getTextareaEditorContainer(textarea);
-  return container?.querySelector<HTMLIFrameElement>("iframe.tox-edit-area__iframe, iframe[id$='_ifr']") ?? null;
+  return (
+    container?.querySelector<HTMLIFrameElement>(
+      "iframe.tox-edit-area__iframe, iframe[id$='_ifr']",
+    ) ?? null
+  );
 }
 
 function getTinyMceBodyForTextarea(textarea: HTMLTextAreaElement) {
@@ -125,9 +133,11 @@ function getContentEditableForTextarea(textarea: HTMLTextAreaElement) {
     return null;
   }
 
-  return Array.from(container.querySelectorAll<HTMLElement>("[contenteditable='true']")).find((node) => {
-    return node.isContentEditable && node.closest(`[${ANSWER_WIDGET_ATTR}="true"]`) === null;
-  }) ?? null;
+  return (
+    Array.from(container.querySelectorAll<HTMLElement>("[contenteditable='true']")).find((node) => {
+      return node.isContentEditable && node.closest(`[${ANSWER_WIDGET_ATTR}="true"]`) === null;
+    }) ?? null
+  );
 }
 
 function setRichEditorContent(editorElement: HTMLElement, html: string) {
@@ -149,7 +159,8 @@ export function setTextareaAnswerValue(textarea: HTMLTextAreaElement, label: str
 
   const tinyMceBody = getTinyMceBodyForTextarea(textarea);
   const contentEditable = tinyMceBody ? null : getContentEditableForTextarea(textarea);
-  const usesRichEditor = textarea.dataset.fieldtype === "editor" || Boolean(tinyMceBody || contentEditable);
+  const usesRichEditor =
+    textarea.dataset.fieldtype === "editor" || Boolean(tinyMceBody || contentEditable);
   const textareaValue = usesRichEditor ? plainTextToEditorHtml(nextValue) : nextValue;
   let changed = false;
 

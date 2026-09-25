@@ -11,7 +11,7 @@ import {
   isNotFoundError,
   isValidationError,
   toI18nError,
-  withPocketBaseSessionRetry
+  withPocketBaseSessionRetry,
 } from "./pocketbase";
 
 export interface QuizTaskQuestionRequest {
@@ -45,11 +45,9 @@ interface TaskRecord {
   question_id: string;
   question_hash: string;
   question_type: string;
-  // Optional "Text" field on the collection. PocketBase silently keeps unknown keys as
-  // custom data, so rows created before the field existed simply read back as empty.
+
   question_text?: string | null;
-  // JSON array of every option label the question ever rendered; see
-  // parseTaskAnswerOptions. Also a schema-less custom field.
+
   answer_options?: string | null;
   slot_key: string;
   slot_index: number | null;
@@ -115,10 +113,6 @@ export interface SaveReduxShareReviewResult {
   savedCount: number;
 }
 
-function getTaskKey(questionId: string | null, questionHash: string | null) {
-  return `${questionId ?? ""}|${questionHash ?? ""}`;
-}
-
 type ReduxShareTaskDataRow = {
   anchor?: unknown;
   suggestions?: unknown;
@@ -160,7 +154,10 @@ function shouldDowngradeMismatchedHashData(data: unknown) {
     });
   });
 
-  return suggestionLabels.length > 0 && suggestionLabels.every((label) => getBooleanSuggestionValue(label) !== null);
+  return (
+    suggestionLabels.length > 0 &&
+    suggestionLabels.every((label) => getBooleanSuggestionValue(label) !== null)
+  );
 }
 
 function downgradeMismatchedHashData(data: unknown) {
@@ -187,7 +184,8 @@ function downgradeMismatchedHashData(data: unknown) {
               }
 
               const suggestionLike = suggestion as ReduxShareSuggestionLike;
-              const label = typeof suggestionLike.label === "string" ? suggestionLike.label.trim() : "";
+              const label =
+                typeof suggestionLike.label === "string" ? suggestionLike.label.trim() : "";
 
               if (!label) {
                 return null;
@@ -196,7 +194,7 @@ function downgradeMismatchedHashData(data: unknown) {
               return {
                 correctness: 1,
                 count: 1,
-                label
+                label,
               };
             })
             .filter((submission): submission is ReduxShareSubmissionLike => submission !== null);
@@ -204,7 +202,7 @@ function downgradeMismatchedHashData(data: unknown) {
     return {
       ...typedRow,
       suggestions: [],
-      submissions: submissions.length > 0 ? submissions : syntheticSubmissions
+      submissions: submissions.length > 0 ? submissions : syntheticSubmissions,
     };
   });
 }
@@ -219,7 +217,7 @@ function getObservedTotal(row: TaskRecord) {
       (row.selected_correct_count ?? 0) +
       (row.selected_incorrect_count ?? 0) +
       (row.selected_unknown_count ?? 0),
-    0
+    0,
   );
 }
 
@@ -228,11 +226,6 @@ function normalizeRowType(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
-/**
- * Mirrors the SQL ranking in the old fetch_reduxshare_tasks RPC: candidates
- * share one question_id, then the hash group with a hash match wins, otherwise
- * the most recently updated group (ties broken by hash, ascending).
- */
 function pickBestHashRows(rows: TaskRecord[], request: QuizTaskQuestionRequest) {
   const candidates = rows.filter((row) => {
     if (row.question_id !== request.questionId) {
@@ -260,7 +253,7 @@ function pickBestHashRows(rows: TaskRecord[], request: QuizTaskQuestionRequest) 
     hash,
     groupRows,
     hashMatches: request.questionHash !== null && hash === request.questionHash,
-    updatedAt: groupRows.reduce((latest, row) => (row.updated > latest ? row.updated : latest), "")
+    updatedAt: groupRows.reduce((latest, row) => (row.updated > latest ? row.updated : latest), ""),
   }));
 
   ranked.sort((a, b) => {
@@ -314,14 +307,10 @@ function getRowMeta(row: TaskRecord) {
   return {
     contributor: getRowContributor(row),
     addedAt: row.created || null,
-    updatedAt: row.updated || null
+    updatedAt: row.updated || null,
   };
 }
 
-/**
- * Mirrors the slot aggregation of the old fetch_reduxshare_tasks RPC, including
- * confidence rounding and ordering.
- */
 function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
   const bySlot = new Map<string, TaskRecord[]>();
 
@@ -345,15 +334,17 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
           verifiedTotal,
           correctness: 2 as const,
           confidence:
-            slotVerifiedTotal > 0 ? Math.round((verifiedTotal / slotVerifiedTotal) * 10_000) / 10_000 : 0,
+            slotVerifiedTotal > 0
+              ? Math.round((verifiedTotal / slotVerifiedTotal) * 10_000) / 10_000
+              : 0,
           label: row.answer_label,
-          ...getRowMeta(row)
+          ...getRowMeta(row),
         };
       })
       .sort((a, b) =>
         a.verifiedTotal !== b.verifiedTotal
           ? b.verifiedTotal - a.verifiedTotal
-          : a.label.localeCompare(b.label)
+          : a.label.localeCompare(b.label),
       )
       .map(({ correctness, confidence, label, contributor, addedAt, updatedAt }) => ({
         correctness,
@@ -361,7 +352,7 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
         label,
         contributor,
         addedAt,
-        updatedAt
+        updatedAt,
       }));
     const submissions = slotRows
       .filter((row) => getObservedTotal(row) > 0)
@@ -374,7 +365,7 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
               : 1,
         count: getObservedTotal(row),
         label: row.answer_label,
-        ...getRowMeta(row)
+        ...getRowMeta(row),
       }))
       .sort((a, b) => (a.count !== b.count ? b.count - a.count : a.label.localeCompare(b.label)));
 
@@ -383,7 +374,7 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
       slotIndex: slotIndexes.length > 0 ? Math.min(...slotIndexes) : null,
       suggestions,
       submissions,
-      slotAnswerCount: slotRows.length
+      slotAnswerCount: slotRows.length,
     };
   });
 }
@@ -413,17 +404,17 @@ function buildQuestionData(slots: AggregatedSlot[]) {
   return ordered.map((slot) => ({
     anchor: {
       index: slot.slotIndex ?? 1,
-      label: slot.slotKey
+      label: slot.slotKey,
     },
     suggestions: slot.suggestions,
-    submissions: slot.submissions
+    submissions: slot.submissions,
   }));
 }
 
 export async function fetchReduxShareTasks(
   authSession: AuthSession,
   payload: FetchReduxShareTasksPayload,
-  language?: LanguageSetting
+  language?: LanguageSetting,
 ): Promise<FetchReduxShareTasksResult> {
   const t = getTranslator(language);
 
@@ -435,27 +426,25 @@ export async function fetchReduxShareTasks(
         questionType: question.questionType,
         questionHash: question.questionHash,
         ok: false,
-        error: t("errors.moodleIdsMissing")
-      }))
+        error: t("errors.moodleIdsMissing"),
+      })),
     };
   }
 
   try {
-    const { authSession: nextAuthSession, result: rowsByQuestionId } = await withPocketBaseSessionRetry(
-      authSession,
-      async (pb) => {
-        const uniqueQuestionIds = [...new Set(payload.questions.map((question) => question.questionId))].filter(
-          (questionId): questionId is string => Boolean(questionId)
-        );
+    const { authSession: nextAuthSession, result: rowsByQuestionId } =
+      await withPocketBaseSessionRetry(authSession, async (pb) => {
+        const uniqueQuestionIds = [
+          ...new Set(payload.questions.map((question) => question.questionId)),
+        ].filter((questionId): questionId is string => Boolean(questionId));
         const grouped = new Map<string, TaskRecord[]>();
 
         if (uniqueQuestionIds.length > 0) {
-          // PocketBase filter syntax has no `in` operator, so "any of these ids" is expressed
-          // as a chain of `question_id = {:qidN} || ...` terms. One batched request instead of
-          // one request per question keeps widget mount latency independent of page size.
-          const questionIdTerms = uniqueQuestionIds.map((_, index) => `question_id = {:qid${index}}`);
+          const questionIdTerms = uniqueQuestionIds.map(
+            (_, index) => `question_id = {:qid${index}}`,
+          );
           const questionIdParams = Object.fromEntries(
-            uniqueQuestionIds.map((questionId, index) => [`qid${index}`, questionId])
+            uniqueQuestionIds.map((questionId, index) => [`qid${index}`, questionId]),
           );
           const rows = await pb.collection(TASKS_COLLECTION).getFullList<TaskRecord>({
             filter: pb.filter(
@@ -464,11 +453,11 @@ export async function fetchReduxShareTasks(
                 domain: payload.domain,
                 course: payload.courseId as number,
                 quiz: payload.quizId as number,
-                ...questionIdParams
-              }
+                ...questionIdParams,
+              },
             ),
             sort: "-updated",
-            expand: "first_contributor,last_contributor"
+            expand: "first_contributor,last_contributor",
           });
 
           for (const row of rows) {
@@ -479,8 +468,7 @@ export async function fetchReduxShareTasks(
         }
 
         return grouped;
-      }
-    );
+      });
 
     return {
       authSession: nextAuthSession,
@@ -495,7 +483,7 @@ export async function fetchReduxShareTasks(
             questionHash: question.questionHash,
             ok: true,
             data: null,
-            answerCount: 0
+            answerCount: 0,
           };
         }
 
@@ -507,13 +495,18 @@ export async function fetchReduxShareTasks(
 
         return {
           questionId: question.questionId,
-          questionType: maxText(bestRows.map((row) => normalizeRowType(row.question_type))) ?? question.questionType,
+          questionType:
+            maxText(bestRows.map((row) => normalizeRowType(row.question_type))) ??
+            question.questionType,
           questionHash: rowHash,
           ok: true,
-          data: hasHashMismatch && shouldDowngradeMismatchedHashData(data) ? downgradeMismatchedHashData(data) : data,
-          answerCount: slots.reduce((sum, slot) => sum + slot.slotAnswerCount, 0)
+          data:
+            hasHashMismatch && shouldDowngradeMismatchedHashData(data)
+              ? downgradeMismatchedHashData(data)
+              : data,
+          answerCount: slots.reduce((sum, slot) => sum + slot.slotAnswerCount, 0),
         };
-      })
+      }),
     };
   } catch (error) {
     throw toI18nError(error, "errors.reduxAnswersFetchFailed");
@@ -531,34 +524,28 @@ export interface QuizPreviewTaskResult {
   answerCount?: number;
 }
 
-/**
- * Quiz view page (no attempt): lists every question of the quiz that the answer
- * database has ever seen. The rows are grouped by question_id and each group is
- * ranked/aggregated exactly like fetchReduxShareTasks, so a question with stored
- * answers keeps the same per-slot suggestions and submissions as on the attempt
- * page.
- */
 export async function fetchReduxShareQuizPreviewTasks(
   authSession: AuthSession,
   payload: { domain: string; courseId: number | null; quizId: number | null },
-  language?: LanguageSetting
 ): Promise<{ authSession: AuthSession; results: QuizPreviewTaskResult[] }> {
   if (payload.courseId === null || payload.quizId === null) {
     throw new I18nError("errors.moodleIdsMissing");
   }
 
   try {
-    const { authSession: nextAuthSession, result: rowsByQuestionId } = await withPocketBaseSessionRetry(
-      authSession,
-      async (pb) => {
+    const { authSession: nextAuthSession, result: rowsByQuestionId } =
+      await withPocketBaseSessionRetry(authSession, async (pb) => {
         const rows = await pb.collection(TASKS_COLLECTION).getFullList<TaskRecord>({
-          filter: pb.filter("moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz}", {
-            domain: payload.domain,
-            course: payload.courseId as number,
-            quiz: payload.quizId as number
-          }),
+          filter: pb.filter(
+            "moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz}",
+            {
+              domain: payload.domain,
+              course: payload.courseId as number,
+              quiz: payload.quizId as number,
+            },
+          ),
           sort: "-updated",
-          expand: "first_contributor,last_contributor"
+          expand: "first_contributor,last_contributor",
         });
 
         const grouped = new Map<string, TaskRecord[]>();
@@ -570,13 +557,16 @@ export async function fetchReduxShareQuizPreviewTasks(
         }
 
         return grouped;
-      }
-    );
+      });
 
     const results: QuizPreviewTaskResult[] = [];
 
     for (const [questionId, rows] of rowsByQuestionId) {
-      const bestRows = pickBestHashRows(rows, { questionId, questionType: null, questionHash: null });
+      const bestRows = pickBestHashRows(rows, {
+        questionId,
+        questionType: null,
+        questionHash: null,
+      });
 
       if (bestRows.length === 0) {
         continue;
@@ -592,21 +582,20 @@ export async function fetchReduxShareQuizPreviewTasks(
         questionText: maxText(bestRows.map((row) => row.question_text)),
         answerOptions: mergeAnswerOptionLabels(
           [],
-          bestRows.flatMap((row) => parseTaskAnswerOptions(row.answer_options))
+          bestRows.flatMap((row) => parseTaskAnswerOptions(row.answer_options)),
         ),
         ok: true,
         data,
-        answerCount: slots.reduce((sum, slot) => sum + slot.slotAnswerCount, 0)
+        answerCount: slots.reduce((sum, slot) => sum + slot.slotAnswerCount, 0),
       });
     }
 
-    // Newest activity first keeps freshly shared quizzes on top.
     results.sort((left, right) => {
       const leftUpdated = maxText(
-        rowsByQuestionId.get(left.questionId ?? "")?.map((row) => row.updated) ?? []
+        rowsByQuestionId.get(left.questionId ?? "")?.map((row) => row.updated) ?? [],
       );
       const rightUpdated = maxText(
-        rowsByQuestionId.get(right.questionId ?? "")?.map((row) => row.updated) ?? []
+        rowsByQuestionId.get(right.questionId ?? "")?.map((row) => row.updated) ?? [],
       );
 
       return (rightUpdated ?? "").localeCompare(leftUpdated ?? "");
@@ -640,11 +629,6 @@ interface NormalizedReviewQuestion {
 const ANSWER_OPTIONS_MAX_COUNT = 200;
 const ANSWER_OPTIONS_MAX_LENGTH = 300;
 
-/**
- * The option pool lives on the task rows as a JSON array string (`answer_options`,
- * a custom PocketBase field kept without a schema migration, like question_text).
- * One list per question instead of a row per option keeps the database small.
- */
 export function parseTaskAnswerOptions(value: unknown): string[] {
   if (typeof value !== "string" || !value.trim()) {
     return [];
@@ -652,7 +636,9 @@ export function parseTaskAnswerOptions(value: unknown): string[] {
 
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
   } catch {
     return [];
   }
@@ -690,9 +676,6 @@ function collapseWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
-/**
- * Mirrors the normalization of the old save_reduxshare_review_answers RPC.
- */
 function normalizeReviewQuestions(questions: ReviewQuestionPayload[]): NormalizedReviewQuestion[] {
   const normalized: NormalizedReviewQuestion[] = [];
 
@@ -739,7 +722,14 @@ function normalizeReviewQuestions(questions: ReviewQuestionPayload[]): Normalize
       answers.push({ label, key, slotKey, slotIndex, correctness, isCorrect, wasSelected });
     }
 
-    normalized.push({ questionId, questionType, questionHash, questionText, answerOptions, answers });
+    normalized.push({
+      questionId,
+      questionType,
+      questionHash,
+      questionText,
+      answerOptions,
+      answers,
+    });
   }
 
   return normalized;
@@ -760,15 +750,17 @@ function getQuestionImportKey(questionId: string, questionHash: string) {
   return [questionId, questionHash].join("\n");
 }
 
-/**
- * Content hash of one normalized review question. Identical re-imports of the
- * same attempt produce identical hashes and are skipped; a changed question
- * (e.g. after a regrade) produces a new hash and is counted again.
- */
 export function getReviewQuestionContentHash(question: NormalizedReviewQuestion) {
   const fingerprint = question.answers
     .map((answer) =>
-      [answer.label, answer.key, answer.slotKey, answer.slotIndex ?? "", answer.correctness, answer.wasSelected ? 1 : 0].join("\n")
+      [
+        answer.label,
+        answer.key,
+        answer.slotKey,
+        answer.slotIndex ?? "",
+        answer.correctness,
+        answer.wasSelected ? 1 : 0,
+      ].join("\n"),
     )
     .sort()
     .join("\n\n");
@@ -792,7 +784,7 @@ function getTaskIdentityKey(entry: {
     entry.questionId,
     entry.questionHash,
     entry.slotKey,
-    entry.answerKey
+    entry.answerKey,
   ].join("\n");
 }
 
@@ -806,21 +798,26 @@ async function upsertReviewImport(
     quizId: number;
     pageUrl: string;
     questionCount: number;
-  }
+  },
 ): Promise<{ id: string; questionHashes: Record<string, string> }> {
-  const filter = pb.filter("user = {:user} && moodle_domain = {:domain} && attempt_key = {:attempt}", {
-    user: entry.userId,
-    domain: entry.domain,
-    attempt: entry.attemptKey
-  });
+  const filter = pb.filter(
+    "user = {:user} && moodle_domain = {:domain} && attempt_key = {:attempt}",
+    {
+      user: entry.userId,
+      domain: entry.domain,
+      attempt: entry.attemptKey,
+    },
+  );
 
   try {
-    const existing = await pb.collection(REVIEW_IMPORTS_COLLECTION).getFirstListItem<ReviewImportRecord>(filter);
+    const existing = await pb
+      .collection(REVIEW_IMPORTS_COLLECTION)
+      .getFirstListItem<ReviewImportRecord>(filter);
     await pb.collection(REVIEW_IMPORTS_COLLECTION).update(existing.id, {
       course_id: entry.courseId,
       quiz_id: entry.quizId,
       page_url: entry.pageUrl || existing.page_url,
-      imported_question_count: Math.max(existing.imported_question_count ?? 0, entry.questionCount)
+      imported_question_count: Math.max(existing.imported_question_count ?? 0, entry.questionCount),
     });
 
     return { id: existing.id, questionHashes: existing.imported_question_hashes ?? {} };
@@ -837,7 +834,7 @@ async function upsertReviewImport(
       quiz_id: entry.quizId,
       page_url: entry.pageUrl,
       imported_question_count: entry.questionCount,
-      imported_question_hashes: {}
+      imported_question_hashes: {},
     });
 
     return { id: created.id, questionHashes: {} };
@@ -846,13 +843,13 @@ async function upsertReviewImport(
 
 export async function saveReduxShareReviewAnswers(
   authSession: AuthSession,
-  payload: SaveReduxShareReviewPayload
+  payload: SaveReduxShareReviewPayload,
 ): Promise<SaveReduxShareReviewResult> {
   if (payload.courseId === null || payload.quizId === null) {
     return {
       authSession: await ensurePocketBaseSession(authSession),
       imported: false,
-      savedCount: 0
+      savedCount: 0,
     };
   }
 
@@ -867,9 +864,11 @@ export async function saveReduxShareReviewAnswers(
         const userId = session.user.id;
 
         try {
-          const me = await pb.collection(USERS_COLLECTION).getOne<{ moodle_domain: string }>(userId, {
-            fields: "id,moodle_domain"
-          });
+          const me = await pb
+            .collection(USERS_COLLECTION)
+            .getOne<{ moodle_domain: string }>(userId, {
+              fields: "id,moodle_domain",
+            });
 
           if (payload.domain && me.moodle_domain !== payload.domain) {
             await pb.collection(USERS_COLLECTION).update(userId, { moodle_domain: payload.domain });
@@ -882,23 +881,27 @@ export async function saveReduxShareReviewAnswers(
           throw error;
         }
 
-        const { id: reviewImportId, questionHashes: importedQuestionHashes } = await upsertReviewImport(pb, {
-          userId,
-          domain: payload.domain,
-          attemptKey: payload.attemptKey,
-          courseId,
-          quizId,
-          pageUrl: payload.pageUrl,
-          questionCount: questions.length
-        });
+        const { id: reviewImportId, questionHashes: importedQuestionHashes } =
+          await upsertReviewImport(pb, {
+            userId,
+            domain: payload.domain,
+            attemptKey: payload.attemptKey,
+            courseId,
+            quizId,
+            pageUrl: payload.pageUrl,
+            questionCount: questions.length,
+          });
 
         const existingTasks = await pb.collection(TASKS_COLLECTION).getFullList<TaskRecord>({
-          filter: pb.filter("moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz}", {
-            domain: payload.domain,
-            course: courseId,
-            quiz: quizId
-          }),
-          sort: "-updated"
+          filter: pb.filter(
+            "moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz}",
+            {
+              domain: payload.domain,
+              course: courseId,
+              quiz: quizId,
+            },
+          ),
+          sort: "-updated",
         });
         const tasksByIdentity = new Map(
           existingTasks.map((task) => [
@@ -909,10 +912,10 @@ export async function saveReduxShareReviewAnswers(
               questionId: task.question_id,
               questionHash: task.question_hash,
               slotKey: task.slot_key,
-              answerKey: task.answer_key
+              answerKey: task.answer_key,
             }),
-            task
-          ])
+            task,
+          ]),
         );
 
         let savedEntries = 0;
@@ -922,26 +925,26 @@ export async function saveReduxShareReviewAnswers(
           const importKey = getQuestionImportKey(question.questionId, question.questionHash);
           const contentHash = getReviewQuestionContentHash(question);
 
-          // The option pool is stored once per question, independent of the answer
-          // counters: even an already-imported question gets new options persisted.
           if (question.answerOptions.length > 0) {
             const questionTaskRows = existingTasks.filter(
-              (task) => task.question_id === question.questionId && task.question_hash === question.questionHash
+              (task) =>
+                task.question_id === question.questionId &&
+                task.question_hash === question.questionHash,
             );
 
             for (const taskRow of questionTaskRows) {
               const mergedOptions = mergeAnswerOptionLabels(
                 parseTaskAnswerOptions(taskRow.answer_options),
-                question.answerOptions
+                question.answerOptions,
               );
 
               if (serializeTaskAnswerOptions(mergedOptions) === (taskRow.answer_options ?? "")) {
                 continue;
               }
 
-              const updated = await pb
-                .collection(TASKS_COLLECTION)
-                .update<TaskRecord>(taskRow.id, { answer_options: serializeTaskAnswerOptions(mergedOptions) });
+              const updated = await pb.collection(TASKS_COLLECTION).update<TaskRecord>(taskRow.id, {
+                answer_options: serializeTaskAnswerOptions(mergedOptions),
+              });
               tasksByIdentity.set(
                 getTaskIdentityKey({
                   moodleDomain: updated.moodle_domain,
@@ -950,9 +953,9 @@ export async function saveReduxShareReviewAnswers(
                   questionId: updated.question_id,
                   questionHash: updated.question_hash,
                   slotKey: updated.slot_key,
-                  answerKey: updated.answer_key
+                  answerKey: updated.answer_key,
                 }),
-                updated
+                updated,
               );
             }
           }
@@ -961,7 +964,8 @@ export async function saveReduxShareReviewAnswers(
             continue;
           }
 
-          for (const answer of question.answers) {            const correctDelta = answer.correctness === 2 ? 1 : 0;
+          for (const answer of question.answers) {
+            const correctDelta = answer.correctness === 2 ? 1 : 0;
             const selectedCorrectDelta = answer.correctness === 2 && answer.wasSelected ? 1 : 0;
             const selectedIncorrectDelta = answer.correctness <= 0 && answer.wasSelected ? 1 : 0;
             const selectedUnknownDelta = answer.correctness === 1 && answer.wasSelected ? 1 : 0;
@@ -972,7 +976,7 @@ export async function saveReduxShareReviewAnswers(
               questionId: question.questionId,
               questionHash: question.questionHash,
               slotKey: answer.slotKey,
-              answerKey: answer.key
+              answerKey: answer.key,
             });
             const existing = tasksByIdentity.get(identityKey);
 
@@ -983,7 +987,7 @@ export async function saveReduxShareReviewAnswers(
                 "selected_correct_count+": selectedCorrectDelta,
                 "selected_incorrect_count+": selectedIncorrectDelta,
                 "selected_unknown_count+": selectedUnknownDelta,
-                last_contributor: userId
+                last_contributor: userId,
               };
 
               if (question.questionType) {
@@ -998,7 +1002,9 @@ export async function saveReduxShareReviewAnswers(
                 patch.slot_index = answer.slotIndex;
               }
 
-              const updated = await pb.collection(TASKS_COLLECTION).update<TaskRecord>(existing.id, patch);
+              const updated = await pb
+                .collection(TASKS_COLLECTION)
+                .update<TaskRecord>(existing.id, patch);
               tasksByIdentity.set(identityKey, updated);
             } else {
               try {
@@ -1020,36 +1026,35 @@ export async function saveReduxShareReviewAnswers(
                   selected_incorrect_count: selectedIncorrectDelta,
                   selected_unknown_count: selectedUnknownDelta,
                   first_contributor: userId,
-                  last_contributor: userId
+                  last_contributor: userId,
                 });
                 tasksByIdentity.set(identityKey, created);
               } catch (error) {
-                // Lost a create race with another tab: apply the counters to the winner.
                 if (isValidationError(error)) {
-                  const winner = await pb
+                  const winner = await pb.collection(TASKS_COLLECTION).getFirstListItem<TaskRecord>(
+                    pb.filter(
+                      "moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz} && question_id = {:qid} && question_hash = {:hash} && slot_key = {:slot} && answer_key = {:akey}",
+                      {
+                        domain: payload.domain,
+                        course: courseId,
+                        quiz: quizId,
+                        qid: question.questionId,
+                        hash: question.questionHash,
+                        slot: answer.slotKey,
+                        akey: answer.key,
+                      },
+                    ),
+                  );
+                  const updated = await pb
                     .collection(TASKS_COLLECTION)
-                    .getFirstListItem<TaskRecord>(
-                      pb.filter(
-                        "moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz} && question_id = {:qid} && question_hash = {:hash} && slot_key = {:slot} && answer_key = {:akey}",
-                        {
-                          domain: payload.domain,
-                          course: courseId,
-                          quiz: quizId,
-                          qid: question.questionId,
-                          hash: question.questionHash,
-                          slot: answer.slotKey,
-                          akey: answer.key
-                        }
-                      )
-                    );
-                  const updated = await pb.collection(TASKS_COLLECTION).update<TaskRecord>(winner.id, {
-                    answer_label: answer.label,
-                    "correct_count+": correctDelta,
-                    "selected_correct_count+": selectedCorrectDelta,
-                    "selected_incorrect_count+": selectedIncorrectDelta,
-                    "selected_unknown_count+": selectedUnknownDelta,
-                    last_contributor: userId
-                  });
+                    .update<TaskRecord>(winner.id, {
+                      answer_label: answer.label,
+                      "correct_count+": correctDelta,
+                      "selected_correct_count+": selectedCorrectDelta,
+                      "selected_incorrect_count+": selectedIncorrectDelta,
+                      "selected_unknown_count+": selectedUnknownDelta,
+                      last_contributor: userId,
+                    });
                   tasksByIdentity.set(identityKey, updated);
                 } else {
                   throw error;
@@ -1066,18 +1071,18 @@ export async function saveReduxShareReviewAnswers(
 
         if (hashesChanged) {
           await pb.collection(REVIEW_IMPORTS_COLLECTION).update(reviewImportId, {
-            imported_question_hashes: importedQuestionHashes
+            imported_question_hashes: importedQuestionHashes,
           });
         }
 
         return savedEntries;
-      }
+      },
     );
 
     return {
       authSession: nextAuthSession,
       imported: savedCount > 0,
-      savedCount
+      savedCount,
     };
   } catch (error) {
     throw toI18nError(error, "errors.reduxReviewSaveFailed");

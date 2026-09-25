@@ -21,7 +21,6 @@
   <a href="README.ru.md">🇷🇺 Русский</a>
 </p>
 
-
 <p align="center">
   <a href="#about">About</a>
   ·
@@ -132,22 +131,22 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
 
   | Task Type                    | DOM name           | Support | Internal Sources | External Sources | AI Tools |
   | :--------------------------- | :----------------- | :-----: | :--------------: | :--------------: | :------: |
-  | Calculated                   | `calculated`       |    ✅    |        ✅         |        🔴         |    ✅     |
-  | Calculated multi-choice      | `calculatedmulti`  |    ✅    |        ✅         |        🔴         |    ✅     |
-  | Calculated simple            | `calculatedsimple` |    ✅    |        ✅         |        🔴         |    ✅     |
-  | Drag and drop into text      | `ddwtos`           |    ✅    |        ✅         |        🔴         |    ✅     |
-  | Drag and drop markers        | `ddmarker`         |    🟡    |        ✅         |        🔴         |    🔴     |
-  | Drag and drop onto image     | `ddimageortext`    |    🟡    |        ✅         |        🔴         |    🔴     |
-  | Essay                        | `essay`            |    🟡    |        🔴         |        🔴         |    ✅     |
-  | Matching                     | `match`            |    ✅    |        ✅         |        ✅         |    ✅     |
-  | Embedded answers / Cloze     | `multianswer`      |    ✅    |        ✅         |        ✅         |    ✅     |
-  | Multiple choice              | `multichoice`      |    ✅    |        ✅         |        ✅         |    ✅     |
-  | Ordering                     | `ordering`         |    ✅    |        ✅         |        🔴         |    ✅     |
-  | Short answer                 | `shortanswer`      |    ✅    |        ✅         |        ✅         |    ✅     |
-  | Numerical                    | `numerical`        |    ✅    |        ✅         |        ✅         |    ✅     |
-  | Random short-answer matching | `randomsamatch`    |    ✅    |        ✅         |        ✅         |    ✅     |
-  | Select missing words         | `gapselect`        |    ✅    |        ✅         |        ✅         |    ✅     |
-  | True/False                   | `truefalse`        |    ✅    |        ✅         |        ✅         |    ✅     |
+  | Calculated                   | `calculated`       |   ✅    |        ✅        |        🔴        |    ✅    |
+  | Calculated multi-choice      | `calculatedmulti`  |   ✅    |        ✅        |        🔴        |    ✅    |
+  | Calculated simple            | `calculatedsimple` |   ✅    |        ✅        |        🔴        |    ✅    |
+  | Drag and drop into text      | `ddwtos`           |   ✅    |        ✅        |        🔴        |    ✅    |
+  | Drag and drop markers        | `ddmarker`         |   🟡    |        ✅        |        🔴        |    🔴    |
+  | Drag and drop onto image     | `ddimageortext`    |   🟡    |        ✅        |        🔴        |    🔴    |
+  | Essay                        | `essay`            |   🟡    |        🔴        |        🔴        |    ✅    |
+  | Matching                     | `match`            |   ✅    |        ✅        |        ✅        |    ✅    |
+  | Embedded answers / Cloze     | `multianswer`      |   ✅    |        ✅        |        ✅        |    ✅    |
+  | Multiple choice              | `multichoice`      |   ✅    |        ✅        |        ✅        |    ✅    |
+  | Ordering                     | `ordering`         |   ✅    |        ✅        |        🔴        |    ✅    |
+  | Short answer                 | `shortanswer`      |   ✅    |        ✅        |        ✅        |    ✅    |
+  | Numerical                    | `numerical`        |   ✅    |        ✅        |        ✅        |    ✅    |
+  | Random short-answer matching | `randomsamatch`    |   ✅    |        ✅        |        ✅        |    ✅    |
+  | Select missing words         | `gapselect`        |   ✅    |        ✅        |        ✅        |    ✅    |
+  | True/False                   | `truefalse`        |   ✅    |        ✅        |        ✅        |    ✅    |
 
 ---
 

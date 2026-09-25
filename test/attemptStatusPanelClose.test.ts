@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The test environment origin is http://localhost:3000, while the panel only mounts
-// on https attempt pages; relax the protocol check for this suite.
 vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  isQuizAttemptUrl: (url: Location) => url.pathname.endsWith("/mod/quiz/attempt.php")
+  isQuizAttemptUrl: (url: Location) => url.pathname.endsWith("/mod/quiz/attempt.php"),
 }));
 
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
@@ -26,8 +24,13 @@ describe("attempt status panel close button", () => {
 
     const api = await getQuizAttemptTestApi();
     const state = {
-      settings: { extensionEnabled: true, stealthMode: false, language: "ru", attemptStatusPanelClosed: false },
-      authSession: { user: { id: "u1" } }
+      settings: {
+        extensionEnabled: true,
+        stealthMode: false,
+        language: "ru",
+        attemptStatusPanelClosed: false,
+      },
+      authSession: { user: { id: "u1" } },
     };
 
     api.reset();
@@ -35,17 +38,16 @@ describe("attempt status panel close button", () => {
     setCurrentStoredState(state);
     syncStealthMode(state);
 
-    // The panel is mounted and the ✕ button exists next to the collapse toggle.
     const closeButton = getPanelShadow().querySelector<HTMLButtonElement>(".close");
     expect(closeButton).toBeInstanceOf(HTMLButtonElement);
     expect(closeButton.getAttribute("aria-label")).toBe("Закрыть панель");
 
-    // Clicking ✕ hides the panel for this session...
     closeButton.click();
     expect(document.getElementById(PANEL_HOST_ID)).toBeNull();
 
-    // ...and the popup toggle brings it back (the re-mount proves the session flag flipped).
     await api.setAttemptStatusPanelClosedInSession(false);
-    expect(getPanelShadow().querySelector<HTMLButtonElement>(".close")).toBeInstanceOf(HTMLButtonElement);
+    expect(getPanelShadow().querySelector<HTMLButtonElement>(".close")).toBeInstanceOf(
+      HTMLButtonElement,
+    );
   });
 });

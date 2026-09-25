@@ -5,7 +5,7 @@ import {
   translateKey,
   type I18nParams,
   type ResolvedLanguage,
-  type Translator
+  type Translator,
 } from "../shared/i18nCore";
 import en from "./locales/en.json";
 import ru from "./locales/ru.json";
@@ -18,13 +18,13 @@ export type TranslateFn = Translator<TranslationKey>;
 
 const TRANSLATIONS: Record<ResolvedLanguage, Record<TranslationKey, string>> = {
   ru,
-  en
+  en,
 };
 
 export const LANGUAGE_OPTIONS = [
   { value: "auto", labelKey: "language.auto" },
   { value: "ru", labelKey: "language.ru" },
-  { value: "en", labelKey: "language.en" }
+  { value: "en", labelKey: "language.en" },
 ] as const satisfies ReadonlyArray<{ value: LanguageSetting; labelKey: TranslationKey }>;
 
 export function isLanguageSetting(value: unknown): value is LanguageSetting {
@@ -52,13 +52,16 @@ export class I18nError extends Error {
 }
 
 export function isI18nError(error: unknown): error is I18nError {
-  return error instanceof I18nError || (typeof error === "object" && error !== null && "i18nKey" in error);
+  return (
+    error instanceof I18nError ||
+    (typeof error === "object" && error !== null && "i18nKey" in error)
+  );
 }
 
 export function getLocalizedErrorMessage(
   error: unknown,
   t: TranslateFn,
-  fallbackKey: TranslationKey = "errors.generic"
+  fallbackKey: TranslationKey = "errors.generic",
 ) {
   if (isI18nError(error)) {
     const candidate = error as { i18nKey: TranslationKey; i18nParams?: I18nParams };
@@ -75,7 +78,7 @@ export function getLocalizedErrorMessage(
 export function getRequestErrorMessage(
   error: unknown,
   language: LanguageSetting | undefined,
-  fallbackKey: TranslationKey = "errors.externalRequest"
+  fallbackKey: TranslationKey = "errors.externalRequest",
 ) {
   return getLocalizedErrorMessage(error, getTranslator(language), fallbackKey);
 }

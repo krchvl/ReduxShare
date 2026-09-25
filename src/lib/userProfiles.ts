@@ -1,6 +1,11 @@
 import type PocketBase from "pocketbase";
 import type { AuthSession, UserProfile } from "../types";
-import { USERS_COLLECTION, isNotFoundError, toI18nError, withPocketBaseSessionRetry } from "./pocketbase";
+import {
+  USERS_COLLECTION,
+  isNotFoundError,
+  toI18nError,
+  withPocketBaseSessionRetry,
+} from "./pocketbase";
 import { AuthError } from "./auth";
 
 export interface PocketBaseUserRecord {
@@ -37,7 +42,7 @@ export function mapUserRecord(record: PocketBaseUserRecord): UserProfile {
     username: record.username,
     moodleDomain: record.moodle_domain || null,
     solvedTestsCount: record.solved_tests_count ?? 0,
-    solvedTasksCount: record.solved_tasks_count ?? 0
+    solvedTasksCount: record.solved_tasks_count ?? 0,
   };
 }
 
@@ -56,7 +61,7 @@ async function getOwnUserRecord(pb: PocketBase, userId: string): Promise<PocketB
 export async function touchUserProfile(
   authSession: AuthSession,
   moodleDomain: string | null,
-  seed: UserProfileSeed = {}
+  seed: UserProfileSeed = {},
 ): Promise<AuthenticatedProfileResult> {
   try {
     const { authSession: nextAuthSession, result } = await withPocketBaseSessionRetry(
@@ -69,8 +74,6 @@ export async function touchUserProfile(
           patch.moodle_domain = moodleDomain;
         }
 
-        // Username is assigned at registration; only fill it when the stored
-        // record has none (defensive, mirrors the old touch_user_profile RPC).
         if (seed.username && !current.username) {
           patch.username = seed.username;
         }
@@ -80,12 +83,12 @@ export async function touchUserProfile(
         }
 
         return pb.collection(USERS_COLLECTION).update<PocketBaseUserRecord>(session.user.id, patch);
-      }
+      },
     );
 
     return {
       authSession: nextAuthSession,
-      userProfile: mapUserRecord(result)
+      userProfile: mapUserRecord(result),
     };
   } catch (error) {
     throw toI18nError(error, "errors.profileSaveFailed");
@@ -94,7 +97,7 @@ export async function touchUserProfile(
 
 export async function recordUserQuizProgress(
   authSession: AuthSession,
-  { moodleDomain, solvedTestsDelta, solvedTasksDelta, username }: UserProgressDelta
+  { moodleDomain, solvedTestsDelta, solvedTasksDelta, username }: UserProgressDelta,
 ): Promise<AuthenticatedProfileResult> {
   try {
     const { authSession: nextAuthSession, result } = await withPocketBaseSessionRetry(
@@ -126,12 +129,12 @@ export async function recordUserQuizProgress(
         }
 
         return pb.collection(USERS_COLLECTION).update<PocketBaseUserRecord>(session.user.id, patch);
-      }
+      },
     );
 
     return {
       authSession: nextAuthSession,
-      userProfile: mapUserRecord(result)
+      userProfile: mapUserRecord(result),
     };
   } catch (error) {
     throw toI18nError(error, "errors.progressUpdateFailed");

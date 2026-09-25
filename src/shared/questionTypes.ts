@@ -1,9 +1,9 @@
-// Human-readable labels for the Moodle question types returned by the answer
-// database (the raw value is the qtype plugin name, e.g. "multichoice").
-// Types missing from the map are shown as-is.
 export const MOODLE_QUESTION_TYPE_LABELS: Record<string, { ru: string; en: string }> = {
   multichoice: { ru: "Множественный выбор", en: "Multiple choice" },
-  multichoiceset: { ru: "Множественный выбор (всё или ничего)", en: "All-or-nothing multiple choice" },
+  multichoiceset: {
+    ru: "Множественный выбор (всё или ничего)",
+    en: "All-or-nothing multiple choice",
+  },
   truefalse: { ru: "Верно / Неверно", en: "True / False" },
   shortanswer: { ru: "Короткий ответ", en: "Short answer" },
   numerical: { ru: "Числовой ответ", en: "Numerical" },
@@ -21,10 +21,13 @@ export const MOODLE_QUESTION_TYPE_LABELS: Record<string, { ru: string; en: strin
   calculated: { ru: "Вычисляемый", en: "Calculated" },
   calculatedsimple: { ru: "Вычисляемый (простой)", en: "Calculated (simple)" },
   calculatedmulti: { ru: "Вычисляемый с вариантами", en: "Calculated multiple-choice" },
-  random: { ru: "Случайный вопрос", en: "Random question" }
+  random: { ru: "Случайный вопрос", en: "Random question" },
 };
 
-export function getQuestionTypeLabel(type: string | null | undefined, language: string | undefined) {
+export function getQuestionTypeLabel(
+  type: string | null | undefined,
+  language: string | undefined,
+) {
   const normalizedType = type?.trim().toLowerCase();
 
   if (!normalizedType) {

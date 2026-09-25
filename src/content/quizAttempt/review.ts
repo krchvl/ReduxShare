@@ -1,4 +1,3 @@
-// Moved out of src/content/quizAttempt.ts.
 import {
   getAnswerControlSlotIndex,
   getChoiceAnswerInputs,
@@ -35,10 +34,17 @@ import {
   type StoredStateLike,
   TEXT_INPUT_QUESTION_TYPES,
 } from "../../model";
-import { QUIZ_REVIEW_PENDING_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../../shared/storageKeys";
+import {
+  QUIZ_REVIEW_PENDING_STORAGE_KEY,
+  QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY,
+} from "../../shared/storageKeys";
 import { SAVE_REVIEW_ANSWERS_MESSAGE } from "../../shared/messages";
 import { getReviewSaveMoodleConfig } from "../../moodleContext";
-import { getOrderingItemLabel, getOrderingItems, getOrderingPositionObservation } from "../../dom/ordering";
+import {
+  getOrderingItemLabel,
+  getOrderingItems,
+  getOrderingPositionObservation,
+} from "../../dom/ordering";
 import {
   getAnswerLabelMatchKeys,
   getImageIdentityLabel,
@@ -77,48 +83,6 @@ import {
 import { canUseQuizFeatures } from "../../logic/settings";
 import { setCurrentStoredState } from "../../state";
 
-// Moved out of src/content/quizAttempt.ts.
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Moved out of src/content/quizAttempt.ts.
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Moved out of src/content/quizAttempt.ts.
-
-
-
-
-
-
-
-
-
-
-
-
-
 export function buildReviewAnswersForQuestion(questionNode: Element, questionType: string | null) {
   if (questionType === "multichoice" || questionType === "multichoiceset") {
     const booleanAnswers = buildReviewMultichoiceBooleanAnswers(questionNode);
@@ -137,7 +101,11 @@ export function buildReviewAnswersForQuestion(questionNode: Element, questionTyp
     questionType === "gapfill"
       ? []
       : getReviewCorrectLabels(questionNode);
-  const correctObservations = getReviewCorrectObservations(questionNode, questionType, correctLabels);
+  const correctObservations = getReviewCorrectObservations(
+    questionNode,
+    questionType,
+    correctLabels,
+  );
   const selectedObservations = getReviewSelectedObservations(questionNode);
 
   if (correctObservations.length === 0) {
@@ -153,7 +121,7 @@ export function buildReviewAnswersForQuestion(questionNode: Element, questionTyp
   const addAnswer = (
     observation: { label: string; slotKey: string; slotIndex: number | null },
     isCorrect: boolean,
-    wasSelected: boolean
+    wasSelected: boolean,
   ) => {
     const answerKey = createReviewAnswerKey(observation.label);
 
@@ -171,9 +139,12 @@ export function buildReviewAnswersForQuestion(questionNode: Element, questionTyp
       answerKey,
       slotKey: observation.slotKey,
       slotIndex: observation.slotIndex,
-      correctness: existingCorrectness === 2 || correctness === 2 ? 2 : Math.min(existingCorrectness, correctness),
+      correctness:
+        existingCorrectness === 2 || correctness === 2
+          ? 2
+          : Math.min(existingCorrectness, correctness),
       isCorrect: existingAnswer?.isCorrect === true || isCorrect,
-      wasSelected: existingAnswer?.wasSelected === true || wasSelected
+      wasSelected: existingAnswer?.wasSelected === true || wasSelected,
     });
   };
 
@@ -181,12 +152,18 @@ export function buildReviewAnswersForQuestion(questionNode: Element, questionTyp
     addAnswer(
       correctObservation,
       true,
-      selectedObservations.some((selectedObservation) => reviewObservationsMatch(selectedObservation, correctObservation))
+      selectedObservations.some((selectedObservation) =>
+        reviewObservationsMatch(selectedObservation, correctObservation),
+      ),
     );
   }
 
   for (const selectedObservation of selectedObservations) {
-    if (correctObservations.some((correctObservation) => reviewObservationsMatch(selectedObservation, correctObservation))) {
+    if (
+      correctObservations.some((correctObservation) =>
+        reviewObservationsMatch(selectedObservation, correctObservation),
+      )
+    ) {
       continue;
     }
 
@@ -196,7 +173,10 @@ export function buildReviewAnswersForQuestion(questionNode: Element, questionTyp
   return Array.from(answersByKey.values());
 }
 
-function buildReviewAnswersFromObservations(observations: ReviewObservation[], correctness: number) {
+function buildReviewAnswersFromObservations(
+  observations: ReviewObservation[],
+  correctness: number,
+) {
   return observations
     .map((observation): ReviewAnswerPayload | null => {
       const answerKey = createReviewAnswerKey(observation.label);
@@ -209,7 +189,7 @@ function buildReviewAnswersFromObservations(observations: ReviewObservation[], c
             slotIndex: observation.slotIndex,
             correctness,
             isCorrect: correctness === 2,
-            wasSelected: true
+            wasSelected: true,
           }
         : null;
     })
@@ -231,74 +211,74 @@ function buildReviewMultichoiceBooleanAnswers(questionNode: Element): ReviewAnsw
   }
 
   const checkboxInputs = inputs.filter((input) => input.type === "checkbox");
-  // The review names a correct answer, but it matched none of the rendered options (shuffled
-  // markup, paraphrased "rightanswer" text): per-option truth values are then unknown, and
-  // writing "false" with correctness 2 for every checkbox would poison the next attempt's
-  // menu and auto-select. Fall back to observed statistics for the whole question.
+
   const hasUsableCorrectLabels =
     correctLabels.length > 0 &&
     checkboxInputs.some((input) =>
-      correctLabels.some((correctLabel) => labelsMatch(getInputAnswerLabelText(questionNode, input), correctLabel))
+      correctLabels.some((correctLabel) =>
+        labelsMatch(getInputAnswerLabelText(questionNode, input), correctLabel),
+      ),
     );
 
-  return checkboxInputs
-    .flatMap((input, index): ReviewAnswerPayload[] => {
-      const optionLabel = getInputAnswerLabelText(questionNode, input);
-      const hasCorrectLabels = hasUsableCorrectLabels;
-      const isCorrectOption = hasCorrectLabels && correctLabels.some((correctLabel) => labelsMatch(optionLabel, correctLabel));
-      const actualLabel = input.checked ? "true" : "false";
-      const expectedLabel = hasCorrectLabels ? (isCorrectOption ? "true" : "false") : actualLabel;
-      const slotIndex = getReviewChoiceSlotIndex(input, index);
-      const slotKey = optionLabel || `slot:${slotIndex}`;
-      const exactAnswerKey = createReviewAnswerKey(expectedLabel);
-      const answers: ReviewAnswerPayload[] = [];
+  return checkboxInputs.flatMap((input, index): ReviewAnswerPayload[] => {
+    const optionLabel = getInputAnswerLabelText(questionNode, input);
+    const hasCorrectLabels = hasUsableCorrectLabels;
+    const isCorrectOption =
+      hasCorrectLabels &&
+      correctLabels.some((correctLabel) => labelsMatch(optionLabel, correctLabel));
+    const actualLabel = input.checked ? "true" : "false";
+    const expectedLabel = hasCorrectLabels ? (isCorrectOption ? "true" : "false") : actualLabel;
+    const slotIndex = getReviewChoiceSlotIndex(input, index);
+    const slotKey = optionLabel || `slot:${slotIndex}`;
+    const exactAnswerKey = createReviewAnswerKey(expectedLabel);
+    const answers: ReviewAnswerPayload[] = [];
 
-      if (!exactAnswerKey) {
-        return answers;
-      }
+    if (!exactAnswerKey) {
+      return answers;
+    }
 
-      if (!hasCorrectLabels) {
-        answers.push({
-          label: actualLabel,
-          answerKey: exactAnswerKey,
-          slotKey,
-          slotIndex,
-          correctness: 1,
-          isCorrect: false,
-          wasSelected: true
-        });
-
-        return answers;
-      }
-
+    if (!hasCorrectLabels) {
       answers.push({
-        label: expectedLabel,
+        label: actualLabel,
         answerKey: exactAnswerKey,
         slotKey,
         slotIndex,
-        correctness: 2,
-        isCorrect: true,
-        wasSelected: actualLabel === expectedLabel
+        correctness: 1,
+        isCorrect: false,
+        wasSelected: true,
       });
 
-      if (actualLabel !== expectedLabel) {
-        const observedAnswerKey = createReviewAnswerKey(actualLabel);
-
-        if (observedAnswerKey) {
-          answers.push({
-            label: actualLabel,
-            answerKey: observedAnswerKey,
-            slotKey,
-            slotIndex,
-            correctness: 0,
-            isCorrect: false,
-            wasSelected: true
-          });
-        }
-      }
-
       return answers;
-    })
+    }
+
+    answers.push({
+      label: expectedLabel,
+      answerKey: exactAnswerKey,
+      slotKey,
+      slotIndex,
+      correctness: 2,
+      isCorrect: true,
+      wasSelected: actualLabel === expectedLabel,
+    });
+
+    if (actualLabel !== expectedLabel) {
+      const observedAnswerKey = createReviewAnswerKey(actualLabel);
+
+      if (observedAnswerKey) {
+        answers.push({
+          label: actualLabel,
+          answerKey: observedAnswerKey,
+          slotKey,
+          slotIndex,
+          correctness: 0,
+          isCorrect: false,
+          wasSelected: true,
+        });
+      }
+    }
+
+    return answers;
+  });
 }
 
 export function buildReviewSaveRequestPayload(storedState: StoredStateLike | undefined) {
@@ -316,7 +296,7 @@ export function buildReviewSaveRequestPayload(storedState: StoredStateLike | und
     quizId: moodleConfig.contextInstanceId,
     attemptKey: identity.attemptKey,
     pageUrl: window.location.href,
-    questions
+    questions,
   };
 }
 
@@ -370,19 +350,19 @@ export function collectReviewQuestionsForSave(): ReviewQuestionPayload[] {
         questionHash,
         questionText: getQuestionText(questionNode),
         answerOptions: collectReviewQuestionOptions(questionNode),
-        answers
+        answers,
       };
     })
     .filter((question): question is ReviewQuestionPayload => question !== null);
 }
 
-const REVIEW_OPTION_PLACEHOLDER_PATTERNS = [/^choose(\s*(…|\.\.\.))?$/i, /^выберите(\s*(…|\.\.\.))?$/i];
+const REVIEW_OPTION_PLACEHOLDER_PATTERNS = [
+  /^choose(\s*(…|\.\.\.))?$/i,
+  /^выберите(\s*(…|\.\.\.))?$/i,
+];
 const REVIEW_OPTION_MAX_COUNT = 200;
 const REVIEW_OPTION_MAX_LENGTH = 300;
 
-// Every option the review page rendered: radio/checkbox labels plus select
-// options (match and gapselect render their pools as <option> elements).
-// Free-form types (shortanswer, numerical, essay) produce an empty list.
 export function collectReviewQuestionOptions(questionNode: Element): string[] {
   const options: string[] = [];
   const seenLower = new Set<string>();
@@ -408,7 +388,9 @@ export function collectReviewQuestionOptions(questionNode: Element): string[] {
     options.push(label);
   };
 
-  for (const input of questionNode.querySelectorAll<HTMLInputElement>("input[type='radio'], input[type='checkbox']")) {
+  for (const input of questionNode.querySelectorAll<HTMLInputElement>(
+    "input[type='radio'], input[type='checkbox']",
+  )) {
     pushOption(getInputAnswerLabelText(questionNode, input));
   }
 
@@ -426,7 +408,7 @@ function createReviewAnswerKey(label: string) {
 function getCompoundReviewControls(questionNode: Element) {
   const controls: Array<HTMLInputElement | HTMLSelectElement> = [
     ...Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select")),
-    ...getTextAnswerInputs(questionNode)
+    ...getTextAnswerInputs(questionNode),
   ];
   const seenChoiceGroups = new Set<string>();
 
@@ -452,31 +434,33 @@ function getCompoundReviewControls(questionNode: Element) {
 function getControlSlotObservation(
   control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   label: string,
-  explicitSlotIndex: number | null = null
+  explicitSlotIndex: number | null = null,
 ) {
   const slotIndex = explicitSlotIndex ?? getAnswerControlSlotIndex(control);
 
   return {
     label,
     slotKey: slotIndex === null ? "question" : `slot:${slotIndex}`,
-    slotIndex
+    slotIndex,
   };
 }
 
 function getCorrectAnswerFromFeedbackText(feedbackText: string) {
   const match =
     /(?:the\s+correct\s+answers?\s+(?:is|are)|правильн(?:ый|ые)\s+ответ(?:ы)?|верн(?:ый|ые)\s+ответ(?:ы)?)\s*[:：]\s*(.+?)(?=\s*(?:mark|grade|score|оценка|балл)\b|$)/iu.exec(
-      feedbackText
+      feedbackText,
     );
 
   return match ? match[1].replace(/\s+/g, " ").trim() : "";
 }
 
 function getFirstCompoundControl(container: Element) {
-  const textInput = Array.from(container.querySelectorAll<HTMLInputElement>("input")).find((input) => {
-    const type = (input.getAttribute("type") ?? "text").toLowerCase();
-    return type === "text";
-  });
+  const textInput = Array.from(container.querySelectorAll<HTMLInputElement>("input")).find(
+    (input) => {
+      const type = (input.getAttribute("type") ?? "text").toLowerCase();
+      return type === "text";
+    },
+  );
 
   if (textInput) {
     return textInput;
@@ -488,9 +472,13 @@ function getFirstCompoundControl(container: Element) {
     return select;
   }
 
-  return Array.from(container.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')).find((input) => {
-    return !input.closest(".questionflag") && !input.name.includes("_:flagged");
-  }) ?? null;
+  return (
+    Array.from(
+      container.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
+    ).find((input) => {
+      return !input.closest(".questionflag") && !input.name.includes("_:flagged");
+    }) ?? null
+  );
 }
 
 function getMoodleSelectedOption(select: HTMLSelectElement) {
@@ -506,7 +494,7 @@ function getQuestionSlotObservation(label: string) {
   return {
     label,
     slotKey: "question",
-    slotIndex: null as number | null
+    slotIndex: null as number | null,
   };
 }
 
@@ -521,20 +509,20 @@ export function getQuizReviewUrlIdentity(pageUrl: string) {
     return {
       attemptId,
       cmId,
-      attemptKey: `${attemptPart}|${cmidPart}`
+      attemptKey: `${attemptPart}|${cmidPart}`,
     };
   } catch {
     return {
       attemptId: null,
       cmId: null,
-      attemptKey: `page:${pageUrl}`
+      attemptKey: `page:${pageUrl}`,
     };
   }
 }
 
 function getReviewChoiceInputs(questionNode: Element) {
   return Array.from(
-    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
   ).filter((input) => !input.closest(".questionflag") && !input.name.includes("_:flagged"));
 }
 
@@ -566,7 +554,11 @@ function getReviewCorrectLabels(questionNode: Element) {
   return getUniqueTexts(labels);
 }
 
-function getReviewCorrectObservations(questionNode: Element, questionType: string | null, correctLabels: string[]) {
+function getReviewCorrectObservations(
+  questionNode: Element,
+  questionType: string | null,
+  correctLabels: string[],
+) {
   if (questionType !== null && TEXT_INPUT_QUESTION_TYPES.has(questionType)) {
     return getReviewTextInputCorrectObservations(questionNode);
   }
@@ -612,7 +604,9 @@ function getReviewCorrectObservations(questionNode: Element, questionType: strin
   }
 
   if (
-    (questionType === "gapselect" || questionType === "gapfill" || isMatchingQuestionTypeName(questionType)) &&
+    (questionType === "gapselect" ||
+      questionType === "gapfill" ||
+      isMatchingQuestionTypeName(questionType)) &&
     correctLabels.length > 0
   ) {
     const selects = Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select"));
@@ -645,7 +639,7 @@ function getReviewDdimageOrTextCorrectObservations(questionNode: Element): Revie
     const labels = matchAnswerTextToOptionsInTextOrder(
       getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)),
       choices,
-      drops.length
+      drops.length,
     );
 
     if (labels.length >= drops.length) {
@@ -658,7 +652,7 @@ function getReviewDdimageOrTextCorrectObservations(questionNode: Element): Revie
             ? {
                 label,
                 slotKey: `slot:${slotIndex}`,
-                slotIndex
+                slotIndex,
               }
             : null;
         })
@@ -679,7 +673,7 @@ function getReviewDdimageOrTextSelectedObservations(questionNode: Element): Revi
         ? {
             label,
             slotKey: `slot:${slotIndex}`,
-            slotIndex
+            slotIndex,
           }
         : null;
     })
@@ -714,7 +708,7 @@ function getReviewDdmarkerCorrectObservations(questionNode: Element): ReviewObse
         ? {
             label: coordinate,
             slotKey: `slot:${choice.choiceIndex}`,
-            slotIndex: choice.choiceIndex
+            slotIndex: choice.choiceIndex,
           }
         : null;
     })
@@ -730,7 +724,7 @@ function getReviewDdmarkerSelectedObservations(questionNode: Element): ReviewObs
         ? {
             label: coordinate,
             slotKey: `slot:${choice.choiceIndex}`,
-            slotIndex: choice.choiceIndex
+            slotIndex: choice.choiceIndex,
           }
         : null;
     })
@@ -752,7 +746,7 @@ function getReviewDdwtosCorrectObservations(questionNode: Element): ReviewObserv
         : matchAnswerTextToOptionsInTextOrder(
             getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)),
             choices,
-            drops.length
+            drops.length,
           );
 
     if (labels.length >= drops.length) {
@@ -765,7 +759,7 @@ function getReviewDdwtosCorrectObservations(questionNode: Element): ReviewObserv
             ? {
                 label,
                 slotKey: `slot:${slotIndex}`,
-                slotIndex
+                slotIndex,
               }
             : null;
         })
@@ -786,7 +780,7 @@ function getReviewDdwtosSelectedObservations(questionNode: Element): ReviewObser
         ? {
             label,
             slotKey: `slot:${slotIndex}`,
-            slotIndex
+            slotIndex,
           }
         : null;
     })
@@ -806,23 +800,25 @@ function getReviewDisplayedTextAnswer(questionNode: Element) {
     return "";
   }
 
-  clone.querySelectorAll(
-    [
-      `[${ANSWER_WIDGET_ATTR}="true"]`,
-      "input",
-      "select",
-      "textarea",
-      "button",
-      "script",
-      "style",
-      ".accesshide",
-      ".visually-hidden",
-      ".icon",
-      ".feedback",
-      ".rightanswer",
-      ".validationerror"
-    ].join(",")
-  ).forEach((node) => node.remove());
+  clone
+    .querySelectorAll(
+      [
+        `[${ANSWER_WIDGET_ATTR}="true"]`,
+        "input",
+        "select",
+        "textarea",
+        "button",
+        "script",
+        "style",
+        ".accesshide",
+        ".visually-hidden",
+        ".icon",
+        ".feedback",
+        ".rightanswer",
+        ".validationerror",
+      ].join(","),
+    )
+    .forEach((node) => node.remove());
 
   return cleanReviewDisplayedTextAnswer(getMoodleAnswerLabelText(clone));
 }
@@ -860,13 +856,15 @@ function getReviewGapSelectCorrectObservations(questionNode: Element): ReviewObs
     const bracketedLabels = extractBracketedAnswers(getMoodleAnswerLabelText(rightAnswerNode));
 
     if (bracketedLabels.length >= selects.length) {
-      return selects.map((select, index) => getSelectSlotObservation(select, bracketedLabels[index]));
+      return selects.map((select, index) =>
+        getSelectSlotObservation(select, bracketedLabels[index]),
+      );
     }
 
     const labels = matchAnswerTextToOptionsInTextOrder(
       getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)),
       optionLabels,
-      selects.length
+      selects.length,
     );
 
     if (labels.length >= selects.length) {
@@ -880,11 +878,14 @@ function getReviewGapSelectCorrectObservations(questionNode: Element): ReviewObs
 function getReviewMatchCorrectObservations(questionNode: Element): ReviewObservation[] {
   const rightAnswerNodes = Array.from(questionNode.querySelectorAll(".rightanswer"));
   const imagePairs = rightAnswerNodes.flatMap(parseReviewMatchImagePairs);
-  const pairs = imagePairs.length > 0
-    ? imagePairs
-    : rightAnswerNodes.flatMap((rightAnswerNode) => {
-        return parseReviewMatchPairs(getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)));
-      });
+  const pairs =
+    imagePairs.length > 0
+      ? imagePairs
+      : rightAnswerNodes.flatMap((rightAnswerNode) => {
+          return parseReviewMatchPairs(
+            getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode)),
+          );
+        });
 
   if (pairs.length === 0) {
     return [];
@@ -904,7 +905,7 @@ function getReviewMatchCorrectObservations(questionNode: Element): ReviewObserva
     observations.push({
       label: pair.answer,
       slotKey: promptLabel,
-      slotIndex: getSelectPlaceIndex(select)
+      slotIndex: getSelectPlaceIndex(select),
     });
   });
 
@@ -922,7 +923,9 @@ function getReviewMultianswerCorrectObservations(questionNode: Element): ReviewO
       continue;
     }
 
-    const correctLabel = getCorrectAnswerFromFeedbackText(getReviewFeedbackContentText(feedbackTrigger));
+    const correctLabel = getCorrectAnswerFromFeedbackText(
+      getReviewFeedbackContentText(feedbackTrigger),
+    );
 
     if (!correctLabel) {
       continue;
@@ -935,7 +938,9 @@ function getReviewMultianswerCorrectObservations(questionNode: Element): ReviewO
     return observations;
   }
 
-  return isReviewQuestionMarkedCorrect(questionNode) ? getReviewMultianswerSelectedObservations(questionNode) : [];
+  return isReviewQuestionMarkedCorrect(questionNode)
+    ? getReviewMultianswerSelectedObservations(questionNode)
+    : [];
 }
 
 function getReviewMultianswerSelectedObservations(questionNode: Element): ReviewObservation[] {
@@ -981,7 +986,12 @@ function getReviewOrderingCorrectObservations(questionNode: Element): ReviewObse
   }
 
   return Array.from(questionNode.querySelectorAll(".rightanswer ol.correctorder li"))
-    .map((item, index) => getOrderingPositionObservation(index + 1, getMoodleAnswerLabelText(item).replace(/\s+/g, " ").trim()))
+    .map((item, index) =>
+      getOrderingPositionObservation(
+        index + 1,
+        getMoodleAnswerLabelText(item).replace(/\s+/g, " ").trim(),
+      ),
+    )
     .filter((observation) => observation.label.trim() !== "");
 }
 
@@ -992,7 +1002,9 @@ function getReviewOrderingSelectedObservations(questionNode: Element): ReviewObs
 }
 
 function getReviewQuestionFeedbackText(questionNode: Element) {
-  return normalizeAnswerLabel(questionNode.querySelector(".outcome .feedback, .specificfeedback")?.textContent ?? "");
+  return normalizeAnswerLabel(
+    questionNode.querySelector(".outcome .feedback, .specificfeedback")?.textContent ?? "",
+  );
 }
 
 function getReviewQuestionStateText(questionNode: Element) {
@@ -1026,7 +1038,7 @@ function getReviewSelectedObservations(questionNode: Element) {
 
   const observations: ReviewObservation[] = [];
   const choiceInputs = Array.from(
-    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
   );
 
   for (const input of choiceInputs) {
@@ -1040,7 +1052,7 @@ function getReviewSelectedObservations(questionNode: Element) {
       observations.push(
         questionNode.classList.contains("multianswer")
           ? getControlSlotObservation(input, label)
-          : getQuestionSlotObservation(label)
+          : getQuestionSlotObservation(label),
       );
     }
   }
@@ -1063,18 +1075,22 @@ function getReviewSelectedObservations(questionNode: Element) {
 }
 
 function getReviewTextInputCorrectObservations(questionNode: Element) {
-  const labels = Array.from(questionNode.querySelectorAll(".rightanswer"))
-    .flatMap((rightAnswerNode) => splitReviewAnswerText(getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode))));
+  const labels = Array.from(questionNode.querySelectorAll(".rightanswer")).flatMap(
+    (rightAnswerNode) =>
+      splitReviewAnswerText(getRightAnswerBodyText(getMoodleAnswerLabelText(rightAnswerNode))),
+  );
 
   return getUniqueTexts(labels).map(getQuestionSlotObservation);
 }
 
 function getReviewTextInputSelectedObservations(questionNode: Element): ReviewObservation[] {
   const observations: ReviewObservation[] = [];
-  const textInputs = Array.from(questionNode.querySelectorAll<HTMLInputElement>("input")).filter((input) => {
-    const type = (input.getAttribute("type") ?? "text").toLowerCase();
-    return type === "text" && getReviewTextInputValue(input) !== "";
-  });
+  const textInputs = Array.from(questionNode.querySelectorAll<HTMLInputElement>("input")).filter(
+    (input) => {
+      const type = (input.getAttribute("type") ?? "text").toLowerCase();
+      return type === "text" && getReviewTextInputValue(input) !== "";
+    },
+  );
 
   for (const input of textInputs) {
     const label = getReviewTextInputValue(input);
@@ -1082,7 +1098,7 @@ function getReviewTextInputSelectedObservations(questionNode: Element): ReviewOb
     observations.push(
       questionNode.classList.contains("multianswer")
         ? getControlSlotObservation(input, label)
-        : getQuestionSlotObservation(label)
+        : getQuestionSlotObservation(label),
     );
   }
 
@@ -1114,7 +1130,7 @@ function getSelectSlotObservation(select: HTMLSelectElement, label: string) {
       return {
         label,
         slotKey: promptLabel,
-        slotIndex
+        slotIndex,
       };
     }
   }
@@ -1125,10 +1141,13 @@ function getSelectSlotObservation(select: HTMLSelectElement, label: string) {
 }
 
 function hasFullReviewGrade(questionNode: Element) {
-  const gradeText = (questionNode.querySelector(".grade")?.textContent ?? "").replace(/\s+/g, " ").trim();
-  const gradeMatch = /(?:mark|score|grade|оценка|балл)[^\d]*(\d+(?:[.,]\d+)?)\s*(?:out of|\/|из)\s*(\d+(?:[.,]\d+)?)/i.exec(
-    gradeText
-  );
+  const gradeText = (questionNode.querySelector(".grade")?.textContent ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const gradeMatch =
+    /(?:mark|score|grade|оценка|балл)[^\d]*(\d+(?:[.,]\d+)?)\s*(?:out of|\/|из)\s*(\d+(?:[.,]\d+)?)/i.exec(
+      gradeText,
+    );
 
   if (!gradeMatch) {
     return false;
@@ -1151,7 +1170,7 @@ export async function initializeQuizReviewSave() {
     await saveQuizReviewSaveDiagnostics("content-blocked-after-load", {
       reason: "quiz features unavailable",
       hasAuthSession: Boolean(storedState?.authSession?.user?.id),
-      extensionEnabled: storedState?.settings?.extensionEnabled !== false
+      extensionEnabled: storedState?.settings?.extensionEnabled !== false,
     });
     return;
   }
@@ -1177,7 +1196,7 @@ export async function initializeQuizReviewSave() {
 
   if (!savePayload) {
     await saveQuizReviewSaveDiagnostics("content-no-payload", {
-      questionCount: document.querySelectorAll(".que").length
+      questionCount: document.querySelectorAll(".que").length,
     });
     logReduxShareInfo("ReduxShare: review page detected, no supported answers found");
     await clearQuizReviewPendingMarker(identity.attemptKey);
@@ -1199,15 +1218,15 @@ export async function initializeQuizReviewSave() {
           slotKey: answer.slotKey,
           correctness: answer.correctness,
           isCorrect: answer.isCorrect,
-          wasSelected: answer.wasSelected
-        }))
-      }))
+          wasSelected: answer.wasSelected,
+        })),
+      })),
     });
     const response = await requestSaveReviewAnswersWithRetry(savePayload);
 
     if (!response.ok) {
       await saveQuizReviewSaveDiagnostics("content-response-error", {
-        response
+        response,
       });
       logReduxShareWarning("ReduxShare: review answers save failed", response.error);
       return;
@@ -1217,17 +1236,17 @@ export async function initializeQuizReviewSave() {
       response,
       courseId: savePayload.courseId,
       quizId: savePayload.quizId,
-      attemptKey: savePayload.attemptKey
+      attemptKey: savePayload.attemptKey,
     });
     await clearQuizReviewPendingMarker(identity.attemptKey);
     logReduxShareInfo(
       "ReduxShare: review answers processed",
-      response.imported ? response.savedCount ?? 0 : 0,
-      response.queued ? "queued" : response.imported === false ? "duplicate" : "saved"
+      response.imported ? (response.savedCount ?? 0) : 0,
+      response.queued ? "queued" : response.imported === false ? "duplicate" : "saved",
     );
   } catch (error) {
     await saveQuizReviewSaveDiagnostics("content-exception", {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     logReduxShareWarning("ReduxShare: review answers save failed", error);
   }
@@ -1269,19 +1288,6 @@ function isReviewQuestionMarkedCorrect(questionNode: Element) {
   );
 }
 
-function isReviewQuestionMarkedIncorrect(questionNode: Element) {
-  const stateText = getReviewQuestionStateText(questionNode);
-  const feedbackText = getReviewQuestionFeedbackText(questionNode);
-
-  return (
-    questionNode.classList.contains("incorrect") ||
-    /\bincorrect\b/i.test(stateText) ||
-    stateText.includes("невер") ||
-    /\byour answer is incorrect\b/i.test(feedbackText) ||
-    feedbackText.includes("ответ невер")
-  );
-}
-
 function matchAnswerTextToOptions(answerText: string, optionLabels: string[]) {
   const normalizedAnswerText = normalizeAnswerLabel(answerText);
   const answerPartKeys = new Set(splitReviewAnswerText(answerText).map(normalizeAnswerLabel));
@@ -1290,7 +1296,11 @@ function matchAnswerTextToOptions(answerText: string, optionLabels: string[]) {
   for (const optionLabel of optionLabels) {
     const optionKeys = getAnswerLabelMatchKeys(optionLabel);
     const isMatched = [...optionKeys].some((key) => {
-      return answerPartKeys.has(key) || normalizedAnswerText === key || (key.length >= 3 && normalizedAnswerText.includes(key));
+      return (
+        answerPartKeys.has(key) ||
+        normalizedAnswerText === key ||
+        (key.length >= 3 && normalizedAnswerText.includes(key))
+      );
     });
 
     if (isMatched) {
@@ -1301,7 +1311,11 @@ function matchAnswerTextToOptions(answerText: string, optionLabels: string[]) {
   return getUniqueTexts(matchedLabels);
 }
 
-function matchAnswerTextToOptionsInTextOrder(answerText: string, optionLabels: string[], expectedCount: number) {
+function matchAnswerTextToOptionsInTextOrder(
+  answerText: string,
+  optionLabels: string[],
+  expectedCount: number,
+) {
   const normalizedAnswerText = normalizeAnswerLabel(answerText);
   const matches = optionLabels
     .map((label) => {
@@ -1346,7 +1360,7 @@ function parseReviewMatchImagePairs(rightAnswerNode: Element) {
 
     pairs.push({
       prompt: pendingPrompt,
-      answer: answerMatch[1].replace(/\s+/g, " ").trim()
+      answer: answerMatch[1].replace(/\s+/g, " ").trim(),
     });
     pendingPrompt = null;
   }
@@ -1367,7 +1381,7 @@ function requestSaveReviewAnswers(payload: {
       chrome.runtime.sendMessage(
         {
           type: SAVE_REVIEW_ANSWERS_MESSAGE,
-          payload
+          payload,
         },
         (response: SaveReviewAnswersResponse | undefined) => {
           const runtimeError = chrome.runtime.lastError;
@@ -1378,21 +1392,17 @@ function requestSaveReviewAnswers(payload: {
           }
 
           resolve(response ?? { ok: false, error: "Background script did not return a response." });
-        }
+        },
       );
     } catch (error) {
-      // Synchronous throw: the extension context is gone (reloaded/removed).
       reject(error instanceof Error ? error : new Error(String(error)));
     }
   });
 }
 
-// Transport-level failures (a just-woken service worker, a closed message port)
-// are retried a couple of times before giving up. Background-level failures are
-// not retried here: the background queues them itself for its own retry cycle.
 async function requestSaveReviewAnswersWithRetry(
   payload: Parameters<typeof requestSaveReviewAnswers>[0],
-  attempts = 3
+  attempts = 3,
 ) {
   let lastError: unknown;
 
@@ -1413,27 +1423,30 @@ async function requestSaveReviewAnswersWithRetry(
 
 function reviewObservationsMatch(
   left: { label: string; slotKey: string },
-  right: { label: string; slotKey: string }
-
+  right: { label: string; slotKey: string },
 ) {
-  const slotsMatch = left.slotKey === right.slotKey || left.slotKey === "question" || right.slotKey === "question";
+  const slotsMatch =
+    left.slotKey === right.slotKey || left.slotKey === "question" || right.slotKey === "question";
   return slotsMatch && labelsMatch(left.label, right.label);
 }
 export async function saveQuizReviewPendingMarker(marker: QuizReviewPendingMarker) {
   await chrome.storage.local.set({
-    [QUIZ_REVIEW_PENDING_STORAGE_KEY]: marker
+    [QUIZ_REVIEW_PENDING_STORAGE_KEY]: marker,
   });
 }
 
-export async function saveQuizReviewSaveDiagnostics(stage: string, details: Record<string, unknown> = {}) {
+export async function saveQuizReviewSaveDiagnostics(
+  stage: string,
+  details: Record<string, unknown> = {},
+) {
   try {
     await chrome.storage.local.set({
       [QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY]: {
         stage,
         pageUrl: window.location.href,
         savedAt: new Date().toISOString(),
-        details
-      }
+        details,
+      },
     });
   } catch {
     // Diagnostics must not block quiz behavior.

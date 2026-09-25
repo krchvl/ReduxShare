@@ -6,22 +6,28 @@ export const EXTERNAL_REQUEST_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_ENDPOINT_KEY = [91, 17, 203, 44, 7, 180, 63, 128, 54] as const;
 const EXTERNAL_ENDPOINT_SEGMENTS = {
-  authority: [57, 88, 234, 33, 249, 112, 149, 24, 90, 93, 56, 204, 197, 204, 22, 169, 248, 56, 9, 42],
-  resource: [101, 64, 244, 43, 165, 110, 198, 69, 78, 6, 63, 215, 134, 208, 24, 177, 244, 98, 13, 32, 216]
+  authority: [
+    57, 88, 234, 33, 249, 112, 149, 24, 90, 93, 56, 204, 197, 204, 22, 169, 248, 56, 9, 42,
+  ],
+  resource: [
+    101, 64, 244, 43, 165, 110, 198, 69, 78, 6, 63, 215, 134, 208, 24, 177, 244, 98, 13, 32, 216,
+  ],
 } as const;
 
 function decodeExternalEndpointSegment(segment: readonly number[]) {
   return segment
     .map((value, index) => {
       const positionalMask = (index * 31 + 17) & 255;
-      return String.fromCharCode(value ^ EXTERNAL_ENDPOINT_KEY[index % EXTERNAL_ENDPOINT_KEY.length] ^ positionalMask);
+      return String.fromCharCode(
+        value ^ EXTERNAL_ENDPOINT_KEY[index % EXTERNAL_ENDPOINT_KEY.length] ^ positionalMask,
+      );
     })
     .join("");
 }
 
 function getExternalVariantsUrl() {
   return `https://${decodeExternalEndpointSegment(EXTERNAL_ENDPOINT_SEGMENTS.authority)}${decodeExternalEndpointSegment(
-    EXTERNAL_ENDPOINT_SEGMENTS.resource
+    EXTERNAL_ENDPOINT_SEGMENTS.resource,
   )}`;
 }
 
@@ -51,18 +57,20 @@ export interface ExternalVariantResult {
   error?: string;
 }
 
-export function buildVariantsUrl(payload: ExternalVariantsPayload, question: ExternalQuestionRequest) {
+export function buildVariantsUrl(
+  payload: ExternalVariantsPayload,
+  question: ExternalQuestionRequest,
+) {
   const params = new URLSearchParams({
     host: payload.domain,
     courseId: String(payload.courseId),
     quizId: String(payload.quizId),
-    // Real page meta when the content script could read it, otherwise the
-    // historical "1" placeholders (server tolerates them).
+
     moodleId: payload.moodleUserId ?? "1",
     questionId: question.questionId ?? "",
     attemptId: payload.attemptId ?? "1",
     client: EXTERNAL_CLIENT_VERSION,
-    questionType: question.questionType ?? ""
+    questionType: question.questionType ?? "",
   });
 
   return `${getExternalVariantsUrl()}?${params.toString()}`;
@@ -82,12 +90,6 @@ async function readResponseBody(response: Response): Promise<unknown> {
   }
 }
 
-/**
- * Variants data is always null, an array of rows, or a single row object.
- * Anything else (bare strings from HTML error pages, numbers, booleans)
- * is never valid data: normalize it to null so downstream parsers that
- * expect rows keep behaving exactly as they do for empty responses.
- */
 export function normalizeExternalVariantsData(data: unknown): { data: unknown; invalid: boolean } {
   if (data === null || data === undefined) {
     return { data: null, invalid: false };
@@ -106,15 +108,13 @@ export function normalizeExternalVariantsData(data: unknown): { data: unknown; i
 
 export function isAbortError(error: unknown) {
   return (
-    (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError") ||
+    (typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "AbortError") ||
     (error instanceof Error && error.name === "AbortError")
   );
 }
 
-// The provider returns an empty list for an unknown qtype instead of an error,
-// so "no rows" from a possibly-wrong type says nothing about data existence.
-// The probe order puts the common qtypes first; the list mirrors
-// MOODLE_QUESTION_TYPE_LABELS and is bounded per question.
 export const EXTERNAL_TYPE_PROBE_ORDER = [
   "multichoice",
   "truefalse",
@@ -132,7 +132,7 @@ export const EXTERNAL_TYPE_PROBE_ORDER = [
   "multianswer",
   "calculated",
   "calculatedsimple",
-  "calculatedmulti"
+  "calculatedmulti",
 ] as const;
 
 export const EXTERNAL_TYPE_PROBE_LIMIT = 10;
@@ -154,32 +154,24 @@ export interface ExternalTypeProbeHit {
   questionType: string;
 }
 
-/**
- * Bounded bruteforce over the known Moodle question types: the stored or
- * DOM-read type can be stale (legacy names, renamed types), and the provider
- * answers such requests with an empty list instead of an error. The first
- * qtype that yields rows wins; anything else returns null so the caller can
- * keep the original (empty) result instead of caching the miss.
- */
 export async function probeExternalQuestionType(
   payload: ExternalVariantsPayload,
   question: ExternalQuestionRequest,
-  language?: LanguageSetting
+  language?: LanguageSetting,
 ): Promise<ExternalTypeProbeHit | null> {
   if (!question.questionId) {
     return null;
   }
 
-  const candidates = EXTERNAL_TYPE_PROBE_ORDER.filter((qtype) => qtype !== question.questionType).slice(
-    0,
-    EXTERNAL_TYPE_PROBE_LIMIT
-  );
+  const candidates = EXTERNAL_TYPE_PROBE_ORDER.filter(
+    (qtype) => qtype !== question.questionType,
+  ).slice(0, EXTERNAL_TYPE_PROBE_LIMIT);
 
   for (const qtype of candidates) {
     const probeResult = await fetchQuestionVariants(
       payload,
       { ...question, questionType: qtype },
-      language
+      language,
     );
 
     if (hasExternalAnswerRows(probeResult)) {
@@ -195,7 +187,7 @@ export function buildExternalAnswerUrl(
   courseId: number,
   quizId: number,
   question: ExternalQuestionRequest,
-  language?: string
+  language?: string,
 ): string {
   const params = new URLSearchParams({
     host: domain,
@@ -206,7 +198,7 @@ export function buildExternalAnswerUrl(
     attemptId: "1",
     client: EXTERNAL_CLIENT_VERSION,
     questionType: question.questionType ?? "",
-    language: language ?? "en"
+    language: language ?? "en",
   });
 
   return `${getExternalVariantsUrl()}?${params.toString()}`;
@@ -218,17 +210,21 @@ export async function fetchExternalAnswer(
   courseId: number,
   quizId: number,
   language?: string,
-  timeoutMs: number = EXTERNAL_REQUEST_TIMEOUT_MS
+  timeoutMs: number = EXTERNAL_REQUEST_TIMEOUT_MS,
 ): Promise<{ ok: boolean; data: unknown | null }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const url = buildExternalAnswerUrl(domain, courseId, quizId, question, language);
-    const response = await fetchWithTimeout(url, {
-      method: "GET",
-      headers: { Accept: "*/*" }
-    }, timeoutMs);
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: { Accept: "*/*" },
+      },
+      timeoutMs,
+    );
 
     clearTimeout(timeoutId);
 
@@ -244,13 +240,17 @@ export async function fetchExternalAnswer(
     } catch {
       return { ok: false, data: null };
     }
-  } catch (error) {
+  } catch {
     clearTimeout(timeoutId);
     return { ok: false, data: null };
   }
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -265,7 +265,7 @@ export async function fetchQuestionVariants(
   payload: ExternalVariantsPayload,
   question: ExternalQuestionRequest,
   language?: LanguageSetting,
-  timeoutMs: number = EXTERNAL_REQUEST_TIMEOUT_MS
+  timeoutMs: number = EXTERNAL_REQUEST_TIMEOUT_MS,
 ): Promise<ExternalVariantResult> {
   const t = getTranslator(language);
 
@@ -275,7 +275,7 @@ export async function fetchQuestionVariants(
       questionType: question.questionType,
       questionHash: question.questionHash,
       ok: false,
-      error: t("errors.questionIdMissing")
+      error: t("errors.questionIdMissing"),
     };
   }
 
@@ -285,10 +285,10 @@ export async function fetchQuestionVariants(
       {
         method: "GET",
         headers: {
-          Accept: "*/*"
-        }
+          Accept: "*/*",
+        },
       },
-      timeoutMs
+      timeoutMs,
     );
     const { data, invalid } = normalizeExternalVariantsData(await readResponseBody(response));
 
@@ -300,7 +300,7 @@ export async function fetchQuestionVariants(
         ok: false,
         status: response.status,
         data,
-        error: t("errors.externalRequest")
+        error: t("errors.externalRequest"),
       };
     }
 
@@ -310,7 +310,7 @@ export async function fetchQuestionVariants(
       questionHash: question.questionHash,
       ok: response.ok,
       status: response.status,
-      data
+      data,
     };
   } catch (error) {
     return {
@@ -318,7 +318,9 @@ export async function fetchQuestionVariants(
       questionType: question.questionType,
       questionHash: question.questionHash,
       ok: false,
-      error: isAbortError(error) ? t("errors.externalRequest") : getRequestErrorMessage(error, language)
+      error: isAbortError(error)
+        ? t("errors.externalRequest")
+        : getRequestErrorMessage(error, language),
     };
   }
 }

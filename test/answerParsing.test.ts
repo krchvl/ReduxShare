@@ -3,15 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   getBooleanSuggestionValue,
   parseAiMatchPairs,
-  splitAiMatchPairText
+  splitAiMatchPairText,
 } from "../src/shared/answerParsing";
 
 describe("splitAiMatchPairText", () => {
   it("splits on newlines, semicolons and pair commas, keeping pair separators intact", () => {
     expect(splitAiMatchPairText("a → b\nc; d")).toEqual(["a → b", "c", "d"]);
     expect(splitAiMatchPairText("cat=кот, dog=собака")).toEqual(["cat=кот", "dog=собака"]);
-    // The comma lookahead accepts a separator anywhere in the remainder of the
-    // segment, so even thousands separators split when an "=" follows later.
+
     expect(splitAiMatchPairText("1,000 = one thousand")).toEqual(["1", "000 = one thousand"]);
   });
 
@@ -24,11 +23,11 @@ describe("parseAiMatchPairs", () => {
   it("parses arrow, equals and colon separators with all quote styles", () => {
     expect(parseAiMatchPairs("cat → кот; dog -> собака")).toEqual([
       { prompt: "cat", answer: "кот" },
-      { prompt: "dog", answer: "собака" }
+      { prompt: "dog", answer: "собака" },
     ]);
     expect(parseAiMatchPairs('"Ohm" => "Ампер"')).toEqual([{ prompt: "Ohm", answer: "Ампер" }]);
     expect(parseAiMatchPairs("{voltage: напряжение}")).toEqual([
-      { prompt: "voltage", answer: "напряжение" }
+      { prompt: "voltage", answer: "напряжение" },
     ]);
   });
 
@@ -37,8 +36,6 @@ describe("parseAiMatchPairs", () => {
   });
 
   it("keeps the pre-existing => / -> quirk: an empty answer falls back to the tail after =", () => {
-    // Documented quirk of the shared regex, identical in both former copies:
-    // "cat => " backtracks into the "=" alternative, so ">" becomes the answer.
     expect(parseAiMatchPairs("cat => ")).toEqual([{ prompt: "cat", answer: ">" }]);
   });
 });

@@ -1,10 +1,5 @@
 import type { ExternalQuestionRequest } from "./externalProvider";
 
-// The quiz view page has no question markup, so the preview panel can only list
-// questions it knows about. Besides the shared answer database, the extension
-// sees the full question list whenever the user opens an attempt or review page:
-// those identities are recorded here (locally, per browser) so the preview can
-// also query the external provider for questions nobody has shared answers for.
 export interface QuizQuestionStub {
   questionId: string;
   questionType: string | null;
@@ -24,7 +19,7 @@ export async function recordQuizQuestions(
   domain: string,
   courseId: number | null,
   quizId: number | null,
-  questions: Array<ExternalQuestionRequest & { questionText?: string | null }>
+  questions: Array<ExternalQuestionRequest & { questionText?: string | null }>,
 ) {
   if (courseId === null || quizId === null) {
     return;
@@ -45,7 +40,7 @@ export async function recordQuizQuestions(
       questionType: question.questionType?.trim() || null,
       questionHash: question.questionHash?.trim() || null,
       questionText: question.questionText?.trim() || null,
-      updatedAt: now
+      updatedAt: now,
     });
   }
 
@@ -57,7 +52,9 @@ export async function recordQuizQuestions(
 
   try {
     const stored = await chrome.storage.local.get(storageKey);
-    const existingStubs = Array.isArray(stored[storageKey]) ? (stored[storageKey] as QuizQuestionStub[]) : [];
+    const existingStubs = Array.isArray(stored[storageKey])
+      ? (stored[storageKey] as QuizQuestionStub[])
+      : [];
     const mergedById = new Map<string, QuizQuestionStub>();
 
     for (const stub of existingStubs) {
@@ -69,14 +66,13 @@ export async function recordQuizQuestions(
 
       mergedById.set(questionId, {
         ...stub,
-        // Keep the first non-empty statement ever seen and the freshest type/hash.
+
         questionText: stub.questionText || existing?.questionText || null,
         questionType: stub.questionType ?? existing?.questionType ?? null,
-        questionHash: stub.questionHash ?? existing?.questionHash ?? null
+        questionHash: stub.questionHash ?? existing?.questionHash ?? null,
       });
     }
 
-    // Newest discoveries first; the cap keeps one abandoned quiz from growing forever.
     const stubs = Array.from(mergedById.values())
       .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""))
       .slice(0, REGISTRY_MAX_QUESTIONS_PER_QUIZ);
@@ -88,7 +84,11 @@ export async function recordQuizQuestions(
   }
 }
 
-export async function getQuizQuestionStubs(domain: string, courseId: number | null, quizId: number | null) {
+export async function getQuizQuestionStubs(
+  domain: string,
+  courseId: number | null,
+  quizId: number | null,
+) {
   if (courseId === null || quizId === null) {
     return [];
   }

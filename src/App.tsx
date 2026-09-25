@@ -13,7 +13,6 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_STORED_STATE,
   DEFAULT_UPDATE_STATE,
-  LegacyStoredSettings,
   normalizeSettings,
   resolveColorScheme,
   type AuthSession,
@@ -23,13 +22,11 @@ import {
   type StoredState,
   type UpdateState,
   type UserProfile,
-  type ViewName
+  type ViewName,
 } from "./types";
 
-// Экран настроек (самый тяжёлый компонент popup) загружается лениво отдельным
-// чанком, чтобы не попадать в начальный бандл экранов входа/регистрации.
 const MainScreen = lazy(() =>
-  import("./components/MainScreen").then((module) => ({ default: module.MainScreen }))
+  import("./components/MainScreen").then((module) => ({ default: module.MainScreen })),
 );
 
 interface UserProfileSeed {
@@ -40,7 +37,7 @@ interface UserProfileSeed {
 export async function getAuthenticatedUserState(
   authSession: AuthSession,
   moodleDomain: string | null,
-  seed: UserProfileSeed = {}
+  seed: UserProfileSeed = {},
 ) {
   try {
     return await touchUserProfile(authSession, moodleDomain, seed);
@@ -48,12 +45,12 @@ export async function getAuthenticatedUserState(
     console.warn("ReduxShare auth: profile sync failed", {
       userId: authSession.user.id,
       moodleDomain,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
     return {
       authSession,
-      userProfile: null
+      userProfile: null,
     };
   }
 }
@@ -79,7 +76,11 @@ export function App() {
   }, [colorScheme]);
 
   useEffect(() => {
-    if (settings.colorScheme !== "system" || typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      settings.colorScheme !== "system" ||
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return undefined;
     }
 
@@ -97,27 +98,31 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
 
-    loadStoredState().then((storedState) => {
-      if (cancelled) {
-        return;
-      }
+    loadStoredState()
+      .then((storedState) => {
+        if (cancelled) {
+          return;
+        }
 
-      const nextState: StoredState = {
-        ...DEFAULT_STORED_STATE,
-        ...storedState,
-        settings: normalizeSettings(storedState.settings),
-        authSession: storedState.authSession ?? null,
-        userProfile: storedState.userProfile ?? null,
-        updateState: normalizeUpdateState(storedState.updateState)
-      };
+        const nextState: StoredState = {
+          ...DEFAULT_STORED_STATE,
+          ...storedState,
+          settings: normalizeSettings(storedState.settings),
+          authSession: storedState.authSession ?? null,
+          userProfile: storedState.userProfile ?? null,
+          updateState: normalizeUpdateState(storedState.updateState),
+        };
 
-      setSettings(nextState.settings);
-      setAuthSession(nextState.authSession);
-      setUserProfile(nextState.userProfile);
-      setUpdateState(nextState.updateState ?? DEFAULT_UPDATE_STATE);
-      setView(nextState.authSession ? "main" : "login");
-      setHydrated(true);
-    });
+        setSettings(nextState.settings);
+        setAuthSession(nextState.authSession);
+        setUserProfile(nextState.userProfile);
+        setUpdateState(nextState.updateState ?? DEFAULT_UPDATE_STATE);
+        setView(nextState.authSession ? "main" : "login");
+        setHydrated(true);
+      })
+      .catch((error: unknown) => {
+        console.warn("ReduxShare auth: stored state hydration failed", { error });
+      });
 
     return () => {
       cancelled = true;
@@ -138,6 +143,8 @@ export function App() {
     }
 
     let cancelled = false;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch status flag for the update check
     setIsCheckingUpdates(true);
 
     requestUpdateCheck({ force: false, reason: "popup" })
@@ -153,8 +160,20 @@ export function App() {
               ...currentState,
               status: "error",
               checkedAt: new Date().toISOString(),
-              error: response.error ?? t("errors.updateCheckFailed")
-            })
+              error: response.error ?? t("errors.updateCheckFailed"),
+            }),
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUpdateState((currentState) =>
+            normalizeUpdateState({
+              ...currentState,
+              status: "error",
+              checkedAt: new Date().toISOString(),
+              error: t("errors.updateCheckFailed"),
+            }),
           );
         }
       })
@@ -167,7 +186,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated]);
+  }, [hydrated, t]);
 
   async function handleLogin(credentials: LoginCredentials) {
     setLoginError(null);
@@ -182,9 +201,10 @@ export function App() {
     try {
       const nextSession = await loginWithPocketBase(credentials);
       const moodleDomain = await getActiveTabHostname();
-      const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(nextSession, moodleDomain, {
-        email: credentials.email
-      });
+      const { authSession: refreshedSession, userProfile: nextProfile } =
+        await getAuthenticatedUserState(nextSession, moodleDomain, {
+          email: credentials.email,
+        });
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
@@ -215,14 +235,11 @@ export function App() {
       }
 
       const moodleDomain = await getActiveTabHostname();
-      const { authSession: refreshedSession, userProfile: nextProfile } = await getAuthenticatedUserState(
-        result.authSession,
-        moodleDomain,
-        {
+      const { authSession: refreshedSession, userProfile: nextProfile } =
+        await getAuthenticatedUserState(result.authSession, moodleDomain, {
           email: credentials.email,
-          username: credentials.username
-        }
-      );
+          username: credentials.username,
+        });
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
@@ -245,7 +262,9 @@ export function App() {
 
   async function handleCheckUpdates() {
     setIsCheckingUpdates(true);
-    setUpdateState((currentState) => normalizeUpdateState({ ...currentState, status: "checking", error: null }));
+    setUpdateState((currentState) =>
+      normalizeUpdateState({ ...currentState, status: "checking", error: null }),
+    );
 
     try {
       const response = await requestUpdateCheck({ force: true, reason: "manual" });
@@ -258,8 +277,8 @@ export function App() {
             ...currentState,
             status: "error",
             checkedAt: new Date().toISOString(),
-            error: response.error ?? t("errors.updateCheckFailed")
-          })
+            error: response.error ?? t("errors.updateCheckFailed"),
+          }),
         );
       }
     } finally {
@@ -270,7 +289,12 @@ export function App() {
   return (
     <I18nProvider language={settings.language}>
       <ErrorBoundary>
-        <Shell extensionEnabled={settings.extensionEnabled} accentColor={settings.accentColor} updateState={updateState} popupOpacity={settings.popupOpacity}>
+        <Shell
+          extensionEnabled={settings.extensionEnabled}
+          accentColor={settings.accentColor}
+          updateState={updateState}
+          popupOpacity={settings.popupOpacity}
+        >
           {view === "login" && (
             <LoginScreen
               isLoading={isLoginLoading}

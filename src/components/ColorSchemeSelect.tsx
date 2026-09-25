@@ -11,7 +11,7 @@ interface ColorSchemeSelectProps {
 const COLOR_SCHEME_OPTIONS: Array<{ value: ColorSchemeSetting; labelKey: TranslationKey }> = [
   { value: "light", labelKey: "settings.theme.light" },
   { value: "dark", labelKey: "settings.theme.dark" },
-  { value: "system", labelKey: "settings.theme.system" }
+  { value: "system", labelKey: "settings.theme.system" },
 ];
 
 const CLOSE_ANIMATION_MS = 160;
@@ -99,7 +99,9 @@ export function ColorSchemeSelect({ value, onChange }: ColorSchemeSelectProps) {
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveIndex((index) => (index - 1 + COLOR_SCHEME_OPTIONS.length) % COLOR_SCHEME_OPTIONS.length);
+      setActiveIndex(
+        (index) => (index - 1 + COLOR_SCHEME_OPTIONS.length) % COLOR_SCHEME_OPTIONS.length,
+      );
       return;
     }
 
@@ -126,7 +128,11 @@ export function ColorSchemeSelect({ value, onChange }: ColorSchemeSelectProps) {
       </button>
       {(isOpen || isClosing) && (
         <>
-          <div className="theme-select-backdrop" aria-hidden="true" onClick={() => closeListbox()} />
+          <div
+            className="theme-select-backdrop"
+            aria-hidden="true"
+            onClick={() => closeListbox()}
+          />
           <div
             id={listboxId}
             className={`theme-listbox ${isOpen ? "theme-listbox--open" : "theme-listbox--closing"}`}

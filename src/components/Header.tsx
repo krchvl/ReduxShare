@@ -7,15 +7,16 @@ interface HeaderProps {
 
 export function Header({ updateState }: HeaderProps) {
   const { t } = useI18n();
-  const updateBadge = updateState.status === "available" ? (
-    updateState.releaseUrl ? (
-      <a className="update-badge" href={updateState.releaseUrl} target="_blank" rel="noreferrer">
-        {t("updates.badge.new")}
-      </a>
-    ) : (
-      <span className="update-badge">{t("updates.badge.new")}</span>
-    )
-  ) : null;
+  const updateBadge =
+    updateState.status === "available" ? (
+      updateState.releaseUrl ? (
+        <a className="update-badge" href={updateState.releaseUrl} target="_blank" rel="noreferrer">
+          {t("updates.badge.new")}
+        </a>
+      ) : (
+        <span className="update-badge">{t("updates.badge.new")}</span>
+      )
+    ) : null;
 
   return (
     <header className="app-header" aria-label="ReduxShare">

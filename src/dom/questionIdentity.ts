@@ -10,7 +10,7 @@ export function getQuestionPostData(questionNode: Element) {
 
 function getQuestionIdFromEditLink(questionNode: Element) {
   const editLink = questionNode.querySelector<HTMLAnchorElement>(
-    '.editquestion a[href*="question.php"], a[href*="/question/bank/editquestion/question.php"]'
+    '.editquestion a[href*="question.php"], a[href*="/question/bank/editquestion/question.php"]',
   );
 
   if (!editLink) {

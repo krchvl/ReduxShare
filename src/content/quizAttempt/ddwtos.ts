@@ -1,4 +1,4 @@
-import { ANSWER_WIDGET_ATTR, type AnswerData } from "../../model";
+import { type AnswerData } from "../../model";
 import { getPreferredSuggestionLabels } from "../../data/answerData";
 import { isDragTextQuestionType } from "../../dom/questionTypes";
 import { getAnswerSlotByIndex } from "./answerControls";
@@ -13,8 +13,9 @@ function getDdwtosChoiceGroupIndex(choice: Element) {
 }
 
 export function getDdwtosDrops(questionNode: Element) {
-  return Array.from(questionNode.querySelectorAll<HTMLElement>(".qtext .drop, .drop.place1, .drop[class*='place']"))
-    .filter((drop) => getClassNumber(drop, "place") !== null);
+  return Array.from(
+    questionNode.querySelectorAll<HTMLElement>(".qtext .drop, .drop.place1, .drop[class*='place']"),
+  ).filter((drop) => getClassNumber(drop, "place") !== null);
 }
 
 export function getDdwtosDropSlotIndex(drop: Element) {
@@ -26,19 +27,21 @@ export function getDdwtosChoiceIndex(choice: Element) {
 }
 
 export function getDdwtosChoices(questionNode: Element) {
-  return Array.from(questionNode.querySelectorAll<HTMLElement>(".answercontainer .draghome, .draghome"))
+  return Array.from(
+    questionNode.querySelectorAll<HTMLElement>(".answercontainer .draghome, .draghome"),
+  )
     .map((choice) => ({
       element: choice,
       choiceIndex: getDdwtosChoiceIndex(choice),
       groupIndex: getDdwtosChoiceGroupIndex(choice),
-      label: getMoodleAnswerLabelText(choice).replace(/\s+/g, " ").trim()
+      label: getMoodleAnswerLabelText(choice).replace(/\s+/g, " ").trim(),
     }))
     .filter((choice) => choice.choiceIndex !== null && choice.label !== "");
 }
 
 export function getDdwtosPlaceInput(questionNode: Element, slotIndex: number) {
   const input = questionNode.querySelector<HTMLInputElement>(
-    `input.placeinput.place${slotIndex}, input[type="hidden"].place${slotIndex}, input[type="hidden"][name$="_p${slotIndex}"]`
+    `input.placeinput.place${slotIndex}, input[type="hidden"].place${slotIndex}, input[type="hidden"][name$="_p${slotIndex}"]`,
   );
 
   return input ?? null;
@@ -50,7 +53,10 @@ export function findDdwtosChoiceForLabel(questionNode: Element, drop: Element, l
 
   return (
     choices.find((choice) => {
-      const groupMatches = dropGroupIndex === null || choice.groupIndex === null || choice.groupIndex === dropGroupIndex;
+      const groupMatches =
+        dropGroupIndex === null ||
+        choice.groupIndex === null ||
+        choice.groupIndex === dropGroupIndex;
       return groupMatches && labelsMatch(choice.label, label);
     }) ?? null
   );
@@ -102,7 +108,8 @@ export function getDdwtosSelectedLabelForDrop(questionNode: Element, drop: Eleme
   }
 
   const input = getDdwtosPlaceInput(questionNode, slotIndex);
-  const selectedChoiceIndex = input?.value && input.value !== "0" ? Number.parseInt(input.value, 10) : null;
+  const selectedChoiceIndex =
+    input?.value && input.value !== "0" ? Number.parseInt(input.value, 10) : null;
 
   if (!Number.isFinite(selectedChoiceIndex)) {
     return "";
@@ -110,7 +117,8 @@ export function getDdwtosSelectedLabelForDrop(questionNode: Element, drop: Eleme
 
   const groupIndex = getDdwtosDropGroupIndex(drop);
   const selectedChoice = getDdwtosChoices(questionNode).find((choice) => {
-    const groupMatches = groupIndex === null || choice.groupIndex === null || choice.groupIndex === groupIndex;
+    const groupMatches =
+      groupIndex === null || choice.groupIndex === null || choice.groupIndex === groupIndex;
     return groupMatches && choice.choiceIndex === selectedChoiceIndex;
   });
 

@@ -14,7 +14,12 @@ import numericalPrompt from "../aiPrompts/numerical.json";
 import orderingPrompt from "../aiPrompts/ordering.json";
 import shortanswerPrompt from "../aiPrompts/shortanswer.json";
 import truefalsePrompt from "../aiPrompts/truefalse.json";
-import type { AiAnswerAction, AiQuestionControl, AiQuestionImage, GenerateAiAnswerPayload } from "./ai";
+import type {
+  AiAnswerAction,
+  AiQuestionControl,
+  AiQuestionImage,
+  GenerateAiAnswerPayload,
+} from "./ai";
 import { parseAiMatchPairs } from "../shared/answerParsing";
 
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -35,29 +40,29 @@ const OPENAI_COMPATIBLE_PROVIDERS: Partial<Record<AiProvider, OpenAiCompatiblePr
     name: "OpenRouter",
     endpoint: "https://openrouter.ai/api/v1/chat/completions",
     extraHeaders: {
-      "X-Title": "ReduxShare"
-    }
+      "X-Title": "ReduxShare",
+    },
   },
   openai: {
     name: "OpenAI",
-    endpoint: "https://api.openai.com/v1/chat/completions"
+    endpoint: "https://api.openai.com/v1/chat/completions",
   },
   groq: {
     name: "Groq",
-    endpoint: "https://api.groq.com/openai/v1/chat/completions"
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
   },
   mistral: {
     name: "Mistral",
-    endpoint: "https://api.mistral.ai/v1/chat/completions"
+    endpoint: "https://api.mistral.ai/v1/chat/completions",
   },
   xai: {
     name: "xAI",
-    endpoint: "https://api.x.ai/v1/chat/completions"
+    endpoint: "https://api.x.ai/v1/chat/completions",
   },
   deepseek: {
     name: "DeepSeek",
-    endpoint: "https://api.deepseek.com/chat/completions"
-  }
+    endpoint: "https://api.deepseek.com/chat/completions",
+  },
 };
 
 type ModelListProviderConfig = {
@@ -70,43 +75,43 @@ const MODEL_LIST_PROVIDERS: Partial<Record<AiProvider, ModelListProviderConfig>>
   google: {
     name: "Google",
     endpoint: GEMINI_API_BASE_URL,
-    auth: "google"
+    auth: "google",
   },
   openrouter: {
     name: "OpenRouter",
     endpoint: "https://openrouter.ai/api/v1/models",
-    auth: "optional-bearer"
+    auth: "optional-bearer",
   },
   openai: {
     name: "OpenAI",
     endpoint: "https://api.openai.com/v1/models",
-    auth: "bearer"
+    auth: "bearer",
   },
   anthropic: {
     name: "Anthropic",
     endpoint: "https://api.anthropic.com/v1/models",
-    auth: "anthropic"
+    auth: "anthropic",
   },
   groq: {
     name: "Groq",
     endpoint: "https://api.groq.com/openai/v1/models",
-    auth: "bearer"
+    auth: "bearer",
   },
   mistral: {
     name: "Mistral",
     endpoint: "https://api.mistral.ai/v1/models",
-    auth: "bearer"
+    auth: "bearer",
   },
   xai: {
     name: "xAI",
     endpoint: "https://api.x.ai/v1/models",
-    auth: "bearer"
+    auth: "bearer",
   },
   deepseek: {
     name: "DeepSeek",
     endpoint: "https://api.deepseek.com/models",
-    auth: "bearer"
-  }
+    auth: "bearer",
+  },
 };
 
 interface PromptConfig {
@@ -127,7 +132,7 @@ const PROMPTS_BY_QUESTION_TYPE: Record<string, PromptConfig> = {
   multianswer: multianswerPrompt,
   ddwtos: ddwtosPrompt,
   ordering: orderingPrompt,
-  essay: essayPrompt
+  essay: essayPrompt,
 };
 
 function getGeminiGenerateContentUrl(model: string) {
@@ -232,11 +237,18 @@ function getModelRecordId(modelRecord: Record<string, unknown>) {
 }
 
 function getModelRecordLabel(modelRecord: Record<string, unknown>, fallbackId: string) {
-  const label = modelRecord.display_name ?? modelRecord.displayName ?? modelRecord.name ?? modelRecord.id;
-  return typeof label === "string" && label.trim() ? label.trim().replace(/^models\//, "") : fallbackId;
+  const label =
+    modelRecord.display_name ?? modelRecord.displayName ?? modelRecord.name ?? modelRecord.id;
+  return typeof label === "string" && label.trim()
+    ? label.trim().replace(/^models\//, "")
+    : fallbackId;
 }
 
-function shouldKeepListedModel(provider: AiProvider, modelRecord: Record<string, unknown>, modelId: string) {
+function shouldKeepListedModel(
+  provider: AiProvider,
+  modelRecord: Record<string, unknown>,
+  modelId: string,
+) {
   if (!modelId) {
     return false;
   }
@@ -249,9 +261,10 @@ function shouldKeepListedModel(provider: AiProvider, modelRecord: Record<string,
   }
 
   const architecture = getRecord(modelRecord.architecture);
-  const outputModalities = architecture && Array.isArray(architecture.output_modalities)
-    ? architecture.output_modalities
-    : null;
+  const outputModalities =
+    architecture && Array.isArray(architecture.output_modalities)
+      ? architecture.output_modalities
+      : null;
 
   if (outputModalities && !outputModalities.includes("text")) {
     return false;
@@ -292,7 +305,7 @@ function normalizeListedModels(provider: AiProvider, body: unknown): AiModelOpti
     seenModelIds.add(modelId);
     models.push({
       value: modelId,
-      label: getModelRecordLabel(modelRecord, modelId)
+      label: getModelRecordLabel(modelRecord, modelId),
     });
   }
 
@@ -301,7 +314,7 @@ function normalizeListedModels(provider: AiProvider, body: unknown): AiModelOpti
 
 function getModelListHeaders(config: ModelListProviderConfig, apiKey: string) {
   const headers: Record<string, string> = {
-    Accept: "application/json"
+    Accept: "application/json",
   };
   const trimmedApiKey = apiKey.trim();
 
@@ -315,8 +328,7 @@ function getModelListHeaders(config: ModelListProviderConfig, apiKey: string) {
 
   if (config.auth === "anthropic") {
     headers["anthropic-version"] = ANTHROPIC_VERSION;
-    // Required for direct browser calls: without it the Anthropic API
-    // rejects requests carrying a browser Origin.
+
     headers["anthropic-dangerous-direct-browser-access"] = "true";
     if (trimmedApiKey) {
       headers["x-api-key"] = trimmedApiKey;
@@ -326,7 +338,11 @@ function getModelListHeaders(config: ModelListProviderConfig, apiKey: string) {
   return headers;
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -354,10 +370,10 @@ async function fetchGoogleModelRecords(apiKey: string, timeoutMs: number): Promi
           method: "GET",
           headers: {
             Accept: "application/json",
-            "x-goog-api-key": apiKey
-          }
+            "x-goog-api-key": apiKey,
+          },
         },
-        timeoutMs
+        timeoutMs,
       );
     } catch (error) {
       throw toModelListError("Google", error);
@@ -366,7 +382,10 @@ async function fetchGoogleModelRecords(apiKey: string, timeoutMs: number): Promi
     const body = await readGeminiResponseBody(response);
 
     if (!response.ok) {
-      throw new Error(getAiErrorMessage(body) ?? `Google model list request failed with status ${response.status}.`);
+      throw new Error(
+        getAiErrorMessage(body) ??
+          `Google model list request failed with status ${response.status}.`,
+      );
     }
 
     const bodyRecord = getRecord(body);
@@ -375,7 +394,8 @@ async function fetchGoogleModelRecords(apiKey: string, timeoutMs: number): Promi
       models.push(...bodyRecord.models);
     }
 
-    const nextPageToken = bodyRecord && typeof bodyRecord.nextPageToken === "string" ? bodyRecord.nextPageToken : "";
+    const nextPageToken =
+      bodyRecord && typeof bodyRecord.nextPageToken === "string" ? bodyRecord.nextPageToken : "";
 
     if (!nextPageToken) {
       break;
@@ -397,7 +417,7 @@ function toModelListError(providerName: string, error: unknown) {
 
 export async function fetchAiModelOptions(
   settings: AiSettings,
-  timeoutMs: number = AI_MODEL_LIST_TIMEOUT_MS
+  timeoutMs: number = AI_MODEL_LIST_TIMEOUT_MS,
 ): Promise<AiModelOption[]> {
   if (settings.provider === "custom") {
     throw new Error("Custom AI does not expose a known model list endpoint.");
@@ -414,7 +434,10 @@ export async function fetchAiModelOptions(
   }
 
   if (settings.provider === "google") {
-    const models = normalizeListedModels(settings.provider, await fetchGoogleModelRecords(settings.apiKey.trim(), timeoutMs));
+    const models = normalizeListedModels(
+      settings.provider,
+      await fetchGoogleModelRecords(settings.apiKey.trim(), timeoutMs),
+    );
 
     if (models.length === 0) {
       throw new Error(`${providerConfig.name} did not return usable chat models.`);
@@ -430,9 +453,9 @@ export async function fetchAiModelOptions(
       providerConfig.endpoint,
       {
         method: "GET",
-        headers: getModelListHeaders(providerConfig, settings.apiKey)
+        headers: getModelListHeaders(providerConfig, settings.apiKey),
       },
-      timeoutMs
+      timeoutMs,
     );
   } catch (error) {
     throw toModelListError(providerConfig.name, error);
@@ -441,7 +464,10 @@ export async function fetchAiModelOptions(
   const body = await readGeminiResponseBody(response);
 
   if (!response.ok) {
-    throw new Error(getAiErrorMessage(body) ?? `${providerConfig.name} model list request failed with status ${response.status}.`);
+    throw new Error(
+      getAiErrorMessage(body) ??
+        `${providerConfig.name} model list request failed with status ${response.status}.`,
+    );
   }
 
   const models = normalizeListedModels(settings.provider, body);
@@ -459,18 +485,16 @@ export function hasUsableAiSettings(settings: Partial<AiSettings> | undefined) {
   if (settings.provider === "custom") {
     return Boolean(
       settings.connectionVerified &&
-        typeof settings.customEndpoint === "string" &&
-        settings.customEndpoint.trim() &&
-        typeof settings.customModelName === "string" &&
-        settings.customModelName.trim()
+      typeof settings.customEndpoint === "string" &&
+      settings.customEndpoint.trim() &&
+      typeof settings.customModelName === "string" &&
+      settings.customModelName.trim(),
     );
   }
 
   if (settings.provider) {
     return Boolean(
-      settings.connectionVerified &&
-        typeof settings.model === "string" &&
-        settings.model.trim()
+      settings.connectionVerified && typeof settings.model === "string" && settings.model.trim(),
     );
   }
 
@@ -488,7 +512,9 @@ function buildControlOptionsSummary(payload: GenerateAiAnswerPayload) {
       kind: control.kind,
       label: control.label,
       slotIndex: control.slotIndex ?? null,
-      options: (control.options ?? []).map((option) => option.label).filter((label) => label.trim() !== "")
+      options: (control.options ?? [])
+        .map((option) => option.label)
+        .filter((label) => label.trim() !== ""),
     }));
 }
 
@@ -499,7 +525,7 @@ function buildImageSummary(payload: GenerateAiAnswerPayload) {
     width: image.width ?? null,
     height: image.height ?? null,
     naturalWidth: image.naturalWidth ?? null,
-    naturalHeight: image.naturalHeight ?? null
+    naturalHeight: image.naturalHeight ?? null,
   }));
 }
 
@@ -515,7 +541,7 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
     availableOptionsByControl: controlOptionsSummary,
     images: imageSummary,
     controls: payload.controls ?? [],
-    pageUrl: payload.pageUrl
+    pageUrl: payload.pageUrl,
   };
 
   return [
@@ -537,12 +563,12 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
             label: "exact label/text to apply",
             slotIndex: null,
             position: null,
-            coordinate: null
-          }
-        ]
+            coordinate: null,
+          },
+        ],
       },
       null,
-      2
+      2,
     ),
     "",
     "Rules for actions:",
@@ -554,15 +580,21 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
     "- If marker natural image dimensions differ from displayed dimensions, scale coordinates to the displayed width/height before returning them.",
     "- If no slotIndex applies, use null or omit it.",
     controlOptionsSummary.length > 0 ? "" : null,
-    controlOptionsSummary.length > 0 ? "Allowed options by control. These are all valid choices, not only the currently selected value:" : null,
+    controlOptionsSummary.length > 0
+      ? "Allowed options by control. These are all valid choices, not only the currently selected value:"
+      : null,
     controlOptionsSummary.length > 0 ? JSON.stringify(controlOptionsSummary, null, 2) : null,
     imageSummary.length > 0 ? "" : null,
-    imageSummary.length > 0 ? "Attached question images. Use these images when solving visual marker/drop questions:" : null,
+    imageSummary.length > 0
+      ? "Attached question images. Use these images when solving visual marker/drop questions:"
+      : null,
     imageSummary.length > 0 ? JSON.stringify(imageSummary, null, 2) : null,
     "",
     "Moodle question data:",
-    JSON.stringify(questionData, null, 2)
-  ].filter((part): part is string => part !== null).join("\n");
+    JSON.stringify(questionData, null, 2),
+  ]
+    .filter((part): part is string => part !== null)
+    .join("\n");
 }
 
 interface GoogleAiImagePart {
@@ -593,30 +625,27 @@ async function fetchAiImagePart(image: AiQuestionImage): Promise<GoogleAiImagePa
     return null;
   }
 
-  // The content script inlines same-origin images as data URLs, so the service
-  // worker needs no host access to the quiz origin. The direct fetch below only
-  // runs when the optional broad host permission has been granted (e.g. a custom
-  // AI endpoint request) — otherwise it fails and the image is simply skipped.
   if (image.dataUrl?.startsWith("data:image/")) {
     const header = "data:";
     const separatorIndex = image.dataUrl.indexOf(",", header.length);
 
     if (separatorIndex > 0) {
-      const mimeType = image.dataUrl.slice(header.length, separatorIndex).split(";", 1)[0] || "image/png";
+      const mimeType =
+        image.dataUrl.slice(header.length, separatorIndex).split(";", 1)[0] || "image/png";
       const base64Payload = image.dataUrl.slice(separatorIndex + 1);
 
       return {
         inlineData: {
           mimeType,
-          data: base64Payload
-        }
+          data: base64Payload,
+        },
       };
     }
   }
 
   try {
     const response = await fetch(image.url, {
-      credentials: "include"
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -629,16 +658,14 @@ async function fetchAiImagePart(image: AiQuestionImage): Promise<GoogleAiImagePa
     if (!mimeType.startsWith("image/")) {
       return null;
     }
-    
+
     return {
       inlineData: {
         mimeType,
-        data: arrayBufferToBase64(await blob.arrayBuffer())
-      }
+        data: arrayBufferToBase64(await blob.arrayBuffer()),
+      },
     };
   } catch {
-    // No host permission for the quiz origin and no inline data: skip the image
-    // instead of failing the whole AI request.
     return null;
   }
 }
@@ -666,7 +693,7 @@ export async function generateGoogleAiText(
     maxOutputTokens?: number;
     temperature?: number;
     imageParts?: GoogleAiImagePart[];
-  } = {}
+  } = {},
 ) {
   if (!settings.apiKey.trim()) {
     throw new Error("Google AI API key is missing.");
@@ -676,27 +703,29 @@ export async function generateGoogleAiText(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": settings.apiKey.trim()
+      "x-goog-api-key": settings.apiKey.trim(),
     },
     body: JSON.stringify({
       contents: [
         {
-          parts: [{ text: prompt }, ...(options.imageParts ?? [])]
-        }
+          parts: [{ text: prompt }, ...(options.imageParts ?? [])],
+        },
       ],
       generationConfig: {
         temperature: options.temperature ?? 0.2,
         topP: 0.9,
         maxOutputTokens: options.maxOutputTokens ?? 1024,
-        responseMimeType: options.responseMimeType ?? "text/plain"
-      }
-    })
+        responseMimeType: options.responseMimeType ?? "text/plain",
+      },
+    }),
   });
 
   const body = await readGeminiResponseBody(response);
 
   if (!response.ok) {
-    throw new Error(getGeminiErrorMessage(body) ?? `Google AI request failed with status ${response.status}.`);
+    throw new Error(
+      getGeminiErrorMessage(body) ?? `Google AI request failed with status ${response.status}.`,
+    );
   }
 
   const text = extractGeminiText(body);
@@ -716,7 +745,7 @@ export async function generateCustomAiText(
     maxOutputTokens?: number;
     temperature?: number;
     imageParts?: GoogleAiImagePart[];
-  } = {}
+  } = {},
 ) {
   if (!settings.customEndpoint?.trim()) {
     throw new Error("Custom endpoint is missing.");
@@ -730,7 +759,7 @@ export async function generateCustomAiText(
     apiKey: settings.apiKey,
     model: modelName,
     prompt,
-    options
+    options,
   });
 }
 
@@ -738,17 +767,17 @@ function buildOpenAiCompatibleMessageContent(prompt: string, imageParts: GoogleA
   const imageContent = imageParts.map((part) => ({
     type: "image_url",
     image_url: {
-      url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
-    }
+      url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+    },
   }));
 
   return imageContent.length > 0
     ? [
         {
           type: "text",
-          text: prompt
+          text: prompt,
         },
-        ...imageContent
+        ...imageContent,
       ]
     : prompt;
 }
@@ -760,7 +789,7 @@ async function generateOpenAiCompatibleChatCompletion({
   model,
   prompt,
   options,
-  extraHeaders
+  extraHeaders,
 }: {
   providerName: string;
   endpoint: string;
@@ -788,25 +817,26 @@ async function generateOpenAiCompatibleChatCompletion({
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey.trim()}`,
-      ...extraHeaders
+      ...extraHeaders,
     },
     body: JSON.stringify({
       model: model.trim(),
       messages: [
         {
           role: "user",
-          content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? [])
-        }
+          content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? []),
+        },
       ],
       max_tokens: options.maxOutputTokens ?? 1024,
-      temperature: options.temperature ?? 0.2
-    })
+      temperature: options.temperature ?? 0.2,
+    }),
   });
 
   const body = await readGeminiResponseBody(response);
 
   if (!response.ok) {
-    const errorMessage = getAiErrorMessage(body) ?? `${providerName} request failed with status ${response.status}.`;
+    const errorMessage =
+      getAiErrorMessage(body) ?? `${providerName} request failed with status ${response.status}.`;
     throw new Error(errorMessage);
   }
 
@@ -827,7 +857,7 @@ export async function generateOpenAiCompatibleAiText(
     maxOutputTokens?: number;
     temperature?: number;
     imageParts?: GoogleAiImagePart[];
-  } = {}
+  } = {},
 ) {
   const providerConfig = OPENAI_COMPATIBLE_PROVIDERS[settings.provider];
 
@@ -842,7 +872,7 @@ export async function generateOpenAiCompatibleAiText(
     model: settings.model,
     prompt,
     options,
-    extraHeaders: providerConfig.extraHeaders
+    extraHeaders: providerConfig.extraHeaders,
   });
 }
 
@@ -854,7 +884,7 @@ export async function generateAnthropicAiText(
     maxOutputTokens?: number;
     temperature?: number;
     imageParts?: GoogleAiImagePart[];
-  } = {}
+  } = {},
 ) {
   if (!settings.apiKey.trim()) {
     throw new Error("Anthropic API key is missing.");
@@ -869,8 +899,8 @@ export async function generateAnthropicAiText(
     source: {
       type: "base64",
       media_type: part.inlineData.mimeType,
-      data: part.inlineData.data
-    }
+      data: part.inlineData.data,
+    },
   }));
   const response = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
@@ -878,7 +908,7 @@ export async function generateAnthropicAiText(
       "Content-Type": "application/json",
       "x-api-key": settings.apiKey.trim(),
       "anthropic-version": ANTHROPIC_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true"
+      "anthropic-dangerous-direct-browser-access": "true",
     },
     body: JSON.stringify({
       model: settings.model,
@@ -890,19 +920,21 @@ export async function generateAnthropicAiText(
           content: [
             {
               type: "text",
-              text: prompt
+              text: prompt,
             },
-            ...imageContent
-          ]
-        }
-      ]
-    })
+            ...imageContent,
+          ],
+        },
+      ],
+    }),
   });
 
   const body = await readGeminiResponseBody(response);
 
   if (!response.ok) {
-    throw new Error(getAiErrorMessage(body) ?? `Anthropic request failed with status ${response.status}.`);
+    throw new Error(
+      getAiErrorMessage(body) ?? `Anthropic request failed with status ${response.status}.`,
+    );
   }
 
   const text = extractAnthropicText(body);
@@ -945,8 +977,11 @@ function unescapeLooseJsonString(value: string) {
 }
 
 function extractLooseJsonStringField(text: string, fieldName: string) {
-  const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`"${escapedFieldName}"\\s*:\\s*"([\\s\\S]*?)"\\s*(?:,\\s*"|\\s*})`, "i");
+  const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `"${escapedFieldName}"\\s*:\\s*"([\\s\\S]*?)"\\s*(?:,\\s*"|\\s*})`,
+    "i",
+  );
   const match = pattern.exec(text);
   return match ? unescapeLooseJsonString(match[1]) : "";
 }
@@ -958,7 +993,8 @@ function extractLooseJsonNumberField(text: string, fieldName: string) {
 }
 
 function normalizeConfidence(value: unknown) {
-  const numericValue = typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value) : 0;
+  const numericValue =
+    typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value) : 0;
 
   if (!Number.isFinite(numericValue)) {
     return 0;
@@ -1004,7 +1040,7 @@ function findMappedMatchAnswerLabel(control: AiQuestionControl, texts: string[])
 
 export function normalizeStructuredAiAnswerForPayload(
   answer: StructuredAiAnswer,
-  payload: GenerateAiAnswerPayload
+  payload: GenerateAiAnswerPayload,
 ): StructuredAiAnswer {
   if (payload.questionType !== "match") {
     return answer;
@@ -1018,14 +1054,15 @@ export function normalizeStructuredAiAnswerForPayload(
   const candidateTexts = [
     answer.answer,
     extractLooseJsonStringField(answer.rawText, "answer"),
-    ...answer.actions.map((action) => action.label)
+    ...answer.actions.map((action) => action.label),
   ].filter((text) => text.trim() !== "");
   const normalizedActions: AiAnswerAction[] = [];
 
   for (const [controlIndex, control] of selectControls.entries()) {
-    const slotIndex = typeof control.slotIndex === "number" && Number.isFinite(control.slotIndex)
-      ? control.slotIndex
-      : control.index ?? controlIndex + 1;
+    const slotIndex =
+      typeof control.slotIndex === "number" && Number.isFinite(control.slotIndex)
+        ? control.slotIndex
+        : (control.index ?? controlIndex + 1);
     const slottedAction = answer.actions.find((action) => action.slotIndex === slotIndex);
     const orderedAction = answer.actions[controlIndex] ?? null;
     const directLabel =
@@ -1043,7 +1080,7 @@ export function normalizeStructuredAiAnswerForPayload(
 
     normalizedActions.push({
       label: mappedLabel,
-      slotIndex
+      slotIndex,
     });
   }
 
@@ -1062,7 +1099,7 @@ export function normalizeStructuredAiAnswerForPayload(
   return {
     ...answer,
     answer: normalizedAnswer || answer.answer,
-    actions: normalizedActions
+    actions: normalizedActions,
   };
 }
 
@@ -1072,7 +1109,7 @@ function normalizeAiAction(value: unknown): AiAnswerAction | null {
   if (!record) {
     return typeof value === "string" && value.trim()
       ? {
-          label: value.trim()
+          label: value.trim(),
         }
       : null;
   }
@@ -1081,16 +1118,18 @@ function normalizeAiAction(value: unknown): AiAnswerAction | null {
   const rawCoordinate = record.coordinate ?? record.coordinates;
   const label = typeof rawLabel === "string" ? rawLabel.trim() : "";
   const coordinate = typeof rawCoordinate === "string" ? rawCoordinate.trim() : null;
-  const slotIndex = typeof record.slotIndex === "number" && Number.isFinite(record.slotIndex)
-    ? record.slotIndex
-    : typeof record.slotIndex === "string" && record.slotIndex.trim()
-      ? Number.parseInt(record.slotIndex, 10)
-      : null;
-  const position = typeof record.position === "number" && Number.isFinite(record.position)
-    ? record.position
-    : typeof record.position === "string" && record.position.trim()
-      ? Number.parseInt(record.position, 10)
-      : null;
+  const slotIndex =
+    typeof record.slotIndex === "number" && Number.isFinite(record.slotIndex)
+      ? record.slotIndex
+      : typeof record.slotIndex === "string" && record.slotIndex.trim()
+        ? Number.parseInt(record.slotIndex, 10)
+        : null;
+  const position =
+    typeof record.position === "number" && Number.isFinite(record.position)
+      ? record.position
+      : typeof record.position === "string" && record.position.trim()
+        ? Number.parseInt(record.position, 10)
+        : null;
 
   if (!label && !coordinate) {
     return null;
@@ -1100,7 +1139,7 @@ function normalizeAiAction(value: unknown): AiAnswerAction | null {
     label: label || coordinate || "",
     slotIndex: Number.isFinite(slotIndex) ? slotIndex : null,
     position: Number.isFinite(position) ? position : null,
-    coordinate
+    coordinate,
   };
 }
 
@@ -1112,7 +1151,7 @@ export interface StructuredAiAnswer {
 }
 
 export function parseStructuredAiAnswer(text: string): StructuredAiAnswer {
-  let parsedValue: unknown = null;
+  let parsedValue: unknown;
 
   try {
     parsedValue = JSON.parse(extractJsonObjectText(text));
@@ -1129,7 +1168,7 @@ export function parseStructuredAiAnswer(text: string): StructuredAiAnswer {
         answer: looseAnswer,
         confidence: normalizeConfidence(extractLooseJsonNumberField(text, "confidence")),
         actions: [{ label: looseAnswer }],
-        rawText: text
+        rawText: text,
       };
     }
 
@@ -1137,31 +1176,40 @@ export function parseStructuredAiAnswer(text: string): StructuredAiAnswer {
       answer: text.trim(),
       confidence: 0,
       actions: text.trim() ? [{ label: text.trim() }] : [],
-      rawText: text
+      rawText: text,
     };
   }
 
-  const answer = typeof record.answer === "string"
-    ? record.answer.trim()
-    : typeof record.label === "string"
-      ? record.label.trim()
-      : "";
+  const answer =
+    typeof record.answer === "string"
+      ? record.answer.trim()
+      : typeof record.label === "string"
+        ? record.label.trim()
+        : "";
   const rawActions = Array.isArray(record.actions)
     ? record.actions
     : Array.isArray(record.answers)
       ? record.answers
       : [];
-  const actions = rawActions.map(normalizeAiAction).filter((action): action is AiAnswerAction => action !== null);
+  const actions = rawActions
+    .map(normalizeAiAction)
+    .filter((action): action is AiAnswerAction => action !== null);
 
   if (actions.length === 0 && answer) {
     actions.push({ label: answer });
   }
 
   return {
-    answer: answer || actions.map((action) => action.label).filter(Boolean).join(" | ") || text.trim(),
+    answer:
+      answer ||
+      actions
+        .map((action) => action.label)
+        .filter(Boolean)
+        .join(" | ") ||
+      text.trim(),
     confidence: normalizeConfidence(record.confidence),
     actions,
-    rawText: text
+    rawText: text,
   };
 }
 
@@ -1178,28 +1226,28 @@ export async function generateAiAnswer(settings: AiSettings, payload: GenerateAi
       responseMimeType: "application/json",
       maxOutputTokens,
       temperature,
-      imageParts
+      imageParts,
     });
   } else if (settings.provider === "google") {
     text = await generateGoogleAiText(settings, prompt, {
       responseMimeType: "application/json",
       maxOutputTokens,
       temperature,
-      imageParts
+      imageParts,
     });
   } else if (settings.provider === "anthropic") {
     text = await generateAnthropicAiText(settings, prompt, {
       responseMimeType: "application/json",
       maxOutputTokens,
       temperature,
-      imageParts
+      imageParts,
     });
   } else {
     text = await generateOpenAiCompatibleAiText(settings, prompt, {
       responseMimeType: "application/json",
       maxOutputTokens,
       temperature,
-      imageParts
+      imageParts,
     });
   }
 

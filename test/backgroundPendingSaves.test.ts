@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const saveReviewAnswersMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/lib/quizTasks", () => ({
-  saveReduxShareReviewAnswers: saveReviewAnswersMock
+  saveReduxShareReviewAnswers: saveReviewAnswersMock,
 }));
 
 import {
@@ -16,14 +16,16 @@ import {
   resetPendingSaveFlushStateForTests,
   schedulePendingFlushAlarm,
   updatePendingFlushAlarmAfterFlush,
-  type PendingSaveFlushDeps
+  type PendingSaveFlushDeps,
 } from "../src/background/reviewSaveQueue";
 import type { SaveReduxShareReviewPayload } from "../src/lib/quizTasks";
 import { PENDING_REVIEW_SAVES_STORAGE_KEY } from "../src/shared/storageKeys";
 import { UPDATE_ALARM_NAME } from "../src/lib/updates";
 import type { AuthSession } from "../src/types";
 
-function makePayload(overrides: Partial<SaveReduxShareReviewPayload> = {}): SaveReduxShareReviewPayload {
+function makePayload(
+  overrides: Partial<SaveReduxShareReviewPayload> = {},
+): SaveReduxShareReviewPayload {
   return {
     domain: "moodle.example",
     courseId: 2,
@@ -31,7 +33,7 @@ function makePayload(overrides: Partial<SaveReduxShareReviewPayload> = {}): Save
     attemptKey: "attempt-1",
     pageUrl: "https://moodle.example/review.php",
     questions: [],
-    ...overrides
+    ...overrides,
   } as SaveReduxShareReviewPayload;
 }
 
@@ -39,7 +41,7 @@ const authSession: AuthSession = {
   accessToken: "token-1",
   refreshToken: "refresh-1",
   expiresAt: null,
-  user: { id: "user-1", email: "user@example.com" }
+  user: { id: "user-1", email: "user@example.com" },
 };
 
 function makeDeps(overrides: Partial<PendingSaveFlushDeps> = {}): PendingSaveFlushDeps {
@@ -47,18 +49,21 @@ function makeDeps(overrides: Partial<PendingSaveFlushDeps> = {}): PendingSaveFlu
     loadStoredState: vi.fn(async () => ({ authSession })),
     saveStoredStatePatch: vi.fn(async () => {}),
     saveDiagnostics: vi.fn(async () => {}),
-    ...overrides
+    ...overrides,
   };
 }
 
 function mockStoredAlarm(periodInMinutes: number | null) {
-  vi.mocked(chrome.alarms.get).mockImplementation(
-    ((_name: string, callback: (alarm?: chrome.alarms.Alarm) => void) => {
-      callback?.(
-        periodInMinutes === null ? undefined : { name: UPDATE_ALARM_NAME, periodInMinutes } as chrome.alarms.Alarm
-      );
-    }) as never
-  );
+  vi.mocked(chrome.alarms.get).mockImplementation(((
+    _name: string,
+    callback: (alarm?: chrome.alarms.Alarm) => void,
+  ) => {
+    callback?.(
+      periodInMinutes === null
+        ? undefined
+        : ({ name: UPDATE_ALARM_NAME, periodInMinutes } as chrome.alarms.Alarm),
+    );
+  }) as never);
 }
 
 describe("pending review save queue", () => {
@@ -66,20 +71,25 @@ describe("pending review save queue", () => {
     resetPendingSaveFlushStateForTests();
     saveReviewAnswersMock.mockReset();
     saveReviewAnswersMock.mockRejectedValue(new Error("unexpected save call in test"));
-    void chrome.storage.local.remove([PENDING_REVIEW_SAVES_STORAGE_KEY, "reduxsharePendingFlushAlarmStretch"]);
+    void chrome.storage.local.remove([
+      PENDING_REVIEW_SAVES_STORAGE_KEY,
+      "reduxsharePendingFlushAlarmStretch",
+    ]);
     mockStoredAlarm(null);
   });
 
   it("queuePendingReviewSave dedupes by id and keeps the newest payload", async () => {
     await queuePendingReviewSave(makePayload({ attemptKey: "attempt-1" }));
     await queuePendingReviewSave(makePayload({ attemptKey: "attempt-2" }));
-    await queuePendingReviewSave(makePayload({ attemptKey: "attempt-1", pageUrl: "https://moodle.example/updated" }));
+    await queuePendingReviewSave(
+      makePayload({ attemptKey: "attempt-1", pageUrl: "https://moodle.example/updated" }),
+    );
 
     const queue = await loadPendingReviewSaves();
     expect(queue).toHaveLength(2);
     expect(queue.map((entry) => entry.id)).toEqual([
       "moodle.example|2|5|attempt-2",
-      "moodle.example|2|5|attempt-1"
+      "moodle.example|2|5|attempt-1",
     ]);
     expect(queue[1].payload.pageUrl).toBe("https://moodle.example/updated");
   });
@@ -88,11 +98,13 @@ describe("pending review save queue", () => {
     await queuePendingReviewSave(makePayload({ attemptKey: "attempt-1" }));
     await queuePendingReviewSave(makePayload({ attemptKey: "attempt-2" }));
 
-    saveReviewAnswersMock.mockImplementation(async (_session: AuthSession, payload: SaveReduxShareReviewPayload) => ({
-      authSession: { ...authSession, accessToken: `token-after-${payload.attemptKey}` },
-      imported: false,
-      savedCount: 1
-    }));
+    saveReviewAnswersMock.mockImplementation(
+      async (_session: AuthSession, payload: SaveReduxShareReviewPayload) => ({
+        authSession: { ...authSession, accessToken: `token-after-${payload.attemptKey}` },
+        imported: false,
+        savedCount: 1,
+      }),
+    );
 
     const deps = makeDeps();
     const result = await flushPendingReviewSaves(authSession, deps);
@@ -101,7 +113,7 @@ describe("pending review save queue", () => {
     expect(result.remainingCount).toBe(0);
     expect(await loadPendingReviewSaves()).toHaveLength(0);
     expect(deps.saveStoredStatePatch).toHaveBeenCalledWith({
-      authSession: { ...authSession, accessToken: "token-after-attempt-2" }
+      authSession: { ...authSession, accessToken: "token-after-attempt-2" },
     });
   });
 
@@ -109,12 +121,14 @@ describe("pending review save queue", () => {
     await queuePendingReviewSave(makePayload({ attemptKey: "attempt-1" }));
     await queuePendingReviewSave(makePayload({ attemptKey: "attempt-2" }));
 
-    saveReviewAnswersMock.mockImplementation(async (_session: AuthSession, payload: SaveReduxShareReviewPayload) => {
-      if (payload.attemptKey === "attempt-1") {
-        throw new Error("network down");
-      }
-      return { authSession, imported: false, savedCount: 1 };
-    });
+    saveReviewAnswersMock.mockImplementation(
+      async (_session: AuthSession, payload: SaveReduxShareReviewPayload) => {
+        if (payload.attemptKey === "attempt-1") {
+          throw new Error("network down");
+        }
+        return { authSession, imported: false, savedCount: 1 };
+      },
+    );
 
     const deps = makeDeps();
     const result = await flushPendingReviewSaves(authSession, deps);
@@ -124,7 +138,7 @@ describe("pending review save queue", () => {
     expect(remaining.map((entry) => entry.id)).toEqual(["moodle.example|2|5|attempt-1"]);
     expect(deps.saveDiagnostics).toHaveBeenCalledWith(
       "background-pending-save-flush-error",
-      expect.objectContaining({ pendingId: "moodle.example|2|5|attempt-1" })
+      expect.objectContaining({ pendingId: "moodle.example|2|5|attempt-1" }),
     );
   });
 
@@ -156,7 +170,7 @@ describe("pending review save queue", () => {
     await queuePendingReviewSave(makePayload());
 
     const deps = makeDeps({
-      loadStoredState: vi.fn(async () => ({ authSession: null }))
+      loadStoredState: vi.fn(async () => ({ authSession: null })),
     });
 
     const result = await flushPendingReviewSavesWithStoredState(deps);
@@ -172,7 +186,7 @@ describe("pending review save queue", () => {
     expect(chrome.alarms.clear).toHaveBeenCalledWith(UPDATE_ALARM_NAME);
     expect(chrome.alarms.create).toHaveBeenCalledWith(UPDATE_ALARM_NAME, {
       delayInMinutes: 1,
-      periodInMinutes: 1
+      periodInMinutes: 1,
     });
   });
 
@@ -192,7 +206,7 @@ describe("pending review save queue", () => {
 
     expect(chrome.alarms.create).toHaveBeenCalledWith(UPDATE_ALARM_NAME, {
       delayInMinutes: 1,
-      periodInMinutes: 1
+      periodInMinutes: 1,
     });
   });
 
@@ -208,7 +222,7 @@ describe("pending review save queue", () => {
     expect(result.flushedCount).toBe(1);
     expect(deps.saveDiagnostics).toHaveBeenCalledWith(
       "background-pending-save-flush-result",
-      expect.objectContaining({ trigger: "alarm" })
+      expect.objectContaining({ trigger: "alarm" }),
     );
     expect(await loadPendingReviewSaves()).toHaveLength(0);
   });
@@ -218,32 +232,30 @@ describe("pending review save queue", () => {
     mockStoredAlarm(60 * 24);
 
     const deps = makeDeps({
-      loadStoredState: vi.fn(async () => ({ authSession: null }))
+      loadStoredState: vi.fn(async () => ({ authSession: null })),
     });
 
     const result = await handleSharedAlarmForPendingSaves(deps);
 
     expect(result.flushed).toBe(false);
     expect((await loadPendingReviewSaves()).length).toBe(1);
-    // A login may restore the session later; the alarm must keep retrying meanwhile.
+
     expect(chrome.alarms.create).toHaveBeenCalledWith(UPDATE_ALARM_NAME, {
       delayInMinutes: 1,
-      periodInMinutes: 1
+      periodInMinutes: 1,
     });
   });
 
   it("maybeStretchUpdateAlarmBack returns to the daily cadence after the grace period", async () => {
     mockStoredAlarm(1);
 
-    // First call with an empty queue only records the "empty since" marker.
     await maybeStretchUpdateAlarmBack(new Date("2026-01-01T00:00:00Z").getTime());
     expect(chrome.alarms.create).not.toHaveBeenCalled();
 
-    // Second call after the grace period stretches the alarm back to daily.
     await maybeStretchUpdateAlarmBack(new Date("2026-01-01T01:00:00Z").getTime());
     expect(chrome.alarms.create).toHaveBeenCalledWith(UPDATE_ALARM_NAME, {
       delayInMinutes: 60 * 24,
-      periodInMinutes: 60 * 24
+      periodInMinutes: 60 * 24,
     });
   });
 

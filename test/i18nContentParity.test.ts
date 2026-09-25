@@ -3,13 +3,11 @@ import en from "../src/i18n/locales/en.json";
 import ru from "../src/i18n/locales/ru.json";
 import { CONTENT_TRANSLATIONS, getContentTranslator } from "../src/i18n/contentI18n";
 
-// The content bundle cannot import the popup locale files, so a few keys are declared in both
-// tables. They must stay word-for-word identical.
 const POPUP_LOCALES = { ru, en } as const;
 
 describe("content translations shared with the popup locales", () => {
   const sharedKeys = (Object.keys(POPUP_LOCALES.ru) as Array<keyof typeof POPUP_LOCALES.ru>).filter(
-    (key) => key in CONTENT_TRANSLATIONS.ru
+    (key) => key in CONTENT_TRANSLATIONS.ru,
   );
 
   it("covers the quiz menu keys declared in both tables", () => {
@@ -19,7 +17,7 @@ describe("content translations shared with the popup locales", () => {
   it.each(["ru", "en"] as const)("keeps %s wording in sync with the popup locales", (language) => {
     for (const key of sharedKeys) {
       expect(CONTENT_TRANSLATIONS[language][key as keyof typeof CONTENT_TRANSLATIONS.ru]).toBe(
-        POPUP_LOCALES[language][key]
+        POPUP_LOCALES[language][key],
       );
     }
   });
@@ -33,12 +31,16 @@ describe("content translator", () => {
   });
 
   it("falls back to Russian for a language the content table does not cover", () => {
-    expect(getContentTranslator("xx" as never)("quiz.panel.guest")).toBe(CONTENT_TRANSLATIONS.ru["quiz.panel.guest"]);
+    expect(getContentTranslator("xx" as never)("quiz.panel.guest")).toBe(
+      CONTENT_TRANSLATIONS.ru["quiz.panel.guest"],
+    );
   });
 
   it("interpolates parameters", () => {
     expect(getContentTranslator("ru")("quiz.menu.addedBy", { user: "Аня" })).toBe("Добавил Аня");
-    expect(getContentTranslator("en")("quiz.ordering.position", { position: 3 })).toBe("Position 3");
+    expect(getContentTranslator("en")("quiz.ordering.position", { position: 3 })).toBe(
+      "Position 3",
+    );
   });
 
   it("keeps unknown placeholders untouched", () => {

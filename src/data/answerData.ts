@@ -5,7 +5,7 @@ import {
   type QuizVariantResult,
   type SourceAnswerData,
   type SubmissionItem,
-  type SuggestionItem
+  type SuggestionItem,
 } from "../model";
 
 export function getPreferredSuggestionLabels(suggestions: SuggestionItem[]) {
@@ -20,7 +20,7 @@ export function createEmptyVariantCounts(): AnswerVariantCounts {
   return {
     anchors: 0,
     suggestions: 0,
-    submissions: 0
+    submissions: 0,
   };
 }
 
@@ -31,7 +31,7 @@ export function createEmptyAnswerData(): AnswerData {
 export function createEmptySourceAnswerData(): SourceAnswerData {
   return {
     reduxshare: createEmptyAnswerData(),
-    external: createEmptyAnswerData()
+    external: createEmptyAnswerData(),
   };
 }
 
@@ -69,7 +69,9 @@ function getStringField(record: Record<string, unknown>, fields: string[]) {
 
 function normalizeVariantRows(value: unknown) {
   if (Array.isArray(value)) {
-    return value.map(getRecord).filter((record): record is Record<string, unknown> => record !== null);
+    return value
+      .map(getRecord)
+      .filter((record): record is Record<string, unknown> => record !== null);
   }
 
   const record = getRecord(value);
@@ -135,12 +137,21 @@ function collectAnchorLabels(anchor: unknown): string[] {
     return typeof anchor === "string" && anchor.trim() !== "" ? [anchor] : [];
   }
 
-  const label = getStringField(anchorRecord, ["anchor", "label", "data", "answer", "text", "value", "name"]);
+  const label = getStringField(anchorRecord, [
+    "anchor",
+    "label",
+    "data",
+    "answer",
+    "text",
+    "value",
+    "name",
+  ]);
   return label ? [label] : [];
 }
 
 function getMetaFields(record: Record<string, unknown>) {
-  const meta: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null } = {};
+  const meta: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null } =
+    {};
 
   for (const field of ["contributor", "addedAt", "updatedAt"] as const) {
     const value = record[field];
@@ -165,7 +176,7 @@ function parseSuggestionItem(value: unknown): SuggestionItem | null {
     confidence: typeof record.confidence === "number" ? record.confidence : 0,
     count: typeof record.count === "number" ? record.count : undefined,
     label: getStringField(record, ["label", "data", "answer", "text", "value", "name"]),
-    ...getMetaFields(record)
+    ...getMetaFields(record),
   };
 }
 
@@ -180,7 +191,7 @@ function parseSubmissionItem(value: unknown): SubmissionItem | null {
     correctness: typeof record.correctness === "number" ? record.correctness : 1,
     count: typeof record.count === "number" ? record.count : 0,
     label: getStringField(record, ["label", "data", "answer", "text", "value", "name"]),
-    ...getMetaFields(record)
+    ...getMetaFields(record),
   };
 }
 
@@ -195,7 +206,7 @@ export function getAnswerData(result: QuizVariantResult): AnswerData {
       hasExplicitIndex: getExplicitAnchorIndex(row.anchor) !== null,
       anchors,
       suggestions: [],
-      submissions: []
+      submissions: [],
     };
 
     data.anchors.push(...anchors);
@@ -217,7 +228,7 @@ export function getAnswerData(result: QuizVariantResult): AnswerData {
             count: 1,
             label: suggestion.label,
             displayLabel: suggestion.displayLabel,
-            actionSlotIndex: suggestion.actionSlotIndex
+            actionSlotIndex: suggestion.actionSlotIndex,
           };
 
           data.submissions.push(submission);

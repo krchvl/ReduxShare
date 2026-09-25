@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
-import {
-  exactAnswerData,
-  sourceAnswerData,
-  unknownAnswerData
-} from "./helpers/sourceData";
+import { exactAnswerData, sourceAnswerData, unknownAnswerData } from "./helpers/sourceData";
 
 function renderMenu(markup: string) {
   const host = document.createElement("div");
@@ -24,7 +20,7 @@ describe("R-menu source rendering", () => {
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("true")
+          reduxshare: exactAnswerData("true"),
         }),
         true,
         {
@@ -32,10 +28,10 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     expect(textOf(root, '[data-menu-tab="internal"]')).toContain("Внутренние источники");
@@ -50,7 +46,7 @@ describe("R-menu source rendering", () => {
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: unknownAnswerData("true")
+          reduxshare: unknownAnswerData("true"),
         }),
         true,
         {
@@ -58,17 +54,19 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     expect(textOf(root, '[data-answer-menu="reduxshare-exact"]')).toContain("Нет ответов");
     expect(textOf(root, '[data-answer-menu="reduxshare-stats"]')).toContain("true");
-    expect(root.querySelector('[data-answer-menu="reduxshare-stats"] .flyout-pct')?.getAttribute("style")).toContain(
-      "color:#ffffff"
-    );
+    expect(
+      root
+        .querySelector('[data-answer-menu="reduxshare-stats"] .flyout-pct')
+        ?.getAttribute("style"),
+    ).toContain("color:#ffffff");
   });
 
   it("shows external sources with the same exact/statistics structure", async () => {
@@ -76,7 +74,7 @@ describe("R-menu source rendering", () => {
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          external: exactAnswerData("false")
+          external: exactAnswerData("false"),
         }),
         true,
         {
@@ -84,10 +82,10 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     expect(textOf(root, '[data-menu-tab="external"]')).toContain("Внешние источники");
@@ -100,7 +98,7 @@ describe("R-menu source rendering", () => {
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          external: unknownAnswerData("true")
+          external: unknownAnswerData("true"),
         }),
         false,
         {
@@ -108,16 +106,18 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        false
-      )
+        false,
+      ),
     );
 
     expect(root.querySelector('[data-menu-tab="internal"]')).toBeNull();
     expect(textOf(root, '[data-menu-tab="external"]')).toContain("Внешние источники");
     expect(textOf(root, '[data-answer-menu="external-exact"]')).toContain("Нет ответов");
-    expect(root.querySelector('[data-answer-menu="external-exact"] [data-answer-label]')).toBeNull();
+    expect(
+      root.querySelector('[data-answer-menu="external-exact"] [data-answer-label]'),
+    ).toBeNull();
     expect(textOf(root, '[data-answer-menu="external-stats"]')).toContain("true");
   });
 
@@ -126,7 +126,7 @@ describe("R-menu source rendering", () => {
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("internal answer")
+          reduxshare: exactAnswerData("internal answer"),
         }),
         true,
         {
@@ -134,11 +134,11 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
         true,
-        true
-      )
+        true,
+      ),
     );
 
     expect(root.querySelector('[data-menu-tab="internal"]')).toBeNull();
@@ -157,10 +157,10 @@ describe("R-menu source rendering", () => {
             suggestions: [],
             submissions: [
               { correctness: -1, count: 1, label: "Facetime" },
-              { correctness: 2, count: 1, label: "Yelp" }
+              { correctness: 2, count: 1, label: "Yelp" },
             ],
-            slots: []
-          }
+            slots: [],
+          },
         }),
         false,
         {
@@ -168,20 +168,20 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        false
-      )
+        false,
+      ),
     );
 
-    const wrongLabel = Array.from(root.querySelectorAll('[data-answer-menu="external-stats"] .flyout-label')).find(
-      (node) => node.textContent?.trim() === "Facetime"
-    );
+    const wrongLabel = Array.from(
+      root.querySelectorAll('[data-answer-menu="external-stats"] .flyout-label'),
+    ).find((node) => node.textContent?.trim() === "Facetime");
     expect(wrongLabel?.className).toContain("flyout-label--wrong");
 
-    const correctLabel = Array.from(root.querySelectorAll('[data-answer-menu="external-stats"] .flyout-label')).find(
-      (node) => node.textContent?.trim() === "Yelp"
-    );
+    const correctLabel = Array.from(
+      root.querySelectorAll('[data-answer-menu="external-stats"] .flyout-label'),
+    ).find((node) => node.textContent?.trim() === "Yelp");
     expect(correctLabel?.className).not.toContain("flyout-label--wrong");
   });
 
@@ -199,12 +199,12 @@ describe("R-menu source rendering", () => {
                 label: "LinkedIn",
                 contributor: "maria",
                 addedAt: "2026-09-01T10:00:00.000Z",
-                updatedAt: "2026-09-02T10:00:00.000Z"
-              }
+                updatedAt: "2026-09-02T10:00:00.000Z",
+              },
             ],
             submissions: [],
-            slots: []
-          }
+            slots: [],
+          },
         }),
         true,
         {
@@ -212,13 +212,15 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
-    const option = root.querySelector('[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]');
+    const option = root.querySelector(
+      '[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]',
+    );
     expect(option).toBeInstanceOf(HTMLElement);
     expect(option?.querySelector(".flyout-meta")).toBeNull();
     expect(option?.getAttribute("data-meta-user")).toBe("maria");
@@ -239,12 +241,12 @@ describe("R-menu source rendering", () => {
                 label: "LinkedIn",
                 contributor: "maria",
                 addedAt: "2026-09-01T10:00:00.000Z",
-                updatedAt: "2026-09-02T10:00:00.000Z"
-              }
+                updatedAt: "2026-09-02T10:00:00.000Z",
+              },
             ],
             submissions: [],
-            slots: []
-          }
+            slots: [],
+          },
         }),
         true,
         {
@@ -252,17 +254,21 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     attachAnswerHovercards(root);
-    const option = root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]');
+    const option = root.querySelector<HTMLElement>(
+      '[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]',
+    );
     expect(option).toBeInstanceOf(HTMLElement);
 
-    option!.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, clientX: 100, clientY: 100 }));
+    option!.dispatchEvent(
+      new MouseEvent("mouseenter", { bubbles: false, clientX: 100, clientY: 100 }),
+    );
     const card = root.querySelector<HTMLElement>(".flyout-hovercard");
     expect(card?.hidden).toBe(false);
     expect(card?.textContent).toContain("LinkedIn");
@@ -287,12 +293,12 @@ describe("R-menu source rendering", () => {
                 label: "LinkedIn",
                 contributor: "maria",
                 addedAt: "2026-09-01T10:00:00.000Z",
-                updatedAt: "2026-09-02T10:00:00.000Z"
-              }
+                updatedAt: "2026-09-02T10:00:00.000Z",
+              },
             ],
             submissions: [],
-            slots: []
-          }
+            slots: [],
+          },
         }),
         true,
         {
@@ -300,25 +306,30 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     attachAnswerHovercards(root);
-    const option = root.querySelector<HTMLElement>('[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]');
-    option!.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, clientX: 1000, clientY: 100 }));
+    const option = root.querySelector<HTMLElement>(
+      '[data-answer-menu="reduxshare-exact"] [data-answer-label="LinkedIn"]',
+    );
+    option!.dispatchEvent(
+      new MouseEvent("mouseenter", { bubbles: false, clientX: 1000, clientY: 100 }),
+    );
     const card = root.querySelector<HTMLElement>(".flyout-hovercard");
     expect(card?.hidden).toBe(false);
     expect(card?.style.left).toBe("754px");
   });
 
-  it("hides AI tools when the question type disables AI", async () => {    const api = await getQuizAttemptTestApi();
+  it("hides AI tools when the question type disables AI", async () => {
+    const api = await getQuizAttemptTestApi();
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("student.png")
+          reduxshare: exactAnswerData("student.png"),
         }),
         true,
         {
@@ -326,10 +337,10 @@ describe("R-menu source rendering", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        false
-      )
+        false,
+      ),
     );
 
     expect(root.querySelector('[data-menu-tab="ai"]')).toBeNull();

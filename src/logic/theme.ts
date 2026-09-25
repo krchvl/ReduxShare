@@ -1,18 +1,15 @@
-// Moved out of src/content/quizAttempt.ts.
 import { DEFAULT_ACCENT_COLOR, LEGACY_THEME_ACCENTS, type StoredStateLike } from "../model";
 import { currentStoredState } from "../state";
 
-// Moved out of src/content/quizAttempt.ts.
-
-// Moved out of src/content/quizAttempt.ts.
-
 function parseHexColor(hexColor: string) {
-  const normalizedColor = /^#[0-9a-f]{6}$/i.test(hexColor) ? hexColor.slice(1) : DEFAULT_ACCENT_COLOR.slice(1);
+  const normalizedColor = /^#[0-9a-f]{6}$/i.test(hexColor)
+    ? hexColor.slice(1)
+    : DEFAULT_ACCENT_COLOR.slice(1);
 
   return {
     red: Number.parseInt(normalizedColor.slice(0, 2), 16),
     green: Number.parseInt(normalizedColor.slice(2, 4), 16),
-    blue: Number.parseInt(normalizedColor.slice(4, 6), 16)
+    blue: Number.parseInt(normalizedColor.slice(4, 6), 16),
   };
 }
 
@@ -31,7 +28,7 @@ export function mixHexColors(baseHexColor: string, targetHexColor: string, amoun
   return `#${[
     channel(base.red, target.red),
     channel(base.green, target.green),
-    channel(base.blue, target.blue)
+    channel(base.blue, target.blue),
   ]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("")}`;
@@ -46,7 +43,10 @@ export function getAccentColor(settings: StoredStateLike["settings"] | undefined
 
   const legacyTheme = settings?.theme;
 
-  if (typeof legacyTheme === "string" && Object.prototype.hasOwnProperty.call(LEGACY_THEME_ACCENTS, legacyTheme)) {
+  if (
+    typeof legacyTheme === "string" &&
+    Object.prototype.hasOwnProperty.call(LEGACY_THEME_ACCENTS, legacyTheme)
+  ) {
     return LEGACY_THEME_ACCENTS[legacyTheme as keyof typeof LEGACY_THEME_ACCENTS];
   }
 

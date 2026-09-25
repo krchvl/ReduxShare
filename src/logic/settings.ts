@@ -1,9 +1,4 @@
-// Moved out of src/content/quizAttempt.ts.
 import { type StoredStateLike } from "../model";
-
-// Moved out of src/content/quizAttempt.ts.
-
-// Moved out of src/content/quizAttempt.ts.
 
 export function canUseQuizFeatures(storedState: StoredStateLike | undefined) {
   return storedState?.settings?.extensionEnabled !== false;

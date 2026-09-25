@@ -5,7 +5,7 @@ import {
   javaStringHashCode,
   labelsMatch,
   levenshteinDistance,
-  normalizeFingerprintText
+  normalizeFingerprintText,
 } from "../src/dom/questionDom";
 
 describe("javaStringHashCode", () => {
@@ -23,22 +23,36 @@ describe("javaStringHashCode", () => {
 
 describe("hashQuestionImage", () => {
   it("hashes prompt images exactly like the external provider", () => {
-    // Verified against a live syncshare response: anchor ["", hash] pairs.
-    expect(hashQuestionImage("https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/95/icon3.png", "")).toBe(
-      "-1859093350"
-    );
-    expect(hashQuestionImage("https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/97/icon66.png", "")).toBe(
-      "1860956741"
-    );
-    expect(hashQuestionImage("https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/96/icon5.png", "")).toBe(
-      "1414805592"
-    );
-    expect(hashQuestionImage("https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/99/icon1.png", "")).toBe(
-      "-838024996"
-    );
-    expect(hashQuestionImage("https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/98/icon22.png", "")).toBe(
-      "-1510145339"
-    );
+    expect(
+      hashQuestionImage(
+        "https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/95/icon3.png",
+        "",
+      ),
+    ).toBe("-1859093350");
+    expect(
+      hashQuestionImage(
+        "https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/97/icon66.png",
+        "",
+      ),
+    ).toBe("1860956741");
+    expect(
+      hashQuestionImage(
+        "https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/96/icon5.png",
+        "",
+      ),
+    ).toBe("1414805592");
+    expect(
+      hashQuestionImage(
+        "https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/99/icon1.png",
+        "",
+      ),
+    ).toBe("-838024996");
+    expect(
+      hashQuestionImage(
+        "https://school.moodledemo.net/pluginfile.php/2354/qtype_match/subquestion/126/4/98/icon22.png",
+        "",
+      ),
+    ).toBe("-1510145339");
   });
 });
 

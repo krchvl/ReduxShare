@@ -1,5 +1,3 @@
-// ddimageortext drag-and-drop helpers plus the auto-select entry point.
-// Moved out of src/content/quizAttempt.ts.
 import { ANSWER_WIDGET_ATTR, type AnswerData } from "../../model";
 import { getPreferredSuggestionLabels } from "../../data/answerData";
 import { getClassNumber, getMoodleAnswerLabelText, labelsMatch } from "../../dom/questionDom";
@@ -7,39 +5,36 @@ import { isDragImageOrTextQuestionType } from "../../dom/questionTypes";
 import { getAnswerSlotByIndex, isHTMLElement } from "./answerControls";
 
 export function getDdimageOrTextDrops(questionNode: Element) {
-  return Array.from(questionNode.querySelectorAll<HTMLElement>(".dropzones .dropzone"))
-    .filter((drop) => getClassNumber(drop, "place") !== null);
+  return Array.from(questionNode.querySelectorAll<HTMLElement>(".dropzones .dropzone")).filter(
+    (drop) => getClassNumber(drop, "place") !== null,
+  );
 }
-
 
 export function getDdimageOrTextDropSlotIndex(drop: Element) {
   return getClassNumber(drop, "place");
 }
 
-
 export function getDdimageOrTextDropGroupIndex(drop: Element) {
   return getClassNumber(drop, "group");
 }
-
 
 export function getDdimageOrTextChoiceIndex(choice: Element) {
   return getClassNumber(choice, "choice");
 }
 
-
 export function getDdimageOrTextChoiceGroupIndex(choice: Element) {
   return getClassNumber(choice, "group");
 }
 
-
 export function getDdimageOrTextChoiceLabel(choice: Element) {
   if (choice instanceof HTMLImageElement) {
-    return (choice.alt || choice.title || choice.src.split("/").pop() || "").replace(/\s+/g, " ").trim();
+    return (choice.alt || choice.title || choice.src.split("/").pop() || "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   return getMoodleAnswerLabelText(choice).replace(/\s+/g, " ").trim();
 }
-
 
 export function getDdimageOrTextChoices(questionNode: Element) {
   const choicesByKey = new Map<
@@ -55,8 +50,8 @@ export function getDdimageOrTextChoices(questionNode: Element) {
 
   for (const choice of Array.from(
     questionNode.querySelectorAll<HTMLElement>(
-      ".draghomes .draghome, .dropzones .draghome, .droparea .draghome, [data-reduxshare-ddimageortext-choice]"
-    )
+      ".draghomes .draghome, .dropzones .draghome, .droparea .draghome, [data-reduxshare-ddimageortext-choice]",
+    ),
   )) {
     const choiceIndex = getDdimageOrTextChoiceIndex(choice);
     const groupIndex = getDdimageOrTextChoiceGroupIndex(choice);
@@ -79,34 +74,43 @@ export function getDdimageOrTextChoices(questionNode: Element) {
       choiceIndex,
       groupIndex,
       label,
-      isPlaceholder
+      isPlaceholder,
     });
   }
 
-  return Array.from(choicesByKey.values()).map(({ isPlaceholder: _isPlaceholder, ...choice }) => choice);
+  return Array.from(choicesByKey.values()).map(({ element, choiceIndex, groupIndex, label }) => ({
+    element,
+    choiceIndex,
+    groupIndex,
+    label,
+  }));
 }
-
 
 export function getDdimageOrTextPlaceInput(questionNode: Element, slotIndex: number) {
   return (
     questionNode.querySelector<HTMLInputElement>(
-      `input.placeinput.place${slotIndex}, input[type="hidden"].place${slotIndex}, input[type="hidden"][name$="_p${slotIndex}"]`
+      `input.placeinput.place${slotIndex}, input[type="hidden"].place${slotIndex}, input[type="hidden"][name$="_p${slotIndex}"]`,
     ) ?? null
   );
 }
 
-
-export function findDdimageOrTextChoiceForLabel(questionNode: Element, drop: Element, label: string) {
+export function findDdimageOrTextChoiceForLabel(
+  questionNode: Element,
+  drop: Element,
+  label: string,
+) {
   const dropGroupIndex = getDdimageOrTextDropGroupIndex(drop);
 
   return (
     getDdimageOrTextChoices(questionNode).find((choice) => {
-      const groupMatches = dropGroupIndex === null || choice.groupIndex === null || choice.groupIndex === dropGroupIndex;
+      const groupMatches =
+        dropGroupIndex === null ||
+        choice.groupIndex === null ||
+        choice.groupIndex === dropGroupIndex;
       return groupMatches && labelsMatch(choice.label, label);
     }) ?? null
   );
 }
-
 
 export function getDdimageOrTextSelectedLabelForDrop(questionNode: Element, drop: Element) {
   const slotIndex = getDdimageOrTextDropSlotIndex(drop);
@@ -116,17 +120,22 @@ export function getDdimageOrTextSelectedLabelForDrop(questionNode: Element, drop
   }
 
   const input = getDdimageOrTextPlaceInput(questionNode, slotIndex);
-  const selectedChoiceIndex = input?.value && input.value !== "0" ? Number.parseInt(input.value, 10) : null;
+  const selectedChoiceIndex =
+    input?.value && input.value !== "0" ? Number.parseInt(input.value, 10) : null;
   const visualChoiceIndex = getDdimageOrTextVisualChoiceIndex(questionNode, drop);
 
   if (!Number.isFinite(selectedChoiceIndex) && visualChoiceIndex === null) {
     const visualLabel = getDdimageOrTextVisualChoiceLabel(questionNode, drop);
-    const matchingChoice = getDdimageOrTextChoices(questionNode).find((candidate) => labelsMatch(candidate.label, visualLabel));
+    const matchingChoice = getDdimageOrTextChoices(questionNode).find((candidate) =>
+      labelsMatch(candidate.label, visualLabel),
+    );
 
     return matchingChoice?.label ?? visualLabel;
   }
 
-  const selectedIndex = Number.isFinite(selectedChoiceIndex) ? selectedChoiceIndex : visualChoiceIndex;
+  const selectedIndex = Number.isFinite(selectedChoiceIndex)
+    ? selectedChoiceIndex
+    : visualChoiceIndex;
 
   if (selectedIndex === null) {
     return "";
@@ -134,30 +143,39 @@ export function getDdimageOrTextSelectedLabelForDrop(questionNode: Element, drop
 
   const groupIndex = getDdimageOrTextDropGroupIndex(drop);
   const choice = getDdimageOrTextChoices(questionNode).find((candidate) => {
-    const groupMatches = groupIndex === null || candidate.groupIndex === null || candidate.groupIndex === groupIndex;
+    const groupMatches =
+      groupIndex === null || candidate.groupIndex === null || candidate.groupIndex === groupIndex;
     return groupMatches && candidate.choiceIndex === selectedIndex;
   });
 
   return choice?.label ?? "";
 }
 
-
 export function getDdimageOrTextVisualChoiceForDrop(questionNode: Element, drop: Element) {
   const slotIndex = getDdimageOrTextDropSlotIndex(drop);
-  const candidates = slotIndex === null
-    ? Array.from(drop.querySelectorAll<HTMLElement>(".draghome, .drag, .dragitem, [class*='choice']"))
-    : [
-        ...Array.from(drop.querySelectorAll<HTMLElement>(".draghome, .drag, .dragitem, [class*='choice']")),
-        ...Array.from(questionNode.querySelectorAll<HTMLElement>(`.dropzones .inplace${slotIndex}`))
-      ];
+  const candidates =
+    slotIndex === null
+      ? Array.from(
+          drop.querySelectorAll<HTMLElement>(".draghome, .drag, .dragitem, [class*='choice']"),
+        )
+      : [
+          ...Array.from(
+            drop.querySelectorAll<HTMLElement>(".draghome, .drag, .dragitem, [class*='choice']"),
+          ),
+          ...Array.from(
+            questionNode.querySelectorAll<HTMLElement>(`.dropzones .inplace${slotIndex}`),
+          ),
+        ];
 
   return (
     candidates.find((candidate) => {
-      return !candidate.hasAttribute(ANSWER_WIDGET_ATTR) && !candidate.closest(`[${ANSWER_WIDGET_ATTR}="true"]`);
+      return (
+        !candidate.hasAttribute(ANSWER_WIDGET_ATTR) &&
+        !candidate.closest(`[${ANSWER_WIDGET_ATTR}="true"]`)
+      );
     }) ?? null
   );
 }
-
 
 export function getDdimageOrTextVisualChoiceIndex(questionNode: Element, drop: Element) {
   const visualChoice = getDdimageOrTextVisualChoiceForDrop(questionNode, drop);
@@ -166,8 +184,13 @@ export function getDdimageOrTextVisualChoiceIndex(questionNode: Element, drop: E
     return getDdimageOrTextChoiceIndex(visualChoice);
   }
 
-  for (const candidate of Array.from(drop.querySelectorAll<HTMLElement>(".draghome, .drag, .dragitem, [class*='choice']"))) {
-    if (candidate.hasAttribute(ANSWER_WIDGET_ATTR) || candidate.closest(`[${ANSWER_WIDGET_ATTR}="true"]`)) {
+  for (const candidate of Array.from(
+    drop.querySelectorAll<HTMLElement>(".draghome, .drag, .dragitem, [class*='choice']"),
+  )) {
+    if (
+      candidate.hasAttribute(ANSWER_WIDGET_ATTR) ||
+      candidate.closest(`[${ANSWER_WIDGET_ATTR}="true"]`)
+    ) {
       continue;
     }
 
@@ -181,7 +204,6 @@ export function getDdimageOrTextVisualChoiceIndex(questionNode: Element, drop: E
   return null;
 }
 
-
 export function getDdimageOrTextVisualChoiceLabel(questionNode: Element, drop: Element) {
   const candidate = getDdimageOrTextVisualChoiceForDrop(questionNode, drop);
 
@@ -192,8 +214,11 @@ export function getDdimageOrTextVisualChoiceLabel(questionNode: Element, drop: E
   return getDdimageOrTextChoiceLabel(candidate);
 }
 
-
-export function setDdimageOrTextDropVisibleChoice(questionNode: Element, drop: HTMLElement, choice: { element: HTMLElement; label: string }) {
+export function setDdimageOrTextDropVisibleChoice(
+  questionNode: Element,
+  drop: HTMLElement,
+  choice: { element: HTMLElement; label: string },
+) {
   const slotIndex = getDdimageOrTextDropSlotIndex(drop);
   const choiceIndex = getDdimageOrTextChoiceIndex(choice.element);
   const existingDropChoice = getDdimageOrTextVisualChoiceForDrop(questionNode, drop);
@@ -209,7 +234,9 @@ export function setDdimageOrTextDropVisibleChoice(questionNode: Element, drop: H
 
   if (choiceIndex !== null) {
     for (const duplicate of Array.from(
-      questionNode.querySelectorAll<HTMLElement>(`.draghomes .choice${choiceIndex}:not(.dragplaceholder)`)
+      questionNode.querySelectorAll<HTMLElement>(
+        `.draghomes .choice${choiceIndex}:not(.dragplaceholder)`,
+      ),
     )) {
       if (duplicate !== placedChoice) {
         duplicate.remove();
@@ -235,8 +262,11 @@ export function setDdimageOrTextDropVisibleChoice(questionNode: Element, drop: H
   }
 }
 
-
-export function setDdimageOrTextDropAnswer(questionNode: Element, drop: HTMLElement, label: string) {
+export function setDdimageOrTextDropAnswer(
+  questionNode: Element,
+  drop: HTMLElement,
+  label: string,
+) {
   const slotIndex = getDdimageOrTextDropSlotIndex(drop);
 
   if (slotIndex === null) {
@@ -256,12 +286,14 @@ export function setDdimageOrTextDropAnswer(questionNode: Element, drop: HTMLElem
   input.value = nextValue;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
-  setDdimageOrTextDropVisibleChoice(questionNode, drop, { element: choice.element, label: choice.label });
+  setDdimageOrTextDropVisibleChoice(questionNode, drop, {
+    element: choice.element,
+    label: choice.label,
+  });
   drop.dispatchEvent(new Event("change", { bubbles: true }));
 
   return changed;
 }
-
 
 export function getDdimageOrTextDropForTrigger(trigger: HTMLButtonElement) {
   const root = trigger.getRootNode();
@@ -280,8 +312,10 @@ export function getDdimageOrTextDropForTrigger(trigger: HTMLButtonElement) {
   return questionNode?.querySelector<HTMLElement>(`.dropzone.place${slotIndex}`) ?? null;
 }
 
-
-export function autoSelectDdimageOrTextAnswers(questionNode: Element, answerData: AnswerData): boolean {
+export function autoSelectDdimageOrTextAnswers(
+  questionNode: Element,
+  answerData: AnswerData,
+): boolean {
   if (!isDragImageOrTextQuestionType(questionNode)) {
     return false;
   }

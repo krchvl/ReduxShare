@@ -11,9 +11,9 @@ function postCopyUnlockMessage(enabled: boolean) {
       data: {
         source: "ReduxShare",
         type: "REDUXSHARE_COPY_UNLOCK",
-        enabled
-      }
-    })
+        enabled,
+      },
+    }),
   );
 }
 
@@ -31,7 +31,7 @@ describe("copy-paste unlock bridge", () => {
     expect(style?.textContent).toContain("user-select:text!important");
 
     let pageHandlerCalls = 0;
-    // Registered after the unlock listeners, like a site prohibition handler would be.
+
     document.addEventListener("copy", () => {
       pageHandlerCalls += 1;
     });
@@ -49,11 +49,13 @@ describe("copy-paste unlock bridge", () => {
       pageHandlerCalls += 1;
     });
 
-    document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "a" }));
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "a" }),
+    );
     expect(pageHandlerCalls).toBe(1);
 
     document.body.dispatchEvent(
-      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "c", ctrlKey: true })
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "c", ctrlKey: true }),
     );
     expect(pageHandlerCalls).toBe(1);
   });

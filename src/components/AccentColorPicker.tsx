@@ -16,7 +16,10 @@ export function AccentColorPicker({ value, onChange }: AccentColorPickerProps) {
   return (
     <div className="accent-picker">
       <label className="accent-picker__trigger" htmlFor={colorInputId}>
-        <span className="accent-picker__swatch" style={{ "--picked-color": value } as CSSProperties} />
+        <span
+          className="accent-picker__swatch"
+          style={{ "--picked-color": value } as CSSProperties}
+        />
         <span>{value.toUpperCase()}</span>
         <input
           id={colorInputId}

@@ -2,32 +2,30 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildExternalAnswerUrl,
   buildVariantsUrl,
-  fetchExternalAnswer
+  fetchExternalAnswer,
 } from "../src/lib/externalProvider";
 import { getQuizQuestionStubs } from "../src/lib/quizQuestionRegistry";
 import { preloadQuizQuestions } from "../src/lib/quizAttemptPreload";
 
 function stubFetch(impl: (url: string, init?: RequestInit) => Promise<Response>) {
-  // NB: no unstub in afterEach — setup.ts provides a global chrome mock that
-  // unstubAllGlobals would destroy, and every fetch-using test stubs its own
-  // implementation below. Test files run in isolated environments.
   vi.stubGlobal("fetch", vi.fn(impl));
 }
 
 describe("buildExternalAnswerUrl", () => {
   it("targets the same solution endpoint as the variants flow", () => {
     const question = { questionId: "1349", questionType: "match", questionHash: "hash" };
-    const answerUrl = new URL(buildExternalAnswerUrl("school.moodledemo.net", 66, 789, question, "ru"));
+    const answerUrl = new URL(
+      buildExternalAnswerUrl("school.moodledemo.net", 66, 789, question, "ru"),
+    );
     const variantsUrl = new URL(
       buildVariantsUrl(
         { domain: "school.moodledemo.net", courseId: 66, quizId: 789, questions: [] },
-        question
-      )
+        question,
+      ),
     );
 
-    // The preload bruteforce must hit the live solution endpoint, not a stale host.
     expect(`${answerUrl.origin}${answerUrl.pathname}`).toBe(
-      `${variantsUrl.origin}${variantsUrl.pathname}`
+      `${variantsUrl.origin}${variantsUrl.pathname}`,
     );
     expect(answerUrl.searchParams.get("questionId")).toBe("1349");
     expect(answerUrl.searchParams.get("questionType")).toBe("match");
@@ -43,7 +41,7 @@ describe("fetchExternalAnswer", () => {
       "school.moodledemo.net",
       66,
       789,
-      "en"
+      "en",
     );
 
     expect(result.ok).toBe(true);
@@ -58,7 +56,7 @@ describe("fetchExternalAnswer", () => {
       "school.moodledemo.net",
       66,
       789,
-      "en"
+      "en",
     );
 
     expect(result.ok).toBe(true);
@@ -84,8 +82,8 @@ describe("preloadQuizQuestions", () => {
       quizId: 22,
       questions: [
         { questionId: "q1", questionType: null, questionHash: null },
-        { questionId: "q2", questionType: null, questionHash: null }
-      ]
+        { questionId: "q2", questionType: null, questionHash: null },
+      ],
     };
 
     const first = await preloadQuizQuestions(payload, "en");
@@ -97,7 +95,7 @@ describe("preloadQuizQuestions", () => {
     const probesBefore = requested.length;
     const second = await preloadQuizQuestions(payload, "en");
     expect(second).toMatchObject({ ok: true, found: 0, total: 2 });
-    // The miss is probed again instead of being treated as cached knowledge.
+
     expect(requested.length).toBeGreaterThan(probesBefore);
     expect(requested.slice(probesBefore).every((entry) => entry.questionId === "q1")).toBe(true);
   });

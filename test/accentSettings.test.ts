@@ -29,12 +29,14 @@ describe("accent color settings flow", () => {
         createElement(
           I18nProvider,
           { language: "ru" },
-          createElement(AccentColorPicker, { value: "#9cb9f6", onChange })
-        )
+          createElement(AccentColorPicker, { value: "#9cb9f6", onChange }),
+        ),
       );
     });
 
-    const preset = container.querySelector<HTMLButtonElement>('.accent-picker__preset[aria-label="#ff6b6f"]');
+    const preset = container.querySelector<HTMLButtonElement>(
+      '.accent-picker__preset[aria-label="#ff6b6f"]',
+    );
     expect(preset).toBeInstanceOf(HTMLButtonElement);
 
     act(() => {
@@ -55,8 +57,8 @@ describe("accent color settings flow", () => {
         createElement(
           I18nProvider,
           { language: "ru" },
-          createElement(AccentColorPicker, { value: "#9cb9f6", onChange })
-        )
+          createElement(AccentColorPicker, { value: "#9cb9f6", onChange }),
+        ),
       );
     });
 
@@ -64,7 +66,10 @@ describe("accent color settings flow", () => {
     expect(input).toBeInstanceOf(HTMLInputElement);
 
     act(() => {
-      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
       expect(nativeSetter).toBeTypeOf("function");
       nativeSetter!.call(input, "#ff0000");
       input!.dispatchEvent(new Event("input", { bubbles: true }));
@@ -77,7 +82,7 @@ describe("accent color settings flow", () => {
     await saveStoredState({
       settings: { ...DEFAULT_SETTINGS, accentColor: "#ff0000" },
       authSession: null,
-      userProfile: null
+      userProfile: null,
     });
 
     const stored = await loadStoredState();

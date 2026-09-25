@@ -11,7 +11,12 @@ interface LoginScreenProps {
   onOpenRegister: () => void;
 }
 
-export function LoginScreen({ isLoading, errorMessage, onLogin, onOpenRegister }: LoginScreenProps) {
+export function LoginScreen({
+  isLoading,
+  errorMessage,
+  onLogin,
+  onOpenRegister,
+}: LoginScreenProps) {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,7 +55,13 @@ export function LoginScreen({ isLoading, errorMessage, onLogin, onOpenRegister }
         <Button className="auth-button" type="submit" disabled={isLoading}>
           {isLoading ? t("auth.login.loading") : t("auth.login.submit")}
         </Button>
-        <Button className="auth-button" type="button" variant="outline" disabled={isLoading} onClick={onOpenRegister}>
+        <Button
+          className="auth-button"
+          type="button"
+          variant="outline"
+          disabled={isLoading}
+          onClick={onOpenRegister}
+        >
           {t("auth.register.open")}
         </Button>
       </div>
@@ -65,7 +76,12 @@ interface RegisterScreenProps {
   onOpenLogin: () => void;
 }
 
-export function RegisterScreen({ isLoading, message, onRegister, onOpenLogin }: RegisterScreenProps) {
+export function RegisterScreen({
+  isLoading,
+  message,
+  onRegister,
+  onOpenLogin,
+}: RegisterScreenProps) {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -113,7 +129,13 @@ export function RegisterScreen({ isLoading, message, onRegister, onOpenLogin }: 
         <Button className="auth-button" type="submit" disabled={isLoading}>
           {isLoading ? t("auth.register.loading") : t("auth.register.submit")}
         </Button>
-        <Button className="auth-button" type="button" variant="outline" disabled={isLoading} onClick={onOpenLogin}>
+        <Button
+          className="auth-button"
+          type="button"
+          variant="outline"
+          disabled={isLoading}
+          onClick={onOpenLogin}
+        >
           {t("auth.login.open")}
         </Button>
       </div>

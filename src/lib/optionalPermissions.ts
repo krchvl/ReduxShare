@@ -1,14 +1,7 @@
-// Optional host permissions: the manifest no longer carries blanket
-// https://*/* and http://*/* host_permissions. Custom AI endpoints and
-// (as a fallback) same-origin question images need per-user grants that are
-// requested from a user gesture in the settings screen.
-
 let broadPermissionCache: boolean | null = null;
 
 export async function isBroadHostPermissionGranted(): Promise<boolean> {
   if (typeof chrome.permissions?.contains !== "function") {
-    // Non-extension context (tests): behave as "granted" so custom endpoints
-    // keep working where no gating is possible.
     return true;
   }
 
@@ -19,11 +12,6 @@ export async function isBroadHostPermissionGranted(): Promise<boolean> {
   }
 }
 
-/**
- * Requests the optional broad host permission from a user gesture. Returns
- * true when the permission is (or already was) granted, false when the user
- * dismissed the browser prompt or the API is unavailable.
- */
 export async function requestBroadHostPermission(): Promise<boolean> {
   const alreadyGranted = await isBroadHostPermissionGranted();
 
@@ -47,8 +35,6 @@ export async function requestBroadHostPermission(): Promise<boolean> {
 }
 
 export function isBroadHostPermissionGrantedSync(): boolean {
-  // Best-effort synchronous probe for gesture-time gating; the async contains()
-  // call stays the source of truth, this only reflects the last known state.
   return broadPermissionCache === true;
 }
 

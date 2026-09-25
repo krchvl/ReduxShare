@@ -3,7 +3,7 @@ import type {
   AnswerSlotData,
   SourceAnswerData,
   SubmissionItem,
-  SuggestionItem
+  SuggestionItem,
 } from "../../src/model";
 
 export function emptyAnswerData(): AnswerData {
@@ -11,7 +11,7 @@ export function emptyAnswerData(): AnswerData {
     anchors: [],
     suggestions: [],
     submissions: [],
-    slots: []
+    slots: [],
   };
 }
 
@@ -20,14 +20,19 @@ export function exactSuggestion(label: string, confidence = 1, count?: number): 
     correctness: 2,
     confidence,
     count,
-    label
+    label,
   };
 }
 
-export function slottedExactSuggestion(label: string, slotIndex: number, confidence = 1, count?: number): SuggestionItem {
+export function slottedExactSuggestion(
+  label: string,
+  slotIndex: number,
+  confidence = 1,
+  count?: number,
+): SuggestionItem {
   return {
     ...exactSuggestion(label, confidence, count),
-    actionSlotIndex: slotIndex
+    actionSlotIndex: slotIndex,
   };
 }
 
@@ -35,14 +40,18 @@ export function unknownSubmission(label: string, count = 1): SubmissionItem {
   return {
     correctness: 1,
     count,
-    label
+    label,
   };
 }
 
-export function slottedUnknownSubmission(label: string, slotIndex: number, count = 1): SubmissionItem {
+export function slottedUnknownSubmission(
+  label: string,
+  slotIndex: number,
+  count = 1,
+): SubmissionItem {
   return {
     ...unknownSubmission(label, count),
-    actionSlotIndex: slotIndex
+    actionSlotIndex: slotIndex,
   };
 }
 
@@ -51,7 +60,7 @@ export function exactAnswerData(label: string): AnswerData {
     anchors: [],
     suggestions: [exactSuggestion(label)],
     submissions: [],
-    slots: []
+    slots: [],
   };
 }
 
@@ -60,7 +69,7 @@ export function unknownAnswerData(label: string, count = 1): AnswerData {
     anchors: [],
     suggestions: [],
     submissions: [unknownSubmission(label, count)],
-    slots: []
+    slots: [],
   };
 }
 
@@ -70,7 +79,7 @@ export function answerSlot(index: number, parts: Partial<AnswerSlotData>): Answe
     hasExplicitIndex: true,
     anchors: parts.anchors ?? [],
     suggestions: parts.suggestions ?? [],
-    submissions: parts.submissions ?? []
+    submissions: parts.submissions ?? [],
   };
 }
 
@@ -79,13 +88,13 @@ export function slottedAnswerData(slots: AnswerSlotData[]): AnswerData {
     anchors: slots.flatMap((slot) => slot.anchors),
     suggestions: slots.flatMap((slot) => slot.suggestions),
     submissions: slots.flatMap((slot) => slot.submissions),
-    slots
+    slots,
   };
 }
 
 export function sourceAnswerData(parts: Partial<SourceAnswerData>): SourceAnswerData {
   return {
     reduxshare: parts.reduxshare ?? emptyAnswerData(),
-    external: parts.external ?? emptyAnswerData()
+    external: parts.external ?? emptyAnswerData(),
   };
 }

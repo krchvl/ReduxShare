@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchLatestUpdateInfo,
   GITHUB_LATEST_RELEASE_URL,
-  GITHUB_VERSION_URL
+  GITHUB_VERSION_URL,
 } from "../src/lib/updates";
 
 function mockVersionResponse(version: string, ok = true, status = 200) {
@@ -11,8 +11,8 @@ function mockVersionResponse(version: string, ok = true, status = 200) {
     vi.fn(async () => ({
       ok,
       status,
-      text: async () => version
-    }))
+      text: async () => version,
+    })),
   );
 }
 
@@ -31,14 +31,14 @@ describe("GitHub update provider", () => {
       expect.objectContaining({
         cache: "no-store",
         headers: {
-          Accept: "text/plain"
-        }
-      })
+          Accept: "text/plain",
+        },
+      }),
     );
     expect(latestUpdate).toEqual({
       version: "0.2.0",
       releaseUrl: GITHUB_LATEST_RELEASE_URL,
-      source: "github"
+      source: "github",
     });
   });
 
@@ -48,7 +48,7 @@ describe("GitHub update provider", () => {
     await expect(fetchLatestUpdateInfo("0.1.0")).resolves.toEqual({
       version: "0.1.0",
       releaseUrl: null,
-      source: "github"
+      source: "github",
     });
   });
 
@@ -58,7 +58,7 @@ describe("GitHub update provider", () => {
     await expect(fetchLatestUpdateInfo("0.1.0")).resolves.toEqual({
       version: "0.2.0",
       releaseUrl: GITHUB_LATEST_RELEASE_URL,
-      source: "github"
+      source: "github",
     });
   });
 

@@ -1,4 +1,3 @@
-// Moodle page-type predicates shared by the panel, the review saver and the bootstrap.
 export function isQuizAttemptUrl(url: Location) {
   return url.protocol === "https:" && url.pathname.endsWith("/mod/quiz/attempt.php");
 }

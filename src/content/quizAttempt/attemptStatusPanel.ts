@@ -1,14 +1,11 @@
-// Attempt status panel: the floating "quiz progress" widget and the answer-state checks
-// it renders. Moved out of src/content/quizAttempt.ts.
-import type { AnswerEntry, QuizAttemptContext, QuizQuestionSummary, StoredStateLike } from "../../model";
+import type { AnswerEntry, QuizQuestionSummary, StoredStateLike } from "../../model";
 import type { Settings } from "../../types";
 import { canUseQuizFeatures, getContentLocale } from "../../logic/settings";
 import {
   applyContentColorSchemeToHost,
   getAccentColor,
-  getContentColorScheme,
   getRgbCssValue,
-  mixHexColors
+  mixHexColors,
 } from "../../logic/theme";
 import { getOrderingResponseInput } from "../../dom/ordering";
 import { isAiOnlyQuestionTypeName } from "../../dom/questionTypes";
@@ -16,13 +13,32 @@ import { isPlaceholderSelectOption } from "../../dom/questionDom";
 import { getAnswerEntries } from "./answerControls";
 import { getDdimageOrTextPlaceInput } from "./ddimageortext";
 import { normalizeDdmarkerCoordinate } from "./ddmarker";
-import { getAnswerDataForQuestion, getEssayAnswerTextareas, getSelectableAnswerControls, hasSourceAnswerData } from "./answerControls";
-import { getDdwtosDrops, getDdwtosDropSlotIndex, getDdwtosPlaceInput, getDdwtosSelectedLabelForDrop } from "./ddwtos";
-import { getDdmarkerChoices, getDdmarkerCoordinateLabel } from "./ddmarker";
-import { getDdimageOrTextDrops, getDdimageOrTextDropSlotIndex, getDdimageOrTextSelectedLabelForDrop } from "./ddimageortext";
-import { getOrderingItems, getOrderingItemLabel } from "../../dom/ordering";
+import {
+  getAnswerDataForQuestion,
+  getEssayAnswerTextareas,
+  getSelectableAnswerControls,
+  hasSourceAnswerData,
+} from "./answerControls";
+import {
+  getDdwtosDrops,
+  getDdwtosDropSlotIndex,
+  getDdwtosPlaceInput,
+  getDdwtosSelectedLabelForDrop,
+} from "./ddwtos";
+import { getDdmarkerChoices } from "./ddmarker";
+import {
+  getDdimageOrTextDrops,
+  getDdimageOrTextDropSlotIndex,
+  getDdimageOrTextSelectedLabelForDrop,
+} from "./ddimageortext";
 import { getChoiceAnswerInputs, getTextAnswerInputs } from "./answerControls";
-import { currentQuizAttemptContext, currentStoredState, currentT, setCurrentStoredState, stealthModeEnabled } from "../../state";
+import {
+  currentQuizAttemptContext,
+  currentStoredState,
+  currentT,
+  setCurrentStoredState,
+  stealthModeEnabled,
+} from "../../state";
 import { isQuizAttemptUrl } from "./quizUrl";
 import { patchStoredState } from "../../lib/storage";
 
@@ -32,8 +48,7 @@ const ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY = "reduxshareAttemptStatusPanelP
 
 let attemptStatusPanelClockId: number | null = null;
 let attemptStatusPanelCollapsed = false;
-// Set when the user closes the panel with the close button. Unlike "collapsed" this is not
-// persisted: a fresh attempt page always gets the panel back.
+
 let attemptStatusPanelClosedInSession = false;
 let attemptStatusPanelInteractionListenerInstalled = false;
 let attemptStatusPanelResizeListenerInstalled = false;
@@ -49,14 +64,12 @@ type AttemptStatusPanelPosition = {
   verticalOffset: number;
 };
 let attemptStatusPanelPosition: AttemptStatusPanelPosition | null = null;
-let attemptStatusPanelDragState:
-  | {
-      pointerId: number;
-      offsetX: number;
-      offsetY: number;
-      moved: boolean;
-    }
-  | null = null;
+let attemptStatusPanelDragState: {
+  pointerId: number;
+  offsetX: number;
+  offsetY: number;
+  moved: boolean;
+} | null = null;
 
 export function resetAttemptStatusPanelState() {
   attemptStatusPanelCollapsed = false;
@@ -67,7 +80,6 @@ export function resetAttemptStatusPanelState() {
 export function isSourceLookupQuestion(question: QuizQuestionSummary) {
   return !isAiOnlyQuestionTypeName(question.questionType);
 }
-
 
 export function getAttemptStatusPanelUsername() {
   const username = currentStoredState?.userProfile?.username?.trim();
@@ -95,8 +107,9 @@ type AttemptStatusPanelQuestionProgress = {
   level: AttemptStatusPanelQuestionProgressLevel;
 };
 
-
-export function getAttemptStatusPanelProgressLevel(percent: number): AttemptStatusPanelQuestionProgressLevel {
+export function getAttemptStatusPanelProgressLevel(
+  percent: number,
+): AttemptStatusPanelQuestionProgressLevel {
   if (percent < 25) {
     return "low";
   }
@@ -112,7 +125,6 @@ export function getAttemptStatusPanelProgressLevel(percent: number): AttemptStat
   return "good";
 }
 
-
 export function getAttemptStatusPanelProgressColor(percent: number) {
   switch (getAttemptStatusPanelProgressLevel(percent)) {
     case "low":
@@ -125,7 +137,6 @@ export function getAttemptStatusPanelProgressColor(percent: number) {
       return "#68e3a1";
   }
 }
-
 
 export function parseAttemptStatusPanelQuestionNumber(value: string | null | undefined) {
   if (!value) {
@@ -144,13 +155,12 @@ export function parseAttemptStatusPanelQuestionNumber(value: string | null | und
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-
 export function getAttemptStatusPanelQuestionNumberFromElement(element: Element) {
   const values = [
     element.getAttribute("aria-label"),
     element.getAttribute("title"),
     element.id,
-    element.textContent
+    element.textContent,
   ];
 
   for (const value of values) {
@@ -163,7 +173,6 @@ export function getAttemptStatusPanelQuestionNumberFromElement(element: Element)
 
   return null;
 }
-
 
 export function getAttemptStatusPanelQuestionPageFromUrl() {
   try {
@@ -180,17 +189,18 @@ export function getAttemptStatusPanelQuestionPageFromUrl() {
   }
 }
 
-
 export function getAttemptStatusPanelQuestionNavButtons() {
   return Array.from(
     document.querySelectorAll<HTMLElement>(
-      "#mod_quiz_navblock .qnbutton, .quiznavigation .qnbutton, .qn_buttons .qnbutton, .qnbutton"
-    )
+      "#mod_quiz_navblock .qnbutton, .quiznavigation .qnbutton, .qn_buttons .qnbutton, .qnbutton",
+    ),
   ).filter((button) => {
-    return getAttemptStatusPanelQuestionNumberFromElement(button) !== null || /^quiznavbutton\d+$/i.test(button.id);
+    return (
+      getAttemptStatusPanelQuestionNumberFromElement(button) !== null ||
+      /^quiznavbutton\d+$/i.test(button.id)
+    );
   });
 }
-
 
 export function getAttemptStatusPanelCurrentNavButton(navButtons: HTMLElement[]) {
   const explicitCurrentButton = navButtons.find((button) => {
@@ -211,10 +221,9 @@ export function getAttemptStatusPanelCurrentNavButton(navButtons: HTMLElement[])
   return currentPageQuestion === null ? null : (navButtons[currentPageQuestion - 1] ?? null);
 }
 
-
 export function getAttemptStatusPanelVisibleQuestionNumber() {
   const visibleQuestionLabels = Array.from(
-    document.querySelectorAll<HTMLElement>(".que .info .no, .que .info .qno, .que .qno, .que .no")
+    document.querySelectorAll<HTMLElement>(".que .info .no, .que .info .qno, .que .qno, .que .no"),
   );
 
   for (const label of visibleQuestionLabels) {
@@ -228,10 +237,14 @@ export function getAttemptStatusPanelVisibleQuestionNumber() {
   return null;
 }
 
-
-export function getAttemptStatusPanelQuestionNumberFromQuestionNode(questionNode: Element, fallbackQuestionNumber: number | null) {
+export function getAttemptStatusPanelQuestionNumberFromQuestionNode(
+  questionNode: Element,
+  fallbackQuestionNumber: number | null,
+) {
   const numberLabel = questionNode.querySelector<HTMLElement>(".info .no, .info .qno, .qno, .no");
-  const questionNumber = numberLabel ? parseAttemptStatusPanelQuestionNumber(numberLabel.textContent) : null;
+  const questionNumber = numberLabel
+    ? parseAttemptStatusPanelQuestionNumber(numberLabel.textContent)
+    : null;
 
   if (questionNumber !== null) {
     return questionNumber;
@@ -247,13 +260,13 @@ export function getAttemptStatusPanelQuestionNumberFromQuestionNode(questionNode
   return fallbackQuestionNumber;
 }
 
-
 export function normalizeAttemptStatusPanelAnswerStateText(value: string | null | undefined) {
   return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
-
-export function getAttemptStatusPanelAnswerStateFromText(value: string | null | undefined): boolean | null {
+export function getAttemptStatusPanelAnswerStateFromText(
+  value: string | null | undefined,
+): boolean | null {
   const normalizedValue = normalizeAttemptStatusPanelAnswerStateText(value);
 
   if (!normalizedValue) {
@@ -262,7 +275,7 @@ export function getAttemptStatusPanelAnswerStateFromText(value: string | null | 
 
   if (
     /\bnot\s+yet\s+answered\b|\bnotanswered\b|\bunanswered\b|\bincomplete\b|не\s*отвеч|нет\s+ответ|без\s+ответ|не\s+заверш/iu.test(
-      normalizedValue
+      normalizedValue,
     )
   ) {
     return false;
@@ -270,7 +283,7 @@ export function getAttemptStatusPanelAnswerStateFromText(value: string | null | 
 
   if (
     /\banswer\s+saved\b|\banswered\b|\bcomplete\b|\bfinished\b|ответ\s+сохран|сохран[её]н|отвечен|отвечено|ответ\s+дан|заверш/iu.test(
-      normalizedValue
+      normalizedValue,
     )
   ) {
     return true;
@@ -279,21 +292,24 @@ export function getAttemptStatusPanelAnswerStateFromText(value: string | null | 
   return null;
 }
 
-
 export function getAttemptStatusPanelQuestionStateFromNode(questionNode: Element): boolean | null {
   const stateText = [
     questionNode.querySelector<HTMLElement>(".state")?.textContent,
     questionNode.getAttribute("aria-label"),
-    questionNode.getAttribute("title")
+    questionNode.getAttribute("title"),
   ].join(" ");
 
   return getAttemptStatusPanelAnswerStateFromText(stateText);
 }
 
-
 export function isAttemptStatusPanelNavButtonAnswered(button: HTMLElement) {
   const stateFromText = getAttemptStatusPanelAnswerStateFromText(
-    [button.getAttribute("aria-label"), button.getAttribute("title"), button.className, button.textContent].join(" ")
+    [
+      button.getAttribute("aria-label"),
+      button.getAttribute("title"),
+      button.className,
+      button.textContent,
+    ].join(" "),
   );
 
   if (stateFromText !== null) {
@@ -309,7 +325,6 @@ export function isAttemptStatusPanelNavButtonAnswered(button: HTMLElement) {
   );
 }
 
-
 export function isAttemptStatusPanelSelectAnswered(select: HTMLSelectElement) {
   if (!select.value) {
     return false;
@@ -318,7 +333,6 @@ export function isAttemptStatusPanelSelectAnswered(select: HTMLSelectElement) {
   const selectedOption = select.selectedOptions[0] ?? select.options[select.selectedIndex];
   return selectedOption ? !isPlaceholderSelectOption(selectedOption) : true;
 }
-
 
 export function areAttemptStatusPanelChoiceControlsAnswered(questionNode: Element): boolean | null {
   const answerInputs = getChoiceAnswerInputs(questionNode);
@@ -342,12 +356,14 @@ export function areAttemptStatusPanelChoiceControlsAnswered(questionNode: Elemen
     radioGroups.set(groupKey, group);
   }
 
-  const radioGroupsAnswered = Array.from(radioGroups.values()).every((group) => group.some((input) => input.checked));
-  const checkboxControlsAnswered = checkboxInputs.length === 0 || checkboxInputs.some((input) => input.checked);
+  const radioGroupsAnswered = Array.from(radioGroups.values()).every((group) =>
+    group.some((input) => input.checked),
+  );
+  const checkboxControlsAnswered =
+    checkboxInputs.length === 0 || checkboxInputs.some((input) => input.checked);
 
   return radioGroupsAnswered && checkboxControlsAnswered;
 }
-
 
 export function areAttemptStatusPanelSelectControlsAnswered(questionNode: Element): boolean | null {
   const selects = getSelectableAnswerControls(questionNode);
@@ -359,7 +375,6 @@ export function areAttemptStatusPanelSelectControlsAnswered(questionNode: Elemen
   return selects.every(isAttemptStatusPanelSelectAnswered);
 }
 
-
 export function areAttemptStatusPanelTextControlsAnswered(questionNode: Element): boolean | null {
   const controls = [...getTextAnswerInputs(questionNode), ...getEssayAnswerTextareas(questionNode)];
 
@@ -370,8 +385,9 @@ export function areAttemptStatusPanelTextControlsAnswered(questionNode: Element)
   return controls.every((control) => control.value.trim() !== "");
 }
 
-
-export function isAttemptStatusPanelHiddenAnswerValueFilled(input: HTMLInputElement | null | undefined) {
+export function isAttemptStatusPanelHiddenAnswerValueFilled(
+  input: HTMLInputElement | null | undefined,
+) {
   if (!input) {
     return false;
   }
@@ -379,7 +395,6 @@ export function isAttemptStatusPanelHiddenAnswerValueFilled(input: HTMLInputElem
   const value = input.value.trim();
   return value !== "" && value !== "0";
 }
-
 
 export function areAttemptStatusPanelDdwtosControlsAnswered(questionNode: Element): boolean | null {
   const drops = getDdwtosDrops(questionNode);
@@ -398,8 +413,9 @@ export function areAttemptStatusPanelDdwtosControlsAnswered(questionNode: Elemen
   });
 }
 
-
-export function areAttemptStatusPanelDdmarkerControlsAnswered(questionNode: Element): boolean | null {
+export function areAttemptStatusPanelDdmarkerControlsAnswered(
+  questionNode: Element,
+): boolean | null {
   const choices = getDdmarkerChoices(questionNode);
 
   if (choices.length === 0) {
@@ -409,8 +425,9 @@ export function areAttemptStatusPanelDdmarkerControlsAnswered(questionNode: Elem
   return choices.every((choice) => normalizeDdmarkerCoordinate(choice.input.value) !== "");
 }
 
-
-export function areAttemptStatusPanelDdimageOrTextControlsAnswered(questionNode: Element): boolean | null {
+export function areAttemptStatusPanelDdimageOrTextControlsAnswered(
+  questionNode: Element,
+): boolean | null {
   const drops = getDdimageOrTextDrops(questionNode);
 
   if (drops.length === 0) {
@@ -421,12 +438,13 @@ export function areAttemptStatusPanelDdimageOrTextControlsAnswered(questionNode:
     const slotIndex = getDdimageOrTextDropSlotIndex(drop);
     return (
       slotIndex !== null &&
-      (isAttemptStatusPanelHiddenAnswerValueFilled(getDdimageOrTextPlaceInput(questionNode, slotIndex)) ||
+      (isAttemptStatusPanelHiddenAnswerValueFilled(
+        getDdimageOrTextPlaceInput(questionNode, slotIndex),
+      ) ||
         getDdimageOrTextSelectedLabelForDrop(questionNode, drop).trim() !== "")
     );
   });
 }
-
 
 export function isAttemptStatusPanelOrderingAnswered(questionNode: Element): boolean | null {
   if (!questionNode.classList.contains("ordering")) {
@@ -437,8 +455,9 @@ export function isAttemptStatusPanelOrderingAnswered(questionNode: Element): boo
   return Boolean(responseInput?.value.trim());
 }
 
-
-export function getAttemptStatusPanelQuestionControlAnswerState(questionNode: Element): boolean | null {
+export function getAttemptStatusPanelQuestionControlAnswerState(
+  questionNode: Element,
+): boolean | null {
   const checks = [
     areAttemptStatusPanelChoiceControlsAnswered(questionNode),
     areAttemptStatusPanelSelectControlsAnswered(questionNode),
@@ -446,12 +465,11 @@ export function getAttemptStatusPanelQuestionControlAnswerState(questionNode: El
     areAttemptStatusPanelDdwtosControlsAnswered(questionNode),
     areAttemptStatusPanelDdmarkerControlsAnswered(questionNode),
     areAttemptStatusPanelDdimageOrTextControlsAnswered(questionNode),
-    isAttemptStatusPanelOrderingAnswered(questionNode)
+    isAttemptStatusPanelOrderingAnswered(questionNode),
   ].filter((check): check is boolean => check !== null);
 
   return checks.length > 0 ? checks.every(Boolean) : null;
 }
-
 
 export function isAttemptStatusPanelQuestionAnswered(entry: AnswerEntry) {
   const { questionNode } = entry;
@@ -465,11 +483,10 @@ export function isAttemptStatusPanelQuestionAnswered(entry: AnswerEntry) {
   return stateFromNode ?? false;
 }
 
-
 export function getAttemptStatusPanelAnsweredQuestionCount(
   totalQuestions: number,
   navButtons: HTMLElement[],
-  currentQuestion: number | null
+  currentQuestion: number | null,
 ) {
   const answeredByQuestionNumber = new Map<number, boolean>();
 
@@ -484,24 +501,34 @@ export function getAttemptStatusPanelAnsweredQuestionCount(
   const answerEntries = getAnswerEntries();
 
   answerEntries.forEach((entry, index) => {
-    const fallbackQuestionNumber = answerEntries.length === 1 && currentQuestion !== null ? currentQuestion : index + 1;
-    const questionNumber = getAttemptStatusPanelQuestionNumberFromQuestionNode(entry.questionNode, fallbackQuestionNumber);
+    const fallbackQuestionNumber =
+      answerEntries.length === 1 && currentQuestion !== null ? currentQuestion : index + 1;
+    const questionNumber = getAttemptStatusPanelQuestionNumberFromQuestionNode(
+      entry.questionNode,
+      fallbackQuestionNumber,
+    );
 
     if (questionNumber !== null && questionNumber > 0) {
       answeredByQuestionNumber.set(questionNumber, isAttemptStatusPanelQuestionAnswered(entry));
     }
   });
 
-  const answeredQuestionCount = Array.from(answeredByQuestionNumber.values()).filter(Boolean).length;
-  return totalQuestions > 0 ? Math.min(totalQuestions, answeredQuestionCount) : answeredQuestionCount;
+  const answeredQuestionCount = Array.from(answeredByQuestionNumber.values()).filter(
+    Boolean,
+  ).length;
+  return totalQuestions > 0
+    ? Math.min(totalQuestions, answeredQuestionCount)
+    : answeredQuestionCount;
 }
 
-
-export function getAttemptStatusPanelQuestionProgress(totalQuestionsFallback: number): AttemptStatusPanelQuestionProgress {
+export function getAttemptStatusPanelQuestionProgress(
+  totalQuestionsFallback: number,
+): AttemptStatusPanelQuestionProgress {
   const navButtons = getAttemptStatusPanelQuestionNavButtons();
   const currentNavButton = getAttemptStatusPanelCurrentNavButton(navButtons);
   const currentFromNavigation = currentNavButton
-    ? getAttemptStatusPanelQuestionNumberFromElement(currentNavButton) ?? navButtons.indexOf(currentNavButton) + 1
+    ? (getAttemptStatusPanelQuestionNumberFromElement(currentNavButton) ??
+      navButtons.indexOf(currentNavButton) + 1)
     : null;
   const currentFromVisibleQuestion = getAttemptStatusPanelVisibleQuestionNumber();
   const currentFromPageUrl = getAttemptStatusPanelQuestionPageFromUrl();
@@ -511,15 +538,22 @@ export function getAttemptStatusPanelQuestionProgress(totalQuestionsFallback: nu
     navButtons.length,
     currentFromNavigation ?? 0,
     currentFromVisibleQuestion ?? 0,
-    currentFromPageUrl ?? 0
+    currentFromPageUrl ?? 0,
   );
   const rawCurrentQuestion =
-    currentFromNavigation ?? currentFromVisibleQuestion ?? currentFromPageUrl ?? (totalQuestions === 1 ? 1 : null);
+    currentFromNavigation ??
+    currentFromVisibleQuestion ??
+    currentFromPageUrl ??
+    (totalQuestions === 1 ? 1 : null);
   const currentQuestion =
     rawCurrentQuestion === null || totalQuestions <= 0
       ? null
       : Math.min(totalQuestions, Math.max(1, rawCurrentQuestion));
-  const answeredQuestions = getAttemptStatusPanelAnsweredQuestionCount(totalQuestions, navButtons, currentQuestion);
+  const answeredQuestions = getAttemptStatusPanelAnsweredQuestionCount(
+    totalQuestions,
+    navButtons,
+    currentQuestion,
+  );
   const percent =
     totalQuestions <= 0
       ? 0
@@ -530,37 +564,39 @@ export function getAttemptStatusPanelQuestionProgress(totalQuestionsFallback: nu
     totalQuestions,
     answeredQuestions,
     percent,
-    level: getAttemptStatusPanelProgressLevel(percent)
+    level: getAttemptStatusPanelProgressLevel(percent),
   };
 }
 
-
 export function getAttemptStatusPanelProgressLocale() {
-  return getContentLocale(currentStoredState?.settings?.language).toLowerCase().startsWith("ru") ? "ru" : "en";
+  return getContentLocale(currentStoredState?.settings?.language).toLowerCase().startsWith("ru")
+    ? "ru"
+    : "en";
 }
-
 
 export function getAttemptStatusPanelProgressTitle() {
-  return getAttemptStatusPanelProgressLocale() === "ru" ? "Прогресс выполнения" : "Completion progress";
+  return getAttemptStatusPanelProgressLocale() === "ru"
+    ? "Прогресс выполнения"
+    : "Completion progress";
 }
 
-
-export function getAttemptStatusPanelCompletedProgressLabel(progress: AttemptStatusPanelQuestionProgress) {
+export function getAttemptStatusPanelCompletedProgressLabel(
+  progress: AttemptStatusPanelQuestionProgress,
+) {
   return getAttemptStatusPanelProgressLocale() === "ru"
     ? `Сделано ${progress.answeredQuestions} из ${progress.totalQuestions}`
     : `Done ${progress.answeredQuestions} of ${progress.totalQuestions}`;
 }
 
-
 export function getAttemptStatusPanelProgressCaption(progress: AttemptStatusPanelQuestionProgress) {
   return getAttemptStatusPanelCompletedProgressLabel(progress);
 }
 
-
-export function getAttemptStatusPanelProgressAriaLabel(progress: AttemptStatusPanelQuestionProgress) {
+export function getAttemptStatusPanelProgressAriaLabel(
+  progress: AttemptStatusPanelQuestionProgress,
+) {
   return `${getAttemptStatusPanelProgressCaption(progress)}, ${progress.percent}%`;
 }
-
 
 export function getAttemptStatusPanelStats() {
   const fallbackQuestionCount = document.querySelectorAll(".que").length;
@@ -568,17 +604,19 @@ export function getAttemptStatusPanelStats() {
   const sourceQuestions = questions.filter(isSourceLookupQuestion);
   const totalQuestions = currentQuizAttemptContext?.questionCount ?? fallbackQuestionCount;
   const questionsWithAnswers = sourceQuestions.filter((question) => {
-    return Boolean(question.questionId) && hasSourceAnswerData(getAnswerDataForQuestion(question.questionId));
+    return (
+      Boolean(question.questionId) &&
+      hasSourceAnswerData(getAnswerDataForQuestion(question.questionId))
+    );
   }).length;
   const failedQuestions = Math.max(totalQuestions - questionsWithAnswers, 0);
 
   return {
     totalQuestions,
     questionsWithAnswers,
-    failedQuestions
+    failedQuestions,
   };
 }
-
 
 export function stopAttemptStatusPanelClock() {
   if (attemptStatusPanelClockId !== null) {
@@ -592,20 +630,20 @@ export function stopAttemptStatusPanelClock() {
   }
 }
 
-
 export function removeAttemptStatusPanel() {
   stopAttemptStatusPanelClock();
   document.getElementById(ATTEMPT_STATUS_PANEL_ID)?.remove();
 }
 
-
 export function getAttemptStatusPanelExpandedWidth() {
   return Math.max(220, Math.min(360, window.innerWidth - 24));
 }
 
-
 export function getAttemptStatusPanelRectLimits(host: HTMLDivElement, shadowRoot: ShadowRoot) {
-  const width = host.getBoundingClientRect().width || Number.parseFloat(host.style.width) || getAttemptStatusPanelExpandedWidth();
+  const width =
+    host.getBoundingClientRect().width ||
+    Number.parseFloat(host.style.width) ||
+    getAttemptStatusPanelExpandedWidth();
   const panel =
     shadowRoot.querySelector<HTMLElement>(".panel") ??
     (shadowRoot.firstElementChild instanceof HTMLElement ? shadowRoot.firstElementChild : null);
@@ -618,15 +656,14 @@ export function getAttemptStatusPanelRectLimits(host: HTMLDivElement, shadowRoot
     minTop: minOffset,
     minOffset,
     maxOffset: Math.max(minOffset, window.innerWidth - width - minOffset),
-    maxTop: Math.max(minOffset, window.innerHeight - height - minOffset)
+    maxTop: Math.max(minOffset, window.innerHeight - height - minOffset),
   };
 }
-
 
 export function clampAttemptStatusPanelPosition(
   position: AttemptStatusPanelPosition,
   host: HTMLDivElement,
-  shadowRoot: ShadowRoot
+  shadowRoot: ShadowRoot,
 ) {
   const limits = getAttemptStatusPanelRectLimits(host, shadowRoot);
 
@@ -634,10 +671,12 @@ export function clampAttemptStatusPanelPosition(
     anchor: position.anchor,
     offset: Math.min(limits.maxOffset, Math.max(limits.minOffset, Math.round(position.offset))),
     verticalAnchor: position.verticalAnchor,
-    verticalOffset: Math.min(limits.maxTop, Math.max(limits.minTop, Math.round(position.verticalOffset)))
+    verticalOffset: Math.min(
+      limits.maxTop,
+      Math.max(limits.minTop, Math.round(position.verticalOffset)),
+    ),
   };
 }
-
 
 export function getDefaultAttemptStatusPanelPosition(host: HTMLDivElement, shadowRoot: ShadowRoot) {
   const limits = getAttemptStatusPanelRectLimits(host, shadowRoot);
@@ -646,10 +685,9 @@ export function getDefaultAttemptStatusPanelPosition(host: HTMLDivElement, shado
     anchor: "left" as const,
     offset: limits.minOffset,
     verticalAnchor: "bottom" as const,
-    verticalOffset: limits.minTop
+    verticalOffset: limits.minTop,
   };
 }
-
 
 export function applyAttemptStatusPanelPosition(host: HTMLDivElement, shadowRoot: ShadowRoot) {
   const nextPosition = attemptStatusPanelPosition
@@ -658,35 +696,37 @@ export function applyAttemptStatusPanelPosition(host: HTMLDivElement, shadowRoot
 
   host.style.left = nextPosition.anchor === "left" ? `${nextPosition.offset}px` : "auto";
   host.style.right = nextPosition.anchor === "right" ? `${nextPosition.offset}px` : "auto";
-  host.style.top = nextPosition.verticalAnchor === "top" ? `${nextPosition.verticalOffset}px` : "auto";
-  host.style.bottom = nextPosition.verticalAnchor === "bottom" ? `${nextPosition.verticalOffset}px` : "auto";
+  host.style.top =
+    nextPosition.verticalAnchor === "top" ? `${nextPosition.verticalOffset}px` : "auto";
+  host.style.bottom =
+    nextPosition.verticalAnchor === "bottom" ? `${nextPosition.verticalOffset}px` : "auto";
 }
-
 
 export function getAttemptStatusPanelPositionFromRect(
   rect: Pick<DOMRect, "left" | "top" | "width">,
   host: HTMLDivElement,
-  shadowRoot: ShadowRoot
+  shadowRoot: ShadowRoot,
 ): AttemptStatusPanelPosition {
-  const anchor: AttemptStatusPanelAnchor = rect.left + rect.width / 2 <= window.innerWidth / 2 ? "left" : "right";
+  const anchor: AttemptStatusPanelAnchor =
+    rect.left + rect.width / 2 <= window.innerWidth / 2 ? "left" : "right";
   const offset = anchor === "left" ? rect.left : window.innerWidth - rect.width - rect.left;
   const limits = getAttemptStatusPanelRectLimits(host, shadowRoot);
   const verticalAnchor: AttemptStatusPanelVerticalAnchor =
     rect.top + limits.height / 2 <= window.innerHeight / 2 ? "top" : "bottom";
-  const verticalOffset = verticalAnchor === "top" ? rect.top : window.innerHeight - limits.height - rect.top;
+  const verticalOffset =
+    verticalAnchor === "top" ? rect.top : window.innerHeight - limits.height - rect.top;
 
   return clampAttemptStatusPanelPosition(
     {
       anchor,
       offset,
       verticalAnchor,
-      verticalOffset
+      verticalOffset,
     },
     host,
-    shadowRoot
+    shadowRoot,
   );
 }
-
 
 export function syncAttemptStatusPanelHostWidth(host: HTMLDivElement, shadowRoot: ShadowRoot) {
   const expandedWidth = getAttemptStatusPanelExpandedWidth();
@@ -703,7 +743,6 @@ export function syncAttemptStatusPanelHostWidth(host: HTMLDivElement, shadowRoot
   host.style.width = `${targetWidth}px`;
 }
 
-
 export function handleAttemptStatusPanelViewportResize() {
   const host = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
 
@@ -715,7 +754,6 @@ export function handleAttemptStatusPanelViewportResize() {
   applyAttemptStatusPanelPosition(host, host.shadowRoot);
 }
 
-
 export function ensureAttemptStatusPanelResizeListener() {
   if (attemptStatusPanelResizeListenerInstalled) {
     return;
@@ -724,7 +762,6 @@ export function ensureAttemptStatusPanelResizeListener() {
   attemptStatusPanelResizeListenerInstalled = true;
   window.addEventListener("resize", handleAttemptStatusPanelViewportResize);
 }
-
 
 export function finishAttemptStatusPanelDrag(event: PointerEvent | null) {
   if (!attemptStatusPanelDragState) {
@@ -744,16 +781,19 @@ export function finishAttemptStatusPanelDrag(event: PointerEvent | null) {
     Number.isFinite(host.offsetLeft) &&
     Number.isFinite(host.offsetTop)
   ) {
-    attemptStatusPanelPosition = getAttemptStatusPanelPositionFromRect(host.getBoundingClientRect(), host, host.shadowRoot);
+    attemptStatusPanelPosition = getAttemptStatusPanelPositionFromRect(
+      host.getBoundingClientRect(),
+      host,
+      host.shadowRoot,
+    );
 
     void chrome.storage.local.set({
-      [ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY]: attemptStatusPanelPosition
+      [ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY]: attemptStatusPanelPosition,
     });
   }
 
   attemptStatusPanelDragState = null;
 }
-
 
 export function handleAttemptStatusPanelDragMove(event: PointerEvent) {
   if (!attemptStatusPanelDragState || event.pointerId !== attemptStatusPanelDragState.pointerId) {
@@ -771,16 +811,18 @@ export function handleAttemptStatusPanelDragMove(event: PointerEvent) {
     {
       left: event.clientX - attemptStatusPanelDragState.offsetX,
       top: event.clientY - attemptStatusPanelDragState.offsetY,
-      width: host.getBoundingClientRect().width
+      width: host.getBoundingClientRect().width,
     },
     host,
-    host.shadowRoot
+    host.shadowRoot,
   );
 
   if (!attemptStatusPanelDragState.moved) {
     const currentRect = host.getBoundingClientRect();
     const nextLeft =
-      nextPosition.anchor === "left" ? nextPosition.offset : window.innerWidth - currentRect.width - nextPosition.offset;
+      nextPosition.anchor === "left"
+        ? nextPosition.offset
+        : window.innerWidth - currentRect.width - nextPosition.offset;
     const nextTop =
       nextPosition.verticalAnchor === "top"
         ? nextPosition.verticalOffset
@@ -794,11 +836,9 @@ export function handleAttemptStatusPanelDragMove(event: PointerEvent) {
   event.preventDefault();
 }
 
-
 export function handleAttemptStatusPanelDragEnd(event: PointerEvent) {
   finishAttemptStatusPanelDrag(event);
 }
-
 
 export function ensureAttemptStatusPanelDragListeners() {
   if (attemptStatusPanelDragListenersInstalled) {
@@ -811,7 +851,6 @@ export function ensureAttemptStatusPanelDragListeners() {
   document.addEventListener("pointercancel", handleAttemptStatusPanelDragEnd, true);
 }
 
-
 export function scheduleAttemptStatusPanelProgressUpdate() {
   if (attemptStatusPanelProgressUpdateId !== null) {
     window.clearTimeout(attemptStatusPanelProgressUpdateId);
@@ -823,7 +862,6 @@ export function scheduleAttemptStatusPanelProgressUpdate() {
   }, 0);
 }
 
-
 export function handleAttemptStatusPanelAnswerControlChange(event: Event) {
   const target = event.target instanceof Element ? event.target : null;
 
@@ -833,7 +871,6 @@ export function handleAttemptStatusPanelAnswerControlChange(event: Event) {
 
   scheduleAttemptStatusPanelProgressUpdate();
 }
-
 
 export function ensureAttemptStatusPanelProgressListener() {
   if (attemptStatusPanelProgressListenerInstalled) {
@@ -845,7 +882,6 @@ export function ensureAttemptStatusPanelProgressListener() {
   document.addEventListener("change", handleAttemptStatusPanelAnswerControlChange, true);
   document.addEventListener("click", handleAttemptStatusPanelAnswerControlChange, true);
 }
-
 
 export function ensureAttemptStatusPanel(): HTMLDivElement {
   let host = document.getElementById(ATTEMPT_STATUS_PANEL_ID) as HTMLDivElement | null;
@@ -1391,56 +1427,66 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
       </section>
     `;
 
-    host.shadowRoot.querySelector<HTMLElement>(".header")?.addEventListener("pointerdown", (event) => {
-      if (attemptStatusPanelCollapsed || event.button !== 0) {
-        return;
-      }
+    host.shadowRoot
+      .querySelector<HTMLElement>(".header")
+      ?.addEventListener("pointerdown", (event) => {
+        if (attemptStatusPanelCollapsed || event.button !== 0) {
+          return;
+        }
 
-      const target = event.target instanceof Element ? event.target : null;
+        const target = event.target instanceof Element ? event.target : null;
 
-      if (target?.closest(".toggle") || target?.closest(".close")) {
-        return;
-      }
+        if (target?.closest(".toggle") || target?.closest(".close")) {
+          return;
+        }
 
-      const panelHost = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
+        const panelHost = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
 
-      if (!(panelHost instanceof HTMLDivElement) || !panelHost.shadowRoot) {
-        return;
-      }
+        if (!(panelHost instanceof HTMLDivElement) || !panelHost.shadowRoot) {
+          return;
+        }
 
-      const rect = panelHost.getBoundingClientRect();
-      attemptStatusPanelPosition = getAttemptStatusPanelPositionFromRect(rect, panelHost, panelHost.shadowRoot);
-      attemptStatusPanelDragState = {
-        pointerId: event.pointerId,
-        offsetX: event.clientX - rect.left,
-        offsetY: event.clientY - rect.top,
-        moved: false
-      };
-      event.preventDefault();
-    });
+        const rect = panelHost.getBoundingClientRect();
+        attemptStatusPanelPosition = getAttemptStatusPanelPositionFromRect(
+          rect,
+          panelHost,
+          panelHost.shadowRoot,
+        );
+        attemptStatusPanelDragState = {
+          pointerId: event.pointerId,
+          offsetX: event.clientX - rect.left,
+          offsetY: event.clientY - rect.top,
+          moved: false,
+        };
+        event.preventDefault();
+      });
 
     host.shadowRoot.querySelector<HTMLButtonElement>(".toggle")?.addEventListener("click", () => {
       setAttemptStatusPanelCollapsed(true);
     });
 
     host.shadowRoot.querySelector<HTMLButtonElement>(".close")?.addEventListener("click", () => {
-      setAttemptStatusPanelClosedInSession(true);
+      void setAttemptStatusPanelClosedInSession(true);
     });
   }
 
   return host;
 }
 
-
 export function updateAttemptStatusPanelTime() {
   const panelHost = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
 
-  if (!(panelHost instanceof HTMLDivElement) || !panelHost.shadowRoot || attemptStatusPanelCollapsed) {
+  if (
+    !(panelHost instanceof HTMLDivElement) ||
+    !panelHost.shadowRoot ||
+    attemptStatusPanelCollapsed
+  ) {
     return;
   }
 
   const timerValue =
-    document.getElementById("quiz-time-left")?.textContent?.replace(/\s+/g, " ").trim() || currentT("quiz.panel.unlimited");
+    document.getElementById("quiz-time-left")?.textContent?.replace(/\s+/g, " ").trim() ||
+    currentT("quiz.panel.unlimited");
   const timeValue = panelHost.shadowRoot.querySelector<HTMLElement>(".meta-value--time");
 
   if (timeValue) {
@@ -1448,12 +1494,10 @@ export function updateAttemptStatusPanelTime() {
   }
 }
 
-
-
 export function applyAttemptStatusPanelProgress(
   host: HTMLDivElement,
   shadowRoot: ShadowRoot,
-  progress: AttemptStatusPanelQuestionProgress
+  progress: AttemptStatusPanelQuestionProgress,
 ) {
   const progressColor = getAttemptStatusPanelProgressColor(progress.percent);
   const progressSoftColor = mixHexColors(progressColor, "#ffffff", 0.22);
@@ -1495,24 +1539,30 @@ export function applyAttemptStatusPanelProgress(
   }
 }
 
-
 export function updateAttemptStatusPanelProgress() {
   const panelHost = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
 
-  if (!(panelHost instanceof HTMLDivElement) || !panelHost.shadowRoot || attemptStatusPanelCollapsed) {
+  if (
+    !(panelHost instanceof HTMLDivElement) ||
+    !panelHost.shadowRoot ||
+    attemptStatusPanelCollapsed
+  ) {
     return;
   }
 
   applyAttemptStatusPanelProgress(
     panelHost,
     panelHost.shadowRoot,
-    getAttemptStatusPanelQuestionProgress(getAttemptStatusPanelStats().totalQuestions)
+    getAttemptStatusPanelQuestionProgress(getAttemptStatusPanelStats().totalQuestions),
   );
 }
 
-
 export function renderAttemptStatusPanel() {
-  if (!isQuizAttemptUrl(window.location) || stealthModeEnabled || !canUseQuizFeatures(currentStoredState)) {
+  if (
+    !isQuizAttemptUrl(window.location) ||
+    stealthModeEnabled ||
+    !canUseQuizFeatures(currentStoredState)
+  ) {
     removeAttemptStatusPanel();
     return;
   }
@@ -1534,7 +1584,9 @@ export function renderAttemptStatusPanel() {
   const username = getAttemptStatusPanelUsername();
   const stats = getAttemptStatusPanelStats();
   const questionProgress = getAttemptStatusPanelQuestionProgress(stats.totalQuestions);
-  const toggleLabel = attemptStatusPanelCollapsed ? currentT("quiz.panel.expand") : currentT("quiz.panel.collapse");
+  const toggleLabel = attemptStatusPanelCollapsed
+    ? currentT("quiz.panel.expand")
+    : currentT("quiz.panel.collapse");
   const closeLabel = currentT("quiz.panel.close");
   const accentSoftColor = mixHexColors(accentColor, "#ffffff", 0.28);
   const panel = shadowRoot.querySelector<HTMLElement>(".panel");
@@ -1567,7 +1619,7 @@ export function renderAttemptStatusPanel() {
         () => {
           syncAttemptStatusPanelHostWidth(host, shadowRoot);
         },
-        { once: true }
+        { once: true },
       );
     }
   }
@@ -1638,7 +1690,6 @@ export function renderAttemptStatusPanel() {
   }
 }
 
-
 export async function loadAttemptStatusPanelCollapsedState() {
   try {
     const result = await chrome.storage.local.get(ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY);
@@ -1647,7 +1698,6 @@ export async function loadAttemptStatusPanelCollapsedState() {
     attemptStatusPanelCollapsed = false;
   }
 }
-
 
 export async function loadAttemptStatusPanelPositionState() {
   try {
@@ -1668,7 +1718,7 @@ export async function loadAttemptStatusPanelPositionState() {
         anchor: value.anchor,
         offset: value.offset,
         verticalAnchor: value.verticalAnchor,
-        verticalOffset: value.verticalOffset
+        verticalOffset: value.verticalOffset,
       };
       return;
     }
@@ -1683,9 +1733,15 @@ export async function loadAttemptStatusPanelPositionState() {
     ) {
       attemptStatusPanelPosition = {
         anchor: value.left <= window.innerWidth / 2 ? "left" : "right",
-        offset: value.left <= window.innerWidth / 2 ? value.left : Math.max(16, window.innerWidth - value.left),
+        offset:
+          value.left <= window.innerWidth / 2
+            ? value.left
+            : Math.max(16, window.innerWidth - value.left),
         verticalAnchor: value.top <= window.innerHeight / 2 ? "top" : "bottom",
-        verticalOffset: value.top <= window.innerHeight / 2 ? value.top : Math.max(16, window.innerHeight - value.top)
+        verticalOffset:
+          value.top <= window.innerHeight / 2
+            ? value.top
+            : Math.max(16, window.innerHeight - value.top),
       };
       return;
     }
@@ -1696,23 +1752,22 @@ export async function loadAttemptStatusPanelPositionState() {
   attemptStatusPanelPosition = null;
 }
 
-
 export async function saveAttemptStatusPanelCollapsedState(collapsed: boolean) {
   try {
     await chrome.storage.local.set({
-      [ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY]: collapsed
+      [ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY]: collapsed,
     });
   } catch {
     // Persisted UI state must not block quiz behavior.
   }
 }
 
-
 export function applyAttemptStatusPanelStorageChanges(
-  changes: Record<string, { newValue?: unknown } | undefined>
+  changes: Record<string, { newValue?: unknown } | undefined>,
 ) {
   if (changes[ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY]) {
-    attemptStatusPanelCollapsed = changes[ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY]?.newValue === true;
+    attemptStatusPanelCollapsed =
+      changes[ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY]?.newValue === true;
     renderAttemptStatusPanel();
   }
 
@@ -1733,18 +1788,14 @@ export function applyAttemptStatusPanelStorageChanges(
             anchor: (nextPosition as AttemptStatusPanelPosition).anchor,
             offset: (nextPosition as AttemptStatusPanelPosition).offset,
             verticalAnchor: (nextPosition as AttemptStatusPanelPosition).verticalAnchor,
-            verticalOffset: (nextPosition as AttemptStatusPanelPosition).verticalOffset
+            verticalOffset: (nextPosition as AttemptStatusPanelPosition).verticalOffset,
           }
         : null;
     renderAttemptStatusPanel();
   }
 }
 
-
-// Popup-driven restore: the "attemptStatusPanelClosed" settings flag mirrors the session state.
-export async function syncAttemptStatusPanelClosedState(
-  storedState: StoredStateLike | undefined,
-) {
+export async function syncAttemptStatusPanelClosedState(storedState: StoredStateLike | undefined) {
   const closed = storedState?.settings?.attemptStatusPanelClosed === true;
 
   if (closed === attemptStatusPanelClosedInSession) {
@@ -1754,24 +1805,21 @@ export async function syncAttemptStatusPanelClosedState(
   attemptStatusPanelClosedInSession = closed;
   renderAttemptStatusPanel();
 
-  // Persist the updated state to storage.
   await patchStoredState({
     settings: {
       ...(currentStoredState?.settings as Settings),
-      attemptStatusPanelClosed: closed
-    }
+      attemptStatusPanelClosed: closed,
+    },
   });
 
-  // Update currentStoredState to reflect the change.
   setCurrentStoredState({
     ...(currentStoredState as StoredStateLike),
     settings: {
       ...(currentStoredState?.settings as Settings),
-      attemptStatusPanelClosed: closed
-    }
+      attemptStatusPanelClosed: closed,
+    },
   });
 }
-
 
 export async function setAttemptStatusPanelClosedInSession(closed: boolean) {
   if (attemptStatusPanelClosedInSession === closed) {
@@ -1781,29 +1829,25 @@ export async function setAttemptStatusPanelClosedInSession(closed: boolean) {
   attemptStatusPanelClosedInSession = closed;
   renderAttemptStatusPanel();
 
-  // Persist the updated state to storage.
   await patchStoredState({
     settings: {
       ...(currentStoredState?.settings as Settings),
-      attemptStatusPanelClosed: closed
-    }
+      attemptStatusPanelClosed: closed,
+    },
   });
 
-  // Update currentStoredState to reflect the change.
   setCurrentStoredState({
     ...(currentStoredState as StoredStateLike),
     settings: {
       ...(currentStoredState?.settings as Settings),
-      attemptStatusPanelClosed: closed
-    }
+      attemptStatusPanelClosed: closed,
+    },
   });
 }
-
 
 export function isAttemptStatusPanelClosedInSession() {
   return attemptStatusPanelClosedInSession;
 }
-
 
 export function setAttemptStatusPanelCollapsed(collapsed: boolean) {
   if (attemptStatusPanelCollapsed === collapsed) {
@@ -1814,7 +1858,6 @@ export function setAttemptStatusPanelCollapsed(collapsed: boolean) {
   renderAttemptStatusPanel();
   void saveAttemptStatusPanelCollapsedState(collapsed);
 }
-
 
 export function handleAttemptStatusPanelPointerDown(event: PointerEvent) {
   if (attemptStatusPanelDragState) {
@@ -1838,7 +1881,6 @@ export function handleAttemptStatusPanelPointerDown(event: PointerEvent) {
   }
 }
 
-
 export function ensureAttemptStatusPanelInteractionListener() {
   if (attemptStatusPanelInteractionListenerInstalled) {
     return;
@@ -1847,4 +1889,3 @@ export function ensureAttemptStatusPanelInteractionListener() {
   attemptStatusPanelInteractionListenerInstalled = true;
   document.addEventListener("pointerdown", handleAttemptStatusPanelPointerDown, true);
 }
-

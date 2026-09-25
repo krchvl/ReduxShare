@@ -1,21 +1,10 @@
-// Quiz preview modal: question statements and answers for a quiz whose attempt has
-// not been started. Rendered with Moodle's own modal/tab/card markup (the theme CSS
-// is already loaded on the page) so it looks like a native Moodle window instead of
-// a custom floating panel.
-import {
-  hasAnswerData,
-  getPreferredSuggestionLabels,
-} from "../data/answerData";
+import { hasAnswerData, getPreferredSuggestionLabels } from "../data/answerData";
 import { currentStoredState, currentT } from "../state";
 import { canUseQuizFeatures } from "../logic/settings";
 import { EXTERNAL_TYPE_PROBE_ORDER } from "../lib/externalProvider";
 import { QUIZ_ID_SCAN_DEFAULT_FROM, QUIZ_ID_SCAN_DEFAULT_TO } from "../lib/quizIdScan";
 import { getQuestionTypeLabel } from "../shared/questionTypes";
-import type {
-  AnswerData,
-  QuizPreviewQuestion,
-  StoredStateLike,
-} from "../model";
+import type { AnswerData, QuizPreviewQuestion, StoredStateLike } from "../model";
 
 const QUIZ_PREVIEW_ROOT_ID = "reduxshare-quiz-preview-modal";
 const QUIZ_PREVIEW_STYLE_ID = "reduxshare-quiz-preview-style";
@@ -246,20 +235,14 @@ export function showQuizPreviewError(message: string) {
   renderQuizPreviewPanel();
 }
 
-export function showQuizPreviewQuestions(
-  questions: QuizPreviewQuestion[],
-  authRequired: boolean,
-) {
+export function showQuizPreviewQuestions(questions: QuizPreviewQuestion[], authRequired: boolean) {
   panelState.visible = true;
   panelState.loading = false;
   panelState.error = null;
   panelState.authRequired = authRequired;
   panelState.questions = questions;
-  // The internal tab is the default; fall back to the external one only when the
-  // internal database has nothing at all for this quiz.
-  panelState.activeTab = questions.some((question) =>
-    hasAnswerData(question.reduxshare),
-  )
+
+  panelState.activeTab = questions.some((question) => hasAnswerData(question.reduxshare))
     ? "internal"
     : "external";
   renderQuizPreviewPanel();
@@ -270,10 +253,6 @@ export function removeQuizPreviewPanel() {
   document.body?.classList.remove("modal-open");
 }
 
-// Force-refresh entry point owned by the content script: the preview caches
-// responses and trusts recorded question types, either of which can hide
-// answers without any request being made. The panel only renders the button
-// and forwards the click.
 let quizPreviewRefreshHandler: (() => void) | null = null;
 
 export function setQuizPreviewRefreshHandler(handler: (() => void) | null) {
@@ -316,9 +295,9 @@ export function updateQuizPreviewScanProgress(progress: QuizPreviewScanProgress)
       currentT("quiz.preview.scanProgress", {
         checked: progress.checked,
         total: progress.total,
-        found: progress.found
-      })
-    )
+        found: progress.found,
+      }),
+    ),
   );
 }
 
@@ -330,7 +309,7 @@ function formatQuizPreviewScanProgress() {
   return currentT("quiz.preview.scanProgress", {
     checked: quizPreviewScanProgress.checked,
     total: quizPreviewScanProgress.total,
-    found: quizPreviewScanProgress.found
+    found: quizPreviewScanProgress.found,
   });
 }
 
@@ -370,39 +349,25 @@ function getAnswerRows(answerData: AnswerData): PreviewAnswerRow[] {
   const rows: PreviewAnswerRow[] = [];
 
   for (const slot of answerData.slots) {
-    const slotSuggestions = slot.suggestions.filter(
-      (suggestion) => suggestion.label.trim() !== "",
-    );
-    const slotSubmissions = slot.submissions.filter(
-      (submission) => submission.label.trim() !== "",
-    );
+    const slotSuggestions = slot.suggestions.filter((suggestion) => suggestion.label.trim() !== "");
+    const slotSubmissions = slot.submissions.filter((submission) => submission.label.trim() !== "");
 
     if (slotSuggestions.length === 0 && slotSubmissions.length === 0) {
       continue;
     }
 
-    const exactLabels = new Set(
-      slotSuggestions.map((suggestion) => suggestion.label),
-    );
+    const exactLabels = new Set(slotSuggestions.map((suggestion) => suggestion.label));
 
     for (const submission of slotSubmissions) {
       rows.push({
         label: submission.label,
         exact: exactLabels.has(submission.label),
-        meta: getMetaText(
-          submission.contributor,
-          submission.count,
-          submission.updatedAt,
-        ),
+        meta: getMetaText(submission.contributor, submission.count, submission.updatedAt),
       });
     }
 
     for (const suggestion of slotSuggestions) {
-      if (
-        slotSubmissions.some(
-          (submission) => submission.label === suggestion.label,
-        )
-      ) {
+      if (slotSubmissions.some((submission) => submission.label === suggestion.label)) {
         continue;
       }
 
@@ -418,28 +383,18 @@ function getAnswerRows(answerData: AnswerData): PreviewAnswerRow[] {
     rows.length === 0 &&
     (answerData.suggestions.length > 0 || answerData.submissions.length > 0)
   ) {
-    const exactLabels = new Set(
-      answerData.suggestions.map((suggestion) => suggestion.label),
-    );
+    const exactLabels = new Set(answerData.suggestions.map((suggestion) => suggestion.label));
 
     for (const submission of answerData.submissions) {
       rows.push({
         label: submission.label,
         exact: exactLabels.has(submission.label),
-        meta: getMetaText(
-          submission.contributor,
-          submission.count,
-          submission.updatedAt,
-        ),
+        meta: getMetaText(submission.contributor, submission.count, submission.updatedAt),
       });
     }
 
     for (const suggestion of answerData.suggestions) {
-      if (
-        answerData.submissions.some(
-          (submission) => submission.label === suggestion.label,
-        )
-      ) {
+      if (answerData.submissions.some((submission) => submission.label === suggestion.label)) {
         continue;
       }
 
@@ -484,8 +439,7 @@ function renderQuestionCard(
   );
   const condition = question.questionText?.trim() || "";
   const answers = tab === "internal" ? question.reduxshare : question.external;
-  // The external provider never ships the statement; when no internal record
-  // pairs with the question either, say so instead of leaving the card silent.
+
   const conditionMarkup = condition
     ? `<div class="reduxshare-preview-condition">${escapeHtml(condition)}</div>`
     : tab === "external"
@@ -507,8 +461,6 @@ function renderQuestionCard(
   `;
 }
 
-// The option pool collected from review pages: every choice the question ever
-// offered, with the known exact answers highlighted.
 function renderAnswerOptionsSection(question: QuizPreviewQuestion) {
   const options = question.answerOptions ?? [];
 
@@ -521,9 +473,7 @@ function renderAnswerOptionsSection(question: QuizPreviewQuestion) {
       question.reduxshare.suggestions,
       ...question.reduxshare.slots.map((slot) => slot.suggestions),
     ].flatMap((suggestions) =>
-      getPreferredSuggestionLabels(suggestions).map((label) =>
-        label.toLowerCase(),
-      ),
+      getPreferredSuggestionLabels(suggestions).map((label) => label.toLowerCase()),
     ),
   );
 
@@ -543,14 +493,9 @@ function renderAnswerOptionsSection(question: QuizPreviewQuestion) {
   `;
 }
 
-// The external provider answers per question id without shipping the question
-// statement, so the external tab pairs its rows with the statement taken from
-// the internal record of the same question, when one exists.
 function getTabQuestions(tab: QuizPreviewTabKey) {
   if (tab === "external") {
-    return panelState.questions.filter((question) =>
-      hasAnswerData(question.external),
-    );
+    return panelState.questions.filter((question) => hasAnswerData(question.external));
   }
 
   return panelState.questions;
@@ -600,15 +545,11 @@ function renderModalBody() {
   const externalCount = getTabQuestions("external").length;
   const tabQuestions = getTabQuestions(panelState.activeTab);
 
-  // With no question identities at all the external source cannot be queried per
-  // question: explain what unlocks the listing instead of a bare "no answers".
   const tabEmptyPlaceholder =
     panelState.questions.length === 0
       ? currentT("quiz.preview.externalDiscovery")
       : currentT("quiz.menu.empty");
 
-  // The deep ID scan stays available even after discoveries: finding a few
-  // questions must not lock the user out of scanning further ranges/types.
   const scanBlock = renderQuizPreviewScanBlock();
 
   return `
@@ -642,7 +583,7 @@ function renderQuizPreviewScanBlock() {
         <input type="checkbox" class="reduxshare-preview-scan-type" value="${escapeHtml(type)}" checked />
         ${escapeHtml(getQuestionTypeLabel(type, language))}
       </label>
-    `
+    `,
   ).join("");
 
   return `
@@ -773,11 +714,9 @@ function renderQuizPreviewPanel() {
 
   document.body.classList.add("modal-open");
 
-  root
-    .querySelector<HTMLElement>(".reduxshare-preview-close")
-    ?.addEventListener("click", () => {
-      hideQuizPreviewPanel();
-    });
+  root.querySelector<HTMLElement>(".reduxshare-preview-close")?.addEventListener("click", () => {
+    hideQuizPreviewPanel();
+  });
 
   root
     .querySelector<HTMLElement>(".reduxshare-preview-refresh")
@@ -796,9 +735,13 @@ function renderQuizPreviewPanel() {
       const fromInput = root.querySelector<HTMLInputElement>("#reduxshare-preview-scan-from");
       const toInput = root.querySelector<HTMLInputElement>("#reduxshare-preview-scan-to");
       const selectedTypes = Array.from(
-        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type:checked")
+        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type:checked"),
       ).map((checkbox) => checkbox.value);
-      quizPreviewScanHandlers?.onStartScan(fromInput?.value ?? "", toInput?.value ?? "", selectedTypes);
+      quizPreviewScanHandlers?.onStartScan(
+        fromInput?.value ?? "",
+        toInput?.value ?? "",
+        selectedTypes,
+      );
     });
 
   const syncScanStartAvailability = () => {
@@ -813,7 +756,7 @@ function renderQuizPreviewPanel() {
   };
 
   for (const typeCheckbox of Array.from(
-    root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+    root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type"),
   )) {
     typeCheckbox.addEventListener("change", () => {
       syncScanStartAvailability();
@@ -827,7 +770,7 @@ function renderQuizPreviewPanel() {
       event.stopPropagation();
 
       for (const typeCheckbox of Array.from(
-        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type"),
       )) {
         typeCheckbox.checked = true;
       }
@@ -842,7 +785,7 @@ function renderQuizPreviewPanel() {
       event.stopPropagation();
 
       for (const typeCheckbox of Array.from(
-        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type")
+        root.querySelectorAll<HTMLInputElement>(".reduxshare-preview-scan-type"),
       )) {
         typeCheckbox.checked = false;
       }
@@ -858,14 +801,10 @@ function renderQuizPreviewPanel() {
       quizPreviewScanHandlers?.onCancelScan();
     });
 
-  // Moodle's modal closes when the backdrop area (the scrolling .modal surface) is clicked.
   root
     .querySelector<HTMLElement>(".reduxshare-preview-modal")
     ?.addEventListener("click", (event) => {
-      if (
-        event.target instanceof Element &&
-        event.target.closest(".modal-dialog")
-      ) {
+      if (event.target instanceof Element && event.target.closest(".modal-dialog")) {
         return;
       }
 

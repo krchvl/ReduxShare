@@ -49,13 +49,13 @@ function getAuthErrorDetails(error: unknown) {
     return {
       status: error.status,
       message: error.message,
-      fieldErrors: getFieldErrors(error)
+      fieldErrors: getFieldErrors(error),
     };
   }
 
   if (!error || typeof error !== "object") {
     return {
-      message: String(error)
+      message: String(error),
     };
   }
 
@@ -66,12 +66,12 @@ function getAuthErrorDetails(error: unknown) {
 
   return {
     name: typeof candidate.name === "string" ? candidate.name : undefined,
-    message: typeof candidate.message === "string" ? candidate.message : undefined
+    message: typeof candidate.message === "string" ? candidate.message : undefined,
   };
 }
 
 function logAuthInfo(stage: string, details: Record<string, unknown> = {}) {
-  console.info(`ReduxShare auth: ${stage}`, details);
+  console.warn(`ReduxShare auth: ${stage}`, details);
 }
 
 function logAuthWarning(stage: string, details: Record<string, unknown> = {}) {
@@ -86,7 +86,7 @@ export async function restorePocketBaseSession(authSession: AuthSession): Promis
   } catch (error) {
     logAuthWarning("session refresh failed", {
       storedUserId: authSession.user.id,
-      ...getAuthErrorDetails(error)
+      ...getAuthErrorDetails(error),
     });
     throw new AuthError("errors.sessionExpired");
   }
@@ -95,14 +95,14 @@ export async function restorePocketBaseSession(authSession: AuthSession): Promis
 
   if (!nextSession) {
     logAuthWarning("session refresh returned no session", {
-      storedUserId: authSession.user.id
+      storedUserId: authSession.user.id,
     });
     throw new AuthError("errors.sessionMissing");
   }
 
   logAuthInfo("session refreshed", {
     storedUserId: authSession.user.id,
-    userId: nextSession.user.id
+    userId: nextSession.user.id,
   });
 
   return nextSession;
@@ -118,11 +118,14 @@ export async function ensurePocketBaseSession(authSession: AuthSession): Promise
   return restorePocketBaseSession(authSession);
 }
 
-export async function loginWithPocketBase({ email, password }: LoginCredentials): Promise<AuthSession> {
+export async function loginWithPocketBase({
+  email,
+  password,
+}: LoginCredentials): Promise<AuthSession> {
   const pb = getPocketBase();
   const cleanEmail = email.trim();
   logAuthInfo("sign-in start", {
-    email: maskAuthEmail(cleanEmail)
+    email: maskAuthEmail(cleanEmail),
   });
 
   try {
@@ -130,7 +133,7 @@ export async function loginWithPocketBase({ email, password }: LoginCredentials)
   } catch (error) {
     logAuthWarning("sign-in failed", {
       email: maskAuthEmail(cleanEmail),
-      ...getAuthErrorDetails(error)
+      ...getAuthErrorDetails(error),
     });
     throw new AuthError("errors.loginFailed");
   }
@@ -139,26 +142,32 @@ export async function loginWithPocketBase({ email, password }: LoginCredentials)
 
   if (!authSession) {
     logAuthWarning("sign-in returned no session", {
-      email: maskAuthEmail(cleanEmail)
+      email: maskAuthEmail(cleanEmail),
     });
     throw new AuthError("errors.loginNoSession");
   }
 
   logAuthInfo("sign-in success", {
     userId: authSession.user.id,
-    email: authSession.user.email ? maskAuthEmail(authSession.user.email) : maskAuthEmail(cleanEmail)
+    email: authSession.user.email
+      ? maskAuthEmail(authSession.user.email)
+      : maskAuthEmail(cleanEmail),
   });
 
   return authSession;
 }
 
-export async function registerWithPocketBase({ email, username, password }: RegisterCredentials): Promise<AuthResult> {
+export async function registerWithPocketBase({
+  email,
+  username,
+  password,
+}: RegisterCredentials): Promise<AuthResult> {
   const pb = getPocketBase();
   const cleanEmail = email.trim();
   const cleanUsername = username.trim();
   logAuthInfo("sign-up start", {
     email: maskAuthEmail(cleanEmail),
-    username: cleanUsername
+    username: cleanUsername,
   });
 
   try {
@@ -168,13 +177,13 @@ export async function registerWithPocketBase({ email, username, password }: Regi
       passwordConfirm: password,
       username: cleanUsername,
       solved_tests_count: 0,
-      solved_tasks_count: 0
+      solved_tasks_count: 0,
     });
   } catch (error) {
     logAuthWarning("sign-up failed", {
       email: maskAuthEmail(cleanEmail),
       username: cleanUsername,
-      ...getAuthErrorDetails(error)
+      ...getAuthErrorDetails(error),
     });
 
     if (hasFieldError(error, "username")) {
@@ -190,12 +199,12 @@ export async function registerWithPocketBase({ email, username, password }: Regi
     logAuthWarning("sign-up auto sign-in failed (verification may be required)", {
       email: maskAuthEmail(cleanEmail),
       username: cleanUsername,
-      ...getAuthErrorDetails(error)
+      ...getAuthErrorDetails(error),
     });
 
     return {
       authSession: null,
-      messageKey: "auth.register.confirmEmail"
+      messageKey: "auth.register.confirmEmail",
     };
   }
 
@@ -204,18 +213,20 @@ export async function registerWithPocketBase({ email, username, password }: Regi
   if (!authSession) {
     return {
       authSession: null,
-      messageKey: "auth.register.confirmEmail"
+      messageKey: "auth.register.confirmEmail",
     };
   }
 
   logAuthInfo("sign-up success", {
     userId: authSession.user.id,
-    email: authSession.user.email ? maskAuthEmail(authSession.user.email) : maskAuthEmail(cleanEmail),
-    username: cleanUsername
+    email: authSession.user.email
+      ? maskAuthEmail(authSession.user.email)
+      : maskAuthEmail(cleanEmail),
+    username: cleanUsername,
   });
 
   return {
-    authSession
+    authSession,
   };
 }
 
@@ -224,9 +235,6 @@ export async function logoutFromPocketBase(authSession: AuthSession | null): Pro
     return;
   }
 
-  // PocketBase auth tokens are stateless JWTs: there is nothing to revoke
-  // server-side. Clearing the auth store plus dropping the persisted session
-  // in the caller is a complete logout.
   try {
     getPocketBase(authSession).authStore.clear();
   } catch {

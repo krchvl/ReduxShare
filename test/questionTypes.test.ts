@@ -35,7 +35,7 @@ describe("shouldCacheQuizPreviewResponse", () => {
     questionHash: "h",
     questionText: "text",
     reduxshare: { anchors: [], suggestions: [], submissions: [], slots: [] },
-    external: { anchors: [], suggestions: [], submissions: [], slots: [] }
+    external: { anchors: [], suggestions: [], submissions: [], slots: [] },
   };
 
   it("caches successful non-empty responses", () => {
@@ -44,8 +44,12 @@ describe("shouldCacheQuizPreviewResponse", () => {
   });
 
   it("does not cache auth-required, empty or failed responses", () => {
-    expect(shouldCacheQuizPreviewResponse({ ok: true, questions: [question], authRequired: true })).toBe(false);
-    expect(shouldCacheQuizPreviewResponse({ ok: true, questions: [], authRequired: false })).toBe(false);
+    expect(
+      shouldCacheQuizPreviewResponse({ ok: true, questions: [question], authRequired: true }),
+    ).toBe(false);
+    expect(shouldCacheQuizPreviewResponse({ ok: true, questions: [], authRequired: false })).toBe(
+      false,
+    );
     expect(shouldCacheQuizPreviewResponse({ ok: false, error: "boom" })).toBe(false);
   });
 });

@@ -1,5 +1,9 @@
 import { ANSWER_WIDGET_ATTR } from "../model";
 
+interface LabelCacheElement extends Element {
+  _reduxshareLabelCache?: string;
+}
+
 export function splitSequentialAnswerLabels(labels: string[], expectedCount: number) {
   if (labels.length !== 1 || expectedCount <= 1) {
     return labels;
@@ -9,7 +13,10 @@ export function splitSequentialAnswerLabels(labels: string[], expectedCount: num
   const delimiters = [/\r?\n+/, /\s*\|\s*/, /\s*;\s*/, /\s+→\s+/, /\s+->\s+/];
 
   for (const delimiter of delimiters) {
-    const parts = label.split(delimiter).map((part) => part.trim()).filter(Boolean);
+    const parts = label
+      .split(delimiter)
+      .map((part) => part.trim())
+      .filter(Boolean);
 
     if (parts.length === expectedCount) {
       return parts;
@@ -58,7 +65,7 @@ export function getUniqueTexts(values: string[]) {
 }
 
 export function getMoodleAnswerLabelText(container: Element) {
-  const cached = (container as any)._reduxshareLabelCache;
+  const cached = (container as LabelCacheElement)._reduxshareLabelCache;
   if (cached !== undefined) {
     return cached;
   }
@@ -69,14 +76,16 @@ export function getMoodleAnswerLabelText(container: Element) {
     return container.textContent ?? "";
   }
 
-  clonedContainer.querySelectorAll(
-    ".answernumber, .sr-only, .accesshide, .visually-hidden, [data-reduxshare-answer-widget]"
-  ).forEach((node) => {
-    node.remove();
-  });
+  clonedContainer
+    .querySelectorAll(
+      ".answernumber, .sr-only, .accesshide, .visually-hidden, [data-reduxshare-answer-widget]",
+    )
+    .forEach((node) => {
+      node.remove();
+    });
 
   const text = clonedContainer.textContent ?? "";
-  (container as any)._reduxshareLabelCache = text;
+  (container as LabelCacheElement)._reduxshareLabelCache = text;
   return text;
 }
 
@@ -88,20 +97,22 @@ export function getQuestionText(questionNode: Element) {
       const clonedQtext = qTextNode.cloneNode(true);
 
       if (clonedQtext instanceof Element) {
-        clonedQtext.querySelectorAll(
-          [
-            ".ablock",
-            ".answer",
-            ".sortablelist",
-            "input",
-            "select",
-            "textarea",
-            "button",
-            `[${ANSWER_WIDGET_ATTR}="true"]`
-          ].join(",")
-        ).forEach((node) => {
-          node.remove();
-        });
+        clonedQtext
+          .querySelectorAll(
+            [
+              ".ablock",
+              ".answer",
+              ".sortablelist",
+              "input",
+              "select",
+              "textarea",
+              "button",
+              `[${ANSWER_WIDGET_ATTR}="true"]`,
+            ].join(","),
+          )
+          .forEach((node) => {
+            node.remove();
+          });
 
         return getMoodleAnswerLabelText(clonedQtext).replace(/\s+/g, " ").trim();
       }
@@ -115,19 +126,23 @@ export function getQuestionText(questionNode: Element) {
     const clonedFormulation = formulationNode?.cloneNode(true);
 
     if (clonedFormulation instanceof Element) {
-      clonedFormulation.querySelectorAll(
-        [
-          "input",
-          "select",
-          "textarea",
-          "button",
-          ".feedbacktrigger",
-          ".validationerror",
-          `[${ANSWER_WIDGET_ATTR}="true"]`
-        ].join(",")
-      ).forEach((node) => node.remove());
+      clonedFormulation
+        .querySelectorAll(
+          [
+            "input",
+            "select",
+            "textarea",
+            "button",
+            ".feedbacktrigger",
+            ".validationerror",
+            `[${ANSWER_WIDGET_ATTR}="true"]`,
+          ].join(","),
+        )
+        .forEach((node) => node.remove());
       clonedFormulation.querySelectorAll("br").forEach((node) => node.replaceWith(" "));
-      clonedFormulation.querySelectorAll("p, div").forEach((node) => node.append(document.createTextNode(" ")));
+      clonedFormulation
+        .querySelectorAll("p, div")
+        .forEach((node) => node.append(document.createTextNode(" ")));
 
       return getMoodleAnswerLabelText(clonedFormulation).replace(/\s+/g, " ").trim();
     }
@@ -149,11 +164,15 @@ export function getImageIdentityLabel(image: HTMLImageElement) {
       const pathParts = url.pathname.split("/").filter(Boolean);
       const componentIndex = pathParts.indexOf("qtype_match");
 
-      if (componentIndex >= 0 && pathParts[componentIndex + 1] === "subquestion" && pathParts.length >= 2) {
+      if (
+        componentIndex >= 0 &&
+        pathParts[componentIndex + 1] === "subquestion" &&
+        pathParts.length >= 2
+      ) {
         const stableParts = [
           "qtype_match",
           "subquestion",
-          ...pathParts.slice(Math.max(componentIndex + 2, pathParts.length - 2))
+          ...pathParts.slice(Math.max(componentIndex + 2, pathParts.length - 2)),
         ];
 
         return `image:${stableParts.join("/")}`;
@@ -197,7 +216,10 @@ export function isPlaceholderSelectOption(option: HTMLOptionElement) {
     return true;
   }
 
-  return option.value === "0" && /^(choose|choose\.{3}|select|select\.{3}|выберите|выберите\.{3}|-+)$/.test(optionLabel);
+  return (
+    option.value === "0" &&
+    /^(choose|choose\.{3}|select|select\.{3}|выберите|выберите\.{3}|-+)$/.test(optionLabel)
+  );
 }
 
 export function normalizeAnswerLabel(label: string) {
@@ -209,7 +231,7 @@ export function normalizeAnswerLabel(label: string) {
 }
 
 export function stripMoodleAnswerPrefix(label: string) {
-  return label.replace(/^(?:[a-zа-яё]|\d{1,3})\s*[\.)]\s+/iu, "");
+  return label.replace(/^(?:[a-zа-яё]|\d{1,3})\s*[.)]\s+/iu, "");
 }
 
 export function getAnswerLabelMatchKeys(label: string) {
@@ -219,7 +241,13 @@ export function getAnswerLabelMatchKeys(label: string) {
   const imagePathParts = imagePathMatch?.[1]?.split(/[/?#]/).filter(Boolean) ?? [];
   const imageBasename = imagePathParts[imagePathParts.length - 1] ?? "";
 
-  return new Set([normalizedLabel, normalizedWithoutPrefix, imageBasename ? `image:${imageBasename}` : ""].filter(Boolean));
+  return new Set(
+    [
+      normalizedLabel,
+      normalizedWithoutPrefix,
+      imageBasename ? `image:${imageBasename}` : "",
+    ].filter(Boolean),
+  );
 }
 
 export function getClassNumber(element: Element, prefix: string) {
@@ -263,15 +291,9 @@ export function getImageFileName(imageSrc: string) {
   return separator >= 0 ? imageSrc.slice(separator + 1) : imageSrc;
 }
 
-/**
- * Mirrors the external provider's image anchor: a Java-style hash of the
- * file name plus alt text, e.g. anchor ["", "-1510145339"] matches
- * icon22.png with an empty alt. The JSON shape ({fn, alt}, no spaces)
- * must stay byte-identical to the provider's computation.
- */
 export function hashQuestionImage(imageSrc: string, imageAlt: string) {
   return javaStringHashCode(
-    JSON.stringify({ fn: cleanHashSource(getImageFileName(imageSrc)), alt: imageAlt })
+    JSON.stringify({ fn: cleanHashSource(getImageFileName(imageSrc)), alt: imageAlt }),
   ).toString();
 }
 
@@ -312,13 +334,10 @@ export interface ClosestLabelMatch {
   distance: number;
 }
 
-/**
- * Typo-tolerant fallback mirroring the external provider rule: the closest
- * candidate wins only when it is strictly closer than every other candidate
- * and at most half-different. Pure numbers must match exactly ("1991" vs
- * "1992" is a different answer, not a typo).
- */
-export function findClosestLabel(target: string, candidates: readonly string[]): ClosestLabelMatch | null {
+export function findClosestLabel(
+  target: string,
+  candidates: readonly string[],
+): ClosestLabelMatch | null {
   const normalizedTarget = normalizeAnswerLabel(target);
 
   if (!normalizedTarget) {

@@ -3,12 +3,20 @@ import { findMoodleAttemptIdFromPage, findMoodleUserIdFromPage } from "../src/mo
 
 describe("findMoodleAttemptIdFromPage", () => {
   it("reads numeric attempt ids from the page URL", () => {
-    expect(findMoodleAttemptIdFromPage("https://moodle.example/mod/quiz/attempt.php?attempt=95&cmid=789")).toBe("95");
+    expect(
+      findMoodleAttemptIdFromPage(
+        "https://moodle.example/mod/quiz/attempt.php?attempt=95&cmid=789",
+      ),
+    ).toBe("95");
   });
 
   it("returns null for missing or non-numeric attempt params", () => {
-    expect(findMoodleAttemptIdFromPage("https://moodle.example/mod/quiz/attempt.php?cmid=789")).toBeNull();
-    expect(findMoodleAttemptIdFromPage("https://moodle.example/mod/quiz/attempt.php?attempt=abc")).toBeNull();
+    expect(
+      findMoodleAttemptIdFromPage("https://moodle.example/mod/quiz/attempt.php?cmid=789"),
+    ).toBeNull();
+    expect(
+      findMoodleAttemptIdFromPage("https://moodle.example/mod/quiz/attempt.php?attempt=abc"),
+    ).toBeNull();
     expect(findMoodleAttemptIdFromPage("not a url")).toBeNull();
   });
 });

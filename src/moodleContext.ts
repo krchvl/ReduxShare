@@ -21,7 +21,7 @@ function extractBalancedObject(source: string, startIndex: number) {
       continue;
     }
 
-    if (char === "\"" || char === "'") {
+    if (char === '"' || char === "'") {
       inString = true;
       stringQuote = char;
       continue;
@@ -61,7 +61,10 @@ export function findMoodleConfig(): MoodleConfig | null {
     const scriptText = script.textContent ?? "";
     const cfgIndex = scriptText.indexOf("M.cfg");
 
-    if (cfgIndex < 0 || (!scriptText.includes("courseId") && !scriptText.includes("contextInstanceId"))) {
+    if (
+      cfgIndex < 0 ||
+      (!scriptText.includes("courseId") && !scriptText.includes("contextInstanceId"))
+    ) {
       continue;
     }
 
@@ -80,7 +83,9 @@ export function findMoodleConfig(): MoodleConfig | null {
     try {
       const parsedConfig = JSON.parse(objectSource) as Record<string, unknown>;
       const courseId =
-        typeof parsedConfig.courseId === "number" ? parsedConfig.courseId : parseMoodleNumericId(String(parsedConfig.courseId ?? ""));
+        typeof parsedConfig.courseId === "number"
+          ? parsedConfig.courseId
+          : parseMoodleNumericId(String(parsedConfig.courseId ?? ""));
       const contextInstanceId =
         typeof parsedConfig.contextInstanceId === "number"
           ? parsedConfig.contextInstanceId
@@ -88,7 +93,7 @@ export function findMoodleConfig(): MoodleConfig | null {
 
       return {
         courseId,
-        contextInstanceId
+        contextInstanceId,
       };
     } catch {
       continue;
@@ -101,7 +106,9 @@ export function findMoodleConfig(): MoodleConfig | null {
 export function findMoodleModuleIdFromPage() {
   try {
     const url = new URL(window.location.href);
-    const urlModuleId = parseMoodleNumericId(url.searchParams.get("cmid") ?? url.searchParams.get("id"));
+    const urlModuleId = parseMoodleNumericId(
+      url.searchParams.get("cmid") ?? url.searchParams.get("id"),
+    );
 
     if (urlModuleId !== null) {
       return urlModuleId;
@@ -110,10 +117,14 @@ export function findMoodleModuleIdFromPage() {
     // Continue with DOM fallback.
   }
 
-  for (const link of Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="cmid="], a[href*="/mod/quiz/"]'))) {
+  for (const link of Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('a[href*="cmid="], a[href*="/mod/quiz/"]'),
+  )) {
     try {
       const linkUrl = new URL(link.href, window.location.href);
-      const linkModuleId = parseMoodleNumericId(linkUrl.searchParams.get("cmid") ?? linkUrl.searchParams.get("id"));
+      const linkModuleId = parseMoodleNumericId(
+        linkUrl.searchParams.get("cmid") ?? linkUrl.searchParams.get("id"),
+      );
 
       if (linkModuleId !== null) {
         return linkModuleId;
@@ -196,6 +207,9 @@ export function getReviewSaveMoodleConfig(storedState: StoredStateLike | undefin
 
   return {
     courseId: moodleConfig?.courseId ?? latestContext?.courseId ?? null,
-    contextInstanceId: moodleConfig?.contextInstanceId ?? latestContext?.contextInstanceId ?? findMoodleModuleIdFromPage()
+    contextInstanceId:
+      moodleConfig?.contextInstanceId ??
+      latestContext?.contextInstanceId ??
+      findMoodleModuleIdFromPage(),
   };
 }

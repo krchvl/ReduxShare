@@ -1,4 +1,12 @@
-import { DEFAULT_ACCENT_COLOR, type AiAnswerState, type AnswerData, type SourceAnswerData, type StoredStateLike, type SubmissionItem, type SuggestionItem } from "../model";
+import {
+  DEFAULT_ACCENT_COLOR,
+  type AiAnswerState,
+  type AnswerData,
+  type SourceAnswerData,
+  type StoredStateLike,
+  type SubmissionItem,
+  type SuggestionItem,
+} from "../model";
 import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
 import { getBooleanSuggestionValue } from "../shared/answerParsing";
 
@@ -13,7 +21,10 @@ function hasMenuAnswerData(answerData: AnswerData) {
     answerData.anchors.length > 0 ||
     answerData.suggestions.length > 0 ||
     answerData.submissions.length > 0 ||
-    answerData.slots.some((slot) => slot.anchors.length > 0 || slot.suggestions.length > 0 || slot.submissions.length > 0)
+    answerData.slots.some(
+      (slot) =>
+        slot.anchors.length > 0 || slot.suggestions.length > 0 || slot.submissions.length > 0,
+    )
   );
 }
 
@@ -61,15 +72,23 @@ export interface AnswerMetaParts {
   updated: string | null;
 }
 
-export function getAnswerMetaParts(item: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null }): AnswerMetaParts {
+export function getAnswerMetaParts(item: {
+  contributor?: string | null;
+  addedAt?: string | null;
+  updatedAt?: string | null;
+}): AnswerMetaParts {
   return {
     user: item.contributor ?? null,
     added: formatAnswerMetaDate(item.addedAt),
-    updated: formatAnswerMetaDate(item.updatedAt)
+    updated: formatAnswerMetaDate(item.updatedAt),
   };
 }
 
-function getAnswerMetaDataAttributes(item: { contributor?: string | null; addedAt?: string | null; updatedAt?: string | null }) {
+function getAnswerMetaDataAttributes(item: {
+  contributor?: string | null;
+  addedAt?: string | null;
+  updatedAt?: string | null;
+}) {
   const { user, added, updated } = getAnswerMetaParts(item);
   const attributes: string[] = [];
 
@@ -96,7 +115,7 @@ function getRenderableExactSuggestions(suggestions: SuggestionItem[]) {
   }
 
   const booleanSuggestions = verifiedSuggestions.filter(
-    (suggestion) => getBooleanSuggestionValue(suggestion.label) !== null
+    (suggestion) => getBooleanSuggestionValue(suggestion.label) !== null,
   );
 
   if (booleanSuggestions.length !== verifiedSuggestions.length) {
@@ -116,8 +135,8 @@ function getRenderableExactSuggestions(suggestions: SuggestionItem[]) {
         {
           entries: [] as SuggestionItem[],
           count: 0,
-          confidence: 0
-        }
+          confidence: 0,
+        },
       );
   };
 
@@ -133,11 +152,15 @@ function getRenderableExactSuggestions(suggestions: SuggestionItem[]) {
   }
 
   if (trueTotals.confidence !== falseTotals.confidence) {
-    return trueTotals.confidence > falseTotals.confidence ? trueTotals.entries : falseTotals.entries;
+    return trueTotals.confidence > falseTotals.confidence
+      ? trueTotals.entries
+      : falseTotals.entries;
   }
 
   if (trueTotals.entries.length !== falseTotals.entries.length) {
-    return trueTotals.entries.length > falseTotals.entries.length ? trueTotals.entries : falseTotals.entries;
+    return trueTotals.entries.length > falseTotals.entries.length
+      ? trueTotals.entries
+      : falseTotals.entries;
   }
 
   return [];
@@ -158,7 +181,7 @@ function renderSuggestionFlyout(suggestions: SuggestionItem[]): string {
           <span class="flyout-label">${escapeHtml(s.displayLabel ?? s.label)}</span>
         </div>
         <span class="flyout-pct" style="color:${correctnessColor(s.correctness)}">${Math.round(s.confidence * 100)}%</span>
-      </div>`
+      </div>`,
     )
     .join("");
 }
@@ -236,8 +259,6 @@ export function attachAnswerHovercards(shadowRoot: ShadowRoot) {
       lines.map((line) => `<div class="flyout-hovercard__line">${escapeHtml(line)}</div>`).join("");
     hovercard.hidden = false;
 
-    // Viewport coordinates are translated into the card's local frame through
-    // an origin marker, so ancestor transforms, scroll and zoom cannot shift it.
     const originRect = origin.getBoundingClientRect();
     const clientX = event.clientX ?? 0;
     const clientY = event.clientY ?? 0;
@@ -262,7 +283,9 @@ export function attachAnswerHovercards(shadowRoot: ShadowRoot) {
     hovercard.hidden = true;
   };
 
-  for (const option of Array.from(shadowRoot.querySelectorAll<HTMLElement>(".flyout-option[data-answer-label]"))) {
+  for (const option of Array.from(
+    shadowRoot.querySelectorAll<HTMLElement>(".flyout-option[data-answer-label]"),
+  )) {
     option.addEventListener("mouseenter", (event) => showCard(option, event as MouseEvent));
     option.addEventListener("focusin", () => {
       const rowRect = option.getBoundingClientRect();
@@ -272,7 +295,8 @@ export function attachAnswerHovercards(shadowRoot: ShadowRoot) {
   }
 }
 
-function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {  if (sourceData.submissions.length > 0) {
+function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {
+  if (sourceData.submissions.length > 0) {
     return sourceData.submissions;
   }
 
@@ -283,7 +307,7 @@ function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {  if
       count: suggestion.count ?? 1,
       label: suggestion.label,
       displayLabel: suggestion.displayLabel,
-      actionSlotIndex: suggestion.actionSlotIndex
+      actionSlotIndex: suggestion.actionSlotIndex,
     }));
 }
 
@@ -378,7 +402,7 @@ export function createIdleAiAnswerState(): AiAnswerState {
     answer: null,
     confidence: null,
     actions: [],
-    error: null
+    error: null,
   };
 }
 
@@ -421,7 +445,12 @@ function getAiConfidenceColor(confidence: number) {
   return "#f87171";
 }
 
-function renderAnswerMenuItem(label: string, iconMarkup: string, flyoutMarkup: string, menuKey: string) {
+function renderAnswerMenuItem(
+  label: string,
+  iconMarkup: string,
+  flyoutMarkup: string,
+  menuKey: string,
+) {
   return `
     <div class="menu-item" role="menuitem" tabindex="0" data-answer-menu="${escapeHtml(menuKey)}">
       <span class="icon" aria-hidden="true">${iconMarkup}</span>
@@ -445,7 +474,11 @@ function renderAiRequestButton(isLoading: boolean) {
 
 type AnswerMenuTabKey = "internal" | "external" | "ai";
 
-function getVisibleAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: boolean, externalOnly = false): AnswerMenuTabKey[] {
+function getVisibleAnswerMenuTabs(
+  answerData: SourceAnswerData,
+  aiToolsEnabled: boolean,
+  externalOnly = false,
+): AnswerMenuTabKey[] {
   const tabs: AnswerMenuTabKey[] = [];
 
   if (!externalOnly && hasMenuAnswerData(answerData.reduxshare)) {
@@ -479,8 +512,15 @@ function getAnswerMenuTabLabel(tabKey: AnswerMenuTabKey) {
   return currentT("quiz.menu.aiTools");
 }
 
-function renderSourceMenuPanel(panelKey: "internal" | "external", sourceKey: keyof SourceAnswerData, sourceData: AnswerData, isActive: boolean) {
-  const exactSuggestions = sourceData.suggestions.filter((suggestion) => suggestion.correctness === 2);
+function renderSourceMenuPanel(
+  panelKey: "internal" | "external",
+  sourceKey: keyof SourceAnswerData,
+  sourceData: AnswerData,
+  isActive: boolean,
+) {
+  const exactSuggestions = sourceData.suggestions.filter(
+    (suggestion) => suggestion.correctness === 2,
+  );
   const sourcePrefix = sourceKey === "reduxshare" ? "reduxshare" : "external";
 
   return `
@@ -489,19 +529,23 @@ function renderSourceMenuPanel(panelKey: "internal" | "external", sourceKey: key
         currentT("quiz.menu.exactAnswer"),
         getExactAnswerIconMarkup(),
         renderSuggestionFlyout(exactSuggestions),
-        `${sourcePrefix}-exact`
+        `${sourcePrefix}-exact`,
       )}
       ${renderAnswerMenuItem(
         currentT("quiz.menu.statistics"),
         getStatsAnswerIconMarkup(),
         renderSubmissionFlyout(getStatsSubmissionItems(sourceData)),
-        `${sourcePrefix}-stats`
+        `${sourcePrefix}-stats`,
       )}
     </div>
   `;
 }
 
-function renderAiMenuPanel(aiSettingsSaved: boolean, aiAnswerState: AiAnswerState, isActive: boolean) {
+function renderAiMenuPanel(
+  aiSettingsSaved: boolean,
+  aiAnswerState: AiAnswerState,
+  isActive: boolean,
+) {
   if (!aiSettingsSaved) {
     return `
       <div class="menu-panel" data-menu-panel="ai" data-active="${isActive ? "true" : "false"}">
@@ -517,13 +561,17 @@ function renderAiMenuPanel(aiSettingsSaved: boolean, aiAnswerState: AiAnswerStat
         currentT("quiz.menu.aiAnswer"),
         getAiAnswerIconMarkup(),
         renderAiAnswerFlyout(aiAnswerState),
-        "ai-answer"
+        "ai-answer",
       )}
     </div>
   `;
 }
 
-function renderAnswerMenuTabs(answerData: SourceAnswerData, aiToolsEnabled: boolean, externalOnly = false) {
+function renderAnswerMenuTabs(
+  answerData: SourceAnswerData,
+  aiToolsEnabled: boolean,
+  externalOnly = false,
+) {
   const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
@@ -556,7 +604,7 @@ function renderAnswerMenuPanels(
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
   aiToolsEnabled: boolean,
-  externalOnly = false
+  externalOnly = false,
 ) {
   const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
@@ -662,8 +710,6 @@ export function getAnswerTriggerMarkup() {
 
 const ANSWER_DELAY_PROGRESS_CLASS = "delay-progress";
 
-// A pending human-like auto-select shows how long it will wait on the widget of its question.
-// `ratio` is null when the wait is over and the bar has to disappear again.
 export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) {
   const shadowRoot = host.shadowRoot;
 
@@ -706,7 +752,7 @@ export function getAnswerMenuMarkup(
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
   aiToolsEnabled = true,
-  externalOnly = false
+  externalOnly = false,
 ) {
   return `
     <style>

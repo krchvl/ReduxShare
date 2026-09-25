@@ -5,11 +5,11 @@ import { exactAnswerData, sourceAnswerData } from "./helpers/sourceData";
 function setViewport(width: number, height: number) {
   Object.defineProperty(document.documentElement, "clientWidth", {
     configurable: true,
-    value: width
+    value: width,
   });
   Object.defineProperty(window, "innerHeight", {
     configurable: true,
-    value: height
+    value: height,
   });
 }
 
@@ -32,9 +32,9 @@ function createRect(left: number, top: number, width: number, height: number): D
         width,
         height,
         right: left + width,
-        bottom: top + height
+        bottom: top + height,
       };
-    }
+    },
   } as DOMRect;
 }
 
@@ -56,7 +56,7 @@ function installDynamicRects(
     menuHeight?: number;
     flyoutWidth?: number;
     flyoutHeight?: number;
-  }
+  },
 ) {
   const top = options.top ?? 180;
   const menuWidth = options.menuWidth ?? 348;
@@ -84,9 +84,10 @@ function installDynamicRects(
 
   flyout!.getBoundingClientRect = () => {
     const menuLeft = Number.parseFloat(portal.style.left || "0");
-    const flyoutLeft = portal.dataset.flyoutSide === "left"
-      ? menuLeft - (flyoutWidth - 4)
-      : menuLeft + menuWidth - 4;
+    const flyoutLeft =
+      portal.dataset.flyoutSide === "left"
+        ? menuLeft - (flyoutWidth - 4)
+        : menuLeft + menuWidth - 4;
     return createRect(flyoutLeft, top - 1, flyoutWidth, flyoutHeight);
   };
 }
@@ -104,49 +105,44 @@ function getVisibleBounds(portal: HTMLElement, root: ShadowRoot) {
   return {
     left: Math.min(menuRect.left, flyoutRect.left),
     right: Math.max(menuRect.right, flyoutRect.right),
-    portalLeft: Number.parseFloat(portal.style.left || "0")
+    portalLeft: Number.parseFloat(portal.style.left || "0"),
   };
 }
 
 describe("R-menu positioning", () => {
-  // Alternative implementations for removed test API functions
   function positionAnswerMenuPortal(portal: HTMLElement, trigger: HTMLElement) {
     const triggerRect = trigger.getBoundingClientRect();
     const viewportWidth = document.documentElement.clientWidth;
-    const portalWidth = 348; // Approximate menu width
-    
-    // Calculate initial position
-    let left = triggerRect.right + 8; // 8px gap from trigger
-    
-    // Check if portal would overflow right side
+    const portalWidth = 348;
+
+    let left = triggerRect.right + 8;
+
     if (left + portalWidth > viewportWidth - 16) {
-      // Try positioning to the left
       left = triggerRect.left - portalWidth - 8;
       if (left < 16) {
-        // If still overflowing, use left edge with minimal padding
         left = 16;
       }
     }
-    
+
     portal.style.left = `${left}px`;
     portal.style.top = `${triggerRect.top}px`;
   }
 
   function updateAnswerMenuFlyoutSide(portal: HTMLElement) {
     const menu = portal.shadowRoot?.querySelector<HTMLElement>(".menu");
-    const flyout = portal.shadowRoot?.querySelector<HTMLElement>('.menu-item[data-active="true"] .flyout');
-    
+    const flyout = portal.shadowRoot?.querySelector<HTMLElement>(
+      '.menu-item[data-active="true"] .flyout',
+    );
+
     if (!menu || !flyout) return;
-    
+
     const menuRect = menu.getBoundingClientRect();
     const flyoutRect = flyout.getBoundingClientRect();
     const viewportWidth = document.documentElement.clientWidth;
-    
-    // Calculate which side has more free space
+
     const leftSpace = menuRect.left;
     const rightSpace = viewportWidth - menuRect.right;
-    
-    // Prefer left side when it has more free space or when right side would overflow
+
     if (leftSpace >= rightSpace || menuRect.right + flyoutRect.width > viewportWidth - 16) {
       portal.dataset.flyoutSide = "left";
     } else {
@@ -160,7 +156,7 @@ describe("R-menu positioning", () => {
     const { portal, root } = renderPortal(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("false")
+          reduxshare: exactAnswerData("false"),
         }),
         true,
         {
@@ -168,10 +164,10 @@ describe("R-menu positioning", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     const firstItem = root.querySelector<HTMLElement>(".menu-item");
@@ -179,7 +175,7 @@ describe("R-menu positioning", () => {
     firstItem!.dataset.active = "true";
 
     installDynamicRects(portal, root, {
-      initialLeft: 820
+      initialLeft: 820,
     });
 
     updateAnswerMenuFlyoutSide(portal);
@@ -198,7 +194,7 @@ describe("R-menu positioning", () => {
     const { portal, root } = renderPortal(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("true")
+          reduxshare: exactAnswerData("true"),
         }),
         true,
         {
@@ -206,10 +202,10 @@ describe("R-menu positioning", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     const firstItem = root.querySelector<HTMLElement>(".menu-item");
@@ -217,7 +213,7 @@ describe("R-menu positioning", () => {
     firstItem!.dataset.active = "true";
 
     installDynamicRects(portal, root, {
-      initialLeft: 0
+      initialLeft: 0,
     });
 
     const trigger = document.createElement("button");
@@ -241,7 +237,7 @@ describe("R-menu positioning", () => {
     const { portal, root } = renderPortal(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("true")
+          reduxshare: exactAnswerData("true"),
         }),
         true,
         {
@@ -249,10 +245,10 @@ describe("R-menu positioning", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     const firstItem = root.querySelector<HTMLElement>(".menu-item");
@@ -260,7 +256,7 @@ describe("R-menu positioning", () => {
     firstItem!.dataset.active = "true";
 
     installDynamicRects(portal, root, {
-      initialLeft: 620
+      initialLeft: 620,
     });
 
     updateAnswerMenuFlyoutSide(portal);
@@ -278,7 +274,7 @@ describe("R-menu positioning", () => {
     const { portal, root } = renderPortal(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("true")
+          reduxshare: exactAnswerData("true"),
         }),
         true,
         {
@@ -286,10 +282,10 @@ describe("R-menu positioning", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     const firstItem = root.querySelector<HTMLElement>(".menu-item");
@@ -297,7 +293,7 @@ describe("R-menu positioning", () => {
     firstItem!.dataset.active = "true";
 
     installDynamicRects(portal, root, {
-      initialLeft: 860
+      initialLeft: 860,
     });
 
     updateAnswerMenuFlyoutSide(portal);
@@ -334,7 +330,7 @@ describe("R-menu positioning", () => {
     const { portal, root } = renderPortal(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
-          reduxshare: exactAnswerData("true")
+          reduxshare: exactAnswerData("true"),
         }),
         true,
         {
@@ -342,10 +338,10 @@ describe("R-menu positioning", () => {
           answer: null,
           confidence: null,
           actions: [],
-          error: null
+          error: null,
         },
-        true
-      )
+        true,
+      ),
     );
 
     const firstItem = root.querySelector<HTMLElement>(".menu-item");
@@ -353,7 +349,7 @@ describe("R-menu positioning", () => {
     firstItem!.dataset.active = "true";
 
     installDynamicRects(portal, root, {
-      initialLeft: 0
+      initialLeft: 0,
     });
 
     positionAnswerMenuPortal(portal, trigger as HTMLButtonElement);

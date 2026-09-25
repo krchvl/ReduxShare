@@ -1,7 +1,3 @@
-// Regression for silently lost review answers: a failing PocketBase save used to
-// bubble out of handleSaveReviewAnswers as ok:false (or an error response), the
-// content script logged it and gave up, and the attempt's answers were never
-// retried. The save must land in the pending queue and be reported as queued.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_STORAGE_KEY, PENDING_REVIEW_SAVES_STORAGE_KEY } from "../src/shared/storageKeys";
 import { DEFAULT_UPDATE_STATE } from "../src/types";
@@ -21,7 +17,7 @@ const authSession: AuthSession = {
   accessToken: "token-1",
   refreshToken: "refresh-1",
   expiresAt: null,
-  user: { id: "user-1", email: "user@example.com" }
+  user: { id: "user-1", email: "user@example.com" },
 };
 
 const payload: SaveReduxShareReviewPayload = {
@@ -37,10 +33,18 @@ const payload: SaveReduxShareReviewPayload = {
       questionHash: "abc",
       questionText: "Условие",
       answers: [
-        { label: "Верно", answerKey: "верно", slotKey: "question", slotIndex: null, correctness: 2, isCorrect: true, wasSelected: true }
-      ]
-    }
-  ]
+        {
+          label: "Верно",
+          answerKey: "верно",
+          slotKey: "question",
+          slotIndex: null,
+          correctness: 2,
+          isCorrect: true,
+          wasSelected: true,
+        },
+      ],
+    },
+  ],
 };
 
 function flushMicrotasks(hops: number) {
@@ -61,8 +65,8 @@ describe("review save retry queueing", () => {
     await chrome.storage.local.set({
       [APP_STORAGE_KEY]: {
         authSession,
-        updateState: { ...DEFAULT_UPDATE_STATE, nextCheckAt: "9999-01-01T00:00:00.000Z" }
-      }
+        updateState: { ...DEFAULT_UPDATE_STATE, nextCheckAt: "9999-01-01T00:00:00.000Z" },
+      },
     });
   });
 
@@ -74,7 +78,7 @@ describe("review save retry queueing", () => {
     const listener = addListener.mock.calls.at(-1)![0] as (
       message: unknown,
       sender: unknown,
-      sendResponse: (response: unknown) => void
+      sendResponse: (response: unknown) => void,
     ) => boolean | void;
 
     let response: { ok: boolean; queued?: boolean } | undefined;
@@ -100,7 +104,7 @@ describe("review save retry queueing", () => {
     const listener = addListener.mock.calls.at(-1)![0] as (
       message: unknown,
       sender: unknown,
-      sendResponse: (response: unknown) => void
+      sendResponse: (response: unknown) => void,
     ) => boolean | void;
 
     let response: { ok: boolean; queued?: boolean; savedCount?: number } | undefined;

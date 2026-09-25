@@ -17,13 +17,20 @@ describe("mergeAnswerOptionLabels", () => {
     expect(mergeAnswerOptionLabels(["Alpha", "beta"], ["BETA", "gamma", "Alpha "])).toEqual([
       "Alpha",
       "beta",
-      "gamma"
+      "gamma",
     ]);
   });
 
   it("normalizes whitespace, drops empties and caps the list length", () => {
-    expect(mergeAnswerOptionLabels([], ["  spaced   out  ", "", "spaced out"])).toEqual(["spaced out"]);
-    expect(mergeAnswerOptionLabels([], Array.from({ length: 250 }, (_, index) => `opt ${index}`))).toHaveLength(200);
+    expect(mergeAnswerOptionLabels([], ["  spaced   out  ", "", "spaced out"])).toEqual([
+      "spaced out",
+    ]);
+    expect(
+      mergeAnswerOptionLabels(
+        [],
+        Array.from({ length: 250 }, (_, index) => `opt ${index}`),
+      ),
+    ).toHaveLength(200);
   });
 
   it("returns an empty list when both inputs are empty", () => {

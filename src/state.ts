@@ -1,7 +1,3 @@
-// Mutable runtime state shared by the content-script modules.
-//
-// ES module imports are read-only views, so a value that more than one module reassigns lives
-// here behind a setter: reads stay plain imports (live bindings), writes go through the setter.
 import { getContentTranslator, type TranslateFn } from "./i18n/contentI18n";
 import type {
   AiAnswerState,
@@ -9,7 +5,7 @@ import type {
   AnswerWidgetState,
   QuizAttemptContext,
   SourceAnswerData,
-  StoredStateLike
+  StoredStateLike,
 } from "./model";
 
 export let currentT: TranslateFn = getContentTranslator(undefined);

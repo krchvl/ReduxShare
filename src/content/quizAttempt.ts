@@ -2,61 +2,24 @@ import {
   ANSWER_MENU_PORTAL_ATTR,
   ANSWER_WIDGET_ATTR,
   CHOICE_QUESTION_TYPES,
-  DEFAULT_ACCENT_COLOR,
   DEFAULT_HOTKEY,
   DEFAULT_HOTKEY_CODE,
-  FULL_PAGE_LOAD_MAX_WAIT_MS,
-  LEGACY_THEME_ACCENTS,
   MAX_METADATA_WAIT_MS,
   METADATA_POLL_MS,
-  SUPPORTED_REVIEW_QUESTION_TYPES,
   SUPPORTED_WIDGET_QUESTION_TYPES,
-  TEXT_INPUT_QUESTION_TYPES,
-  UNSUPPORTED_DRAG_DROP_QUESTION_TYPES,
-  type AiAnswerAction,
-  type AiAnswerResponse,
   type AiAnswerState,
-  type AiQuestionControl,
-  type AiQuestionImage,
-  type AiQuestionOption,
-  type AnswerData,
   type AnswerEntry,
-  type AnswerSlotData,
   type AnswerVariantCounts,
-  type AnswerWidgetState,
   type QuizAnswersResponse,
   type QuizAttemptContext,
-  type QuizProgressReports,
   type QuizQuestionSummary,
-  type QuizReviewPendingMarker,
-  type QuizVariantResult,
-  type RecordQuizProgressResponse,
-  type ReviewAnswerPayload,
-  type ReviewObservation,
-  type ReviewQuestionPayload,
-  type SaveReviewAnswersResponse,
   type SourceAnswerData,
   type StoredStateLike,
-  type SubmissionItem,
   type SuggestionItem,
 } from "../model";
-import {
-  APP_STORAGE_KEY,
-  QUIZ_CONTEXT_STORAGE_KEY,
-  QUIZ_PROGRESS_REPORTS_STORAGE_KEY,
-  QUIZ_REVIEW_PENDING_STORAGE_KEY,
-  QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY,
-} from "../shared/storageKeys";
+import { APP_STORAGE_KEY, QUIZ_CONTEXT_STORAGE_KEY } from "../shared/storageKeys";
 import { patchStoredState } from "../lib/storage";
-import {
-  FETCH_QUIZ_ANSWERS_MESSAGE,
-  GENERATE_AI_ANSWER_MESSAGE,
-  RECORD_QUIZ_PROGRESS_MESSAGE,
-  SAVE_REVIEW_ANSWERS_MESSAGE,
-  STEALTH_MESSAGE_SOURCE,
-  STEALTH_MODE_MESSAGE,
-} from "../shared/messages";
-import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
+import { FETCH_QUIZ_ANSWERS_MESSAGE } from "../shared/messages";
 import {
   hotkeyMatchesEvent,
   isEditableHotkeyTarget,
@@ -65,49 +28,28 @@ import {
 } from "./quizAttempt/hotkeys";
 import {
   attachAnswerHovercards,
-  createIdleAiAnswerState,
   getAnswerMenuMarkup,
   getAnswerTriggerMarkup,
   isAiSettingsSaved,
   renderAiAnswerFlyout,
-  setAnswerMenuTranslator,
 } from "../ui/answerMenu";
 import { attachAnswerMenuBehavior } from "../ui/answerMenuBehavior";
 import {
-  createEmptyAnswerData,
   createEmptySourceAnswerData,
   createEmptyVariantCounts,
   getAnswerData,
-  getVariantCounts,
   hasAnswerData,
 } from "../data/answerData";
+import { splitReviewAnswerText } from "../data/reviewText";
 import {
-  cleanReviewDisplayedTextAnswer,
-  extractBracketedAnswers,
-  getRightAnswerBodyText,
-  parseReviewMatchPairs,
-  splitReviewAnswerText,
-} from "../data/reviewText";
-import {
-  findClosestLabel,
   getAnswerLabelMatchKeys,
-  getClassNumber,
-  getImageIdentityLabel,
-  getMoodleAnswerLabelText,
-  getMoodleAnswerLabelTextOrImageIdentity,
   getQuestionText,
   getSelectOptionLabel,
   getUniqueTexts,
-  hashQuestionImage,
   isPlaceholderSelectOption,
-  itemLabelMatches,
-  javaStringHashCode,
   labelsMatch,
   normalizeAnswerLabel,
-  normalizeFingerprintText,
   splitSequentialAnswerLabels,
-  stableHashText,
-  stripMoodleAnswerPrefix,
 } from "../dom/questionDom";
 import {
   getSecondQuestionClass,
@@ -119,7 +61,6 @@ import {
   isDragImageOrTextQuestionType,
   isDragMarkerQuestionType,
   isDragTextQuestionType,
-  isEssayQuestionType,
   isMatchingQuestionNode,
   isMatchingQuestionTypeName,
   isOrderingQuestionType,
@@ -130,16 +71,10 @@ import {
   findMoodleAttemptIdFromPage,
   findMoodleConfig,
   findMoodleUserIdFromPage,
-  getReviewSaveMoodleConfig,
 } from "../moodleContext";
-import { getQuestionId, getQuestionPostData } from "../dom/questionIdentity";
+import { getQuestionId } from "../dom/questionIdentity";
+import { setTextAnswerValue } from "./quizAttempt/textControls";
 import {
-  setTextAnswerValue,
-  setTextareaAnswerValue,
-} from "./quizAttempt/textControls";
-import {
-  autoSelectBooleanChoiceQuestionAnswers,
-  autoSelectChoiceQuestionAnswers,
   autoSelectExactAnswers,
   autoSelectGapSelectAnswers,
   autoSelectQuestionAnswers,
@@ -147,15 +82,10 @@ import {
   cancelAutoSelectSchedule,
   computeAutoSelectDelayMs,
   ensureAutoSelectCancelListener,
-  getPreferredAutoSelectAnswerData,
-  getPreferredAutoSelectAnswerDataForQuestion,
-  hasExactAutoSelectData,
-  isAutoSelectEnabled,
   parseQuizTimeLeftSeconds,
   scheduleAutoSelectAnswer,
   selectAnswerByLabel,
 } from "./quizAttempt/autoSelect";
-import { autoSelectOrderingAnswers } from "./quizAttempt/ordering";
 import {
   applyQuizAnswerResults,
   clearReduxShareAnswerData,
@@ -215,10 +145,7 @@ import {
   setAttemptStatusPanelClosedInSession,
 } from "./quizAttempt/attemptStatusPanel";
 import { isQuizAttemptUrl, isQuizSummaryUrl, isQuizViewUrl } from "./quizAttempt/quizUrl";
-import {
-  initializeQuizPreviewFeatures,
-  syncQuizPreviewFeatures,
-} from "./quizPreview";
+import { initializeQuizPreviewFeatures, syncQuizPreviewFeatures } from "./quizPreview";
 import {
   isExtensionContextValid,
   loadStoredState,
@@ -228,36 +155,19 @@ import {
   syncStealthMode,
   waitForFullPageLoad,
 } from "../logic/runtime";
-import {
-  getDdwtosDrops,
-  getDdwtosDropSlotIndex,
-  setDdwtosDropAnswer,
-} from "./quizAttempt/ddwtos";
-import {
-  getDdmarkerChoices,
-  applyDdmarkerExactCoordinateSet,
-} from "./quizAttempt/ddmarker";
+import { getDdwtosDrops, getDdwtosDropSlotIndex, setDdwtosDropAnswer } from "./quizAttempt/ddwtos";
+import { getDdmarkerChoices, applyDdmarkerExactCoordinateSet } from "./quizAttempt/ddmarker";
 import {
   getDdimageOrTextDrops,
   getDdimageOrTextDropSlotIndex,
   setDdimageOrTextDropAnswer,
 } from "./quizAttempt/ddimageortext";
-import {
-  getOrderingExactOrder,
-  applyOrderingOrder,
-} from "./quizAttempt/ordering";
 import { autoSelectCompoundAnswers } from "./quizAttempt/compound";
-import {
-  canUseQuizFeatures,
-  getContentLocale,
-  isLoggedInToExtension,
-} from "../logic/settings";
+import { canUseQuizFeatures, isLoggedInToExtension } from "../logic/settings";
 import {
   applyContentColorSchemeToHost,
   getAccentColor,
   getContentColorScheme,
-  getRgbCssValue,
-  mixHexColors,
 } from "../logic/theme";
 import {
   buildReviewAnswersForQuestion,
@@ -272,32 +182,18 @@ import {
 import {
   getDdmarkerChoiceForTrigger,
   getDdmarkerCoordinateLabel,
-  getDdmarkerDropArea,
   getDdmarkerVisualMarker,
-  normalizeDdmarkerCoordinate,
   positionDdmarkerAnswerWidgetHost,
   resetDdmarkerAnswerWidgetHostPlacement,
   setDdmarkerChoiceAnswer,
   setDdmarkerVisualMarker,
 } from "./quizAttempt/ddmarker";
+import { getDdwtosDropForTrigger } from "./quizAttempt/ddwtos";
 import {
-  getDdwtosChoices,
-  getDdwtosDropForTrigger,
-  getDdwtosDropGroupIndex,
-  getDdwtosPlaceInput,
-  getDdwtosSelectedLabelForDrop,
-  setDdwtosDropVisibleLabel,
-} from "./quizAttempt/ddwtos";
-import {
-  answerDataHasZeroBasedOrderingSlots,
   getOrderingItemLabel,
   getOrderingItems,
   getOrderingList,
-  getOrderingPositionLabel,
-  getOrderingResponseInput,
   getOrderingSlotPosition,
-  mapSubmissionToOrderingPosition,
-  mapSuggestionToOrderingPosition,
   selectOrderingPositionByTrigger,
   syncOrderingResponseInput,
 } from "../dom/ordering";
@@ -316,16 +212,11 @@ import {
   setAnswerWidgetsVisible as setAnswerWidgetsVisibleState,
   setCurrentQuizAttemptContext,
   setCurrentStoredState,
-  setCurrentT,
-  setStealthModeEnabled,
-  stealthModeEnabled,
   variantCountsByQuestionId,
 } from "../state";
 
 let storageWatcherInstalled = false;
-// The mounted-widget pipeline runs only when pipeline-relevant sub-fields change; this flag
-// forces one run after initializeQuizAttemptFeatures, so freshly mounted widgets still receive
-// an immediate auto-select pass even if no settings changed since.
+
 let pendingPipelineRun = true;
 let answerWidgetHotkey = DEFAULT_HOTKEY;
 let answerWidgetHotkeyCode = DEFAULT_HOTKEY_CODE;
@@ -361,12 +252,6 @@ declare global {
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
       }
     | undefined;
-}
-
-function canUseAuthenticatedQuizFeatures(
-  storedState: StoredStateLike | undefined,
-) {
-  return canUseQuizFeatures(storedState) && isLoggedInToExtension(storedState);
 }
 
 function isHTMLElement(value: Element | null): value is HTMLElement {
@@ -485,15 +370,10 @@ function handleAnswerWidgetHotkey(event: KeyboardEvent) {
   setAnswerWidgetsVisible(!answerWidgetsVisible);
 }
 
-export function syncAnswerWidgetHotkey(
-  storedState: StoredStateLike | undefined,
-) {
+export function syncAnswerWidgetHotkey(storedState: StoredStateLike | undefined) {
   const settings = storedState?.settings;
   answerWidgetHotkey = normalizeHotkeyValue(settings?.hotkey);
-  answerWidgetHotkeyCode = normalizeHotkeyCode(
-    settings?.hotkeyCode,
-    settings?.hotkey,
-  );
+  answerWidgetHotkeyCode = normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey);
   answerWidgetHotkeyEnabled = canUseQuizFeatures(storedState);
 
   if (answerWidgetHotkeyListenerInstalled) {
@@ -520,9 +400,7 @@ function syncContentColorScheme() {
     host.dataset.theme = colorScheme;
   }
 
-  const menuPortal = document.querySelector(
-    `[${ANSWER_MENU_PORTAL_ATTR}="true"]`,
-  );
+  const menuPortal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);
 
   if (menuPortal instanceof HTMLElement) {
     menuPortal.dataset.theme = colorScheme;
@@ -542,10 +420,7 @@ function installColorSchemeWatcher() {
     return;
   }
 
-  if (
-    typeof window === "undefined" ||
-    typeof window.matchMedia !== "function"
-  ) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return;
   }
 
@@ -566,17 +441,13 @@ function installColorSchemeWatcher() {
   }
 }
 
-function findQuestionNodeForTrigger(
-  trigger: HTMLButtonElement,
-): Element | null {
+function findQuestionNodeForTrigger(trigger: HTMLButtonElement): Element | null {
   const root = trigger.getRootNode();
   if (!(root instanceof ShadowRoot)) return null;
   return root.host.closest(".que");
 }
 
-function findQuestionBoundsNodeForTrigger(
-  trigger: HTMLElement,
-): HTMLElement | null {
+function findQuestionBoundsNodeForTrigger(trigger: HTMLElement): HTMLElement | null {
   const root = trigger.getRootNode();
 
   if (!(root instanceof ShadowRoot) || !(root.host instanceof HTMLElement)) {
@@ -613,10 +484,7 @@ function getAnswerWidgetHostForTrigger(trigger: HTMLButtonElement) {
   return root.host;
 }
 
-function findChoiceInputForTrigger(
-  trigger: HTMLButtonElement,
-  questionNode: Element,
-) {
+function findChoiceInputForTrigger(trigger: HTMLButtonElement, questionNode: Element) {
   const host = getAnswerWidgetHostForTrigger(trigger);
 
   if (!host) {
@@ -630,9 +498,7 @@ function findChoiceInputForTrigger(
   const inputId = host.getAttribute("data-reduxshare-choice-input-id");
 
   if (inputId) {
-    const inputById = questionNode.querySelector<HTMLInputElement>(
-      `#${CSS.escape(inputId)}`,
-    );
+    const inputById = questionNode.querySelector<HTMLInputElement>(`#${CSS.escape(inputId)}`);
 
     if (inputById) {
       return inputById;
@@ -645,18 +511,13 @@ function findChoiceInputForTrigger(
     return null;
   }
 
-  const inputFromContainer = findInputForAnswerLabelContainer(
-    questionNode,
-    parent,
-  );
+  const inputFromContainer = findInputForAnswerLabelContainer(questionNode, parent);
 
   if (inputFromContainer) {
     return inputFromContainer;
   }
 
-  return parent.querySelector<HTMLInputElement>(
-    'input[type="radio"], input[type="checkbox"]',
-  );
+  return parent.querySelector<HTMLInputElement>('input[type="radio"], input[type="checkbox"]');
 }
 
 function findSelectForTrigger(trigger: HTMLButtonElement) {
@@ -687,9 +548,7 @@ function findTextInputForTrigger(trigger: HTMLButtonElement) {
   const inputId = root.host.getAttribute("data-reduxshare-text-input-id");
 
   if (inputId && questionNode) {
-    const input = questionNode.querySelector<HTMLInputElement>(
-      `#${CSS.escape(inputId)}`,
-    );
+    const input = questionNode.querySelector<HTMLInputElement>(`#${CSS.escape(inputId)}`);
 
     if (input && getTextAnswerInputs(questionNode).includes(input)) {
       return input;
@@ -700,9 +559,7 @@ function findTextInputForTrigger(trigger: HTMLButtonElement) {
 
   if (slotIndex && questionNode) {
     const input = getTextAnswerInputs(questionNode).find((candidate) => {
-      return (
-        getAnswerControlSlotIndex(candidate) === Number.parseInt(slotIndex, 10)
-      );
+      return getAnswerControlSlotIndex(candidate) === Number.parseInt(slotIndex, 10);
     });
 
     if (input) {
@@ -713,12 +570,9 @@ function findTextInputForTrigger(trigger: HTMLButtonElement) {
   return null;
 }
 
-function getAnswerSourceKeyForFlyoutOption(
-  option: HTMLElement,
-): keyof SourceAnswerData | null {
+function getAnswerSourceKeyForFlyoutOption(option: HTMLElement): keyof SourceAnswerData | null {
   const menuKey =
-    option.closest<HTMLElement>(".menu-item[data-answer-menu]")?.dataset
-      .answerMenu ?? "";
+    option.closest<HTMLElement>(".menu-item[data-answer-menu]")?.dataset.answerMenu ?? "";
 
   if (menuKey.startsWith("reduxshare-")) {
     return "reduxshare";
@@ -748,12 +602,7 @@ function selectAnswerByLabelForTrigger(
   }
 
   if (questionType === "ordering") {
-    return selectOrderingPositionByTrigger(
-      trigger,
-      questionNode,
-      label,
-      actionSlotIndex,
-    );
+    return selectOrderingPositionByTrigger(trigger, questionNode, label, actionSlotIndex);
   }
 
   if (questionType === "ddwtos") {
@@ -763,22 +612,15 @@ function selectAnswerByLabelForTrigger(
 
   if (questionType === "ddmarker") {
     const sourceAnswerData = sourceContext?.sourceKey
-      ? getAnswerDataForQuestion(sourceContext.questionId)[
-          sourceContext.sourceKey
-        ]
+      ? getAnswerDataForQuestion(sourceContext.questionId)[sourceContext.sourceKey]
       : null;
 
-    if (
-      sourceAnswerData &&
-      applyDdmarkerExactCoordinateSet(questionNode, sourceAnswerData)
-    ) {
+    if (sourceAnswerData && applyDdmarkerExactCoordinateSet(questionNode, sourceAnswerData)) {
       return true;
     }
 
     const choiceIndex = getDdmarkerChoiceForTrigger(trigger);
-    return choiceIndex === null
-      ? false
-      : setDdmarkerChoiceAnswer(questionNode, choiceIndex, label);
+    return choiceIndex === null ? false : setDdmarkerChoiceAnswer(questionNode, choiceIndex, label);
   }
 
   if (questionType === "ddimageortext") {
@@ -788,15 +630,10 @@ function selectAnswerByLabelForTrigger(
 
   if (questionType === "multianswer") {
     const sourceAnswerData = sourceContext?.sourceKey
-      ? getAnswerDataForQuestion(sourceContext.questionId)[
-          sourceContext.sourceKey
-        ]
+      ? getAnswerDataForQuestion(sourceContext.questionId)[sourceContext.sourceKey]
       : null;
 
-    if (
-      sourceAnswerData &&
-      autoSelectCompoundAnswers(questionNode, sourceAnswerData)
-    ) {
+    if (sourceAnswerData && autoSelectCompoundAnswers(questionNode, sourceAnswerData)) {
       return true;
     }
   }
@@ -804,9 +641,7 @@ function selectAnswerByLabelForTrigger(
   if (CHOICE_QUESTION_TYPES.has(questionType)) {
     const booleanChoiceValue = getBooleanChoiceAnswerValue(label);
     const input =
-      booleanChoiceValue === null
-        ? null
-        : findChoiceInputForTrigger(trigger, questionNode);
+      booleanChoiceValue === null ? null : findChoiceInputForTrigger(trigger, questionNode);
 
     if (input && booleanChoiceValue !== null) {
       return booleanChoiceValue || input.type === "checkbox"
@@ -836,18 +671,13 @@ function selectAnswerByLabelForTrigger(
 
 function getPreferredSuggestionLabels(suggestions: SuggestionItem[]) {
   const exactSuggestionLabels = suggestions
-    .filter(
-      (suggestion) => suggestion.correctness === 2 && suggestion.label.trim(),
-    )
+    .filter((suggestion) => suggestion.correctness === 2 && suggestion.label.trim())
     .map((suggestion) => suggestion.label.trim());
 
   return Array.from(new Set(exactSuggestionLabels));
 }
 
-function positionAnswerMenuPortal(
-  menuPortal: HTMLElement,
-  trigger: HTMLElement,
-) {
+function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement) {
   const triggerRect = trigger.getBoundingClientRect();
   const shadowRoot = menuPortal.shadowRoot;
   const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
@@ -860,23 +690,12 @@ function positionAnswerMenuPortal(
   const flyoutRect = flyout?.getBoundingClientRect();
   const menuWidth = Math.max(
     1,
-    Math.round(
-      menuRect?.width ??
-        menu?.offsetWidth ??
-        (viewportWidth <= 640 ? 304 : 348),
-    ),
+    Math.round(menuRect?.width ?? menu?.offsetWidth ?? (viewportWidth <= 640 ? 304 : 348)),
   );
-  const menuHeight = Math.max(
-    1,
-    Math.round(menuRect?.height ?? menu?.offsetHeight ?? 0),
-  );
+  const menuHeight = Math.max(1, Math.round(menuRect?.height ?? menu?.offsetHeight ?? 0));
   const flyoutWidth = Math.max(
     1,
-    Math.round(
-      flyoutRect?.width ??
-        flyout?.offsetWidth ??
-        (viewportWidth <= 640 ? 170 : 190),
-    ),
+    Math.round(flyoutRect?.width ?? flyout?.offsetWidth ?? (viewportWidth <= 640 ? 170 : 190)),
   );
   const horizontalBounds = resolveAnswerMenuHorizontalBounds(
     trigger,
@@ -884,25 +703,15 @@ function positionAnswerMenuPortal(
     margin,
     viewportWidth,
   );
-  const maxMenuLeft = Math.max(
-    horizontalBounds.left,
-    horizontalBounds.right - menuWidth,
-  );
+  const maxMenuLeft = Math.max(horizontalBounds.left, horizontalBounds.right - menuWidth);
   const preferredLeft = Math.round(triggerRect.left);
   const preferredRightAlignedLeft = Math.round(triggerRect.right - menuWidth);
   const flyoutOverlap = 4;
 
-  let left = Math.max(
-    horizontalBounds.left,
-    Math.min(preferredLeft, maxMenuLeft),
-  );
+  let left = Math.max(horizontalBounds.left, Math.min(preferredLeft, maxMenuLeft));
   const rightSpace = horizontalBounds.right - (left + menuWidth);
   const leftSpace = left - horizontalBounds.left;
-  const flyoutSide = chooseAnswerMenuFlyoutSide(
-    leftSpace,
-    rightSpace,
-    flyoutWidth - flyoutOverlap,
-  );
+  const flyoutSide = chooseAnswerMenuFlyoutSide(leftSpace, rightSpace, flyoutWidth - flyoutOverlap);
 
   if (flyoutSide === "left") {
     left = Math.min(
@@ -945,9 +754,7 @@ function getAnswerMenuPortalVisibleBounds(menuPortal: HTMLElement) {
   }
 
   const menuRect = menu.getBoundingClientRect();
-  const activeItem = shadowRoot.querySelector<HTMLElement>(
-    '.menu-item[data-active="true"]',
-  );
+  const activeItem = shadowRoot.querySelector<HTMLElement>('.menu-item[data-active="true"]');
   const activeFlyout = activeItem?.querySelector<HTMLElement>(".flyout");
 
   if (!activeFlyout) {
@@ -965,10 +772,7 @@ function getAnswerMenuPortalVisibleBounds(menuPortal: HTMLElement) {
   };
 }
 
-function shiftAnswerMenuPortalHorizontally(
-  menuPortal: HTMLElement,
-  deltaX: number,
-) {
+function shiftAnswerMenuPortalHorizontally(menuPortal: HTMLElement, deltaX: number) {
   if (Math.abs(deltaX) < 0.5) {
     return;
   }
@@ -991,9 +795,7 @@ function resolveAnswerMenuHorizontalBounds(
   const boundsNode =
     trigger instanceof HTMLButtonElement
       ? findQuestionBoundsNodeForTrigger(trigger)
-      : trigger.closest<HTMLElement>(
-          ".formulation, .content, .ablock, .answer, .que",
-        );
+      : trigger.closest<HTMLElement>(".formulation, .content, .ablock, .answer, .que");
 
   if (!(boundsNode instanceof HTMLElement)) {
     return viewportBounds;
@@ -1002,14 +804,8 @@ function resolveAnswerMenuHorizontalBounds(
   const questionRect = boundsNode.getBoundingClientRect();
   const questionInnerMargin = 8;
   const questionBounds = {
-    left: Math.max(
-      viewportBounds.left,
-      Math.round(questionRect.left) + questionInnerMargin,
-    ),
-    right: Math.min(
-      viewportBounds.right,
-      Math.round(questionRect.right) - questionInnerMargin,
-    ),
+    left: Math.max(viewportBounds.left, Math.round(questionRect.left) + questionInnerMargin),
+    right: Math.min(viewportBounds.right, Math.round(questionRect.right) - questionInnerMargin),
   };
 
   if (questionBounds.right - questionBounds.left < menuWidth) {
@@ -1019,10 +815,7 @@ function resolveAnswerMenuHorizontalBounds(
   return questionBounds;
 }
 
-function getAnswerMenuPortalHorizontalBounds(
-  menuPortal: HTMLElement,
-  viewportWidth: number,
-) {
+function getAnswerMenuPortalHorizontalBounds(menuPortal: HTMLElement, viewportWidth: number) {
   const margin = viewportWidth <= 640 ? 12 : 16;
   const rawLeft = Number.parseFloat(menuPortal.dataset.boundsLeft ?? "");
   const rawRight = Number.parseFloat(menuPortal.dataset.boundsRight ?? "");
@@ -1043,10 +836,7 @@ function clampAnswerMenuPortalToViewport(menuPortal: HTMLElement) {
   }
 
   const viewportWidth = document.documentElement.clientWidth;
-  const horizontalBounds = getAnswerMenuPortalHorizontalBounds(
-    menuPortal,
-    viewportWidth,
-  );
+  const horizontalBounds = getAnswerMenuPortalHorizontalBounds(menuPortal, viewportWidth);
   let deltaX = 0;
 
   if (bounds.right > horizontalBounds.right) {
@@ -1086,9 +876,7 @@ function chooseAnswerMenuFlyoutSide(
 function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   const shadowRoot = menuPortal.shadowRoot;
   const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
-  const activeItem = shadowRoot?.querySelector<HTMLElement>(
-    '.menu-item[data-active="true"]',
-  );
+  const activeItem = shadowRoot?.querySelector<HTMLElement>('.menu-item[data-active="true"]');
   const activeFlyout = activeItem?.querySelector<HTMLElement>(".flyout");
 
   if (!menu || !activeFlyout) {
@@ -1097,10 +885,7 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
 
   const viewportWidth = document.documentElement.clientWidth;
   const flyoutOverlap = 4;
-  const horizontalBounds = getAnswerMenuPortalHorizontalBounds(
-    menuPortal,
-    viewportWidth,
-  );
+  const horizontalBounds = getAnswerMenuPortalHorizontalBounds(menuPortal, viewportWidth);
   const menuRect = menu.getBoundingClientRect();
   const flyoutWidth = Math.max(
     1,
@@ -1140,8 +925,7 @@ function openAnswerMenuPortal(
   const aiQuestionKey = getAiQuestionKey(initialQuestionNode, questionId);
   const aiSettingsSaved = isAiSettingsSaved(currentStoredState?.settings);
   const externalOnly = !isLoggedInToExtension(currentStoredState);
-  const aiToolsEnabled =
-    !externalOnly && !isAiDisabledQuestionTypeName(initialQuestionType);
+  const aiToolsEnabled = !externalOnly && !isAiDisabledQuestionTypeName(initialQuestionType);
   const menuAnswerData =
     initialQuestionNode && isAiOnlyQuestionTypeName(initialQuestionType)
       ? createEmptySourceAnswerData()
@@ -1179,17 +963,13 @@ function openAnswerMenuPortal(
       answerFlyout.innerHTML = renderAiAnswerFlyout(nextState);
     }
 
-    const aiButton = shadowRoot.querySelector<HTMLButtonElement>(
-      '[data-ai-action="send"]',
-    );
+    const aiButton = shadowRoot.querySelector<HTMLButtonElement>('[data-ai-action="send"]');
     if (aiButton) {
       aiButton.disabled = nextState.status === "loading";
     }
   }
 
-  const aiRequestButton = shadowRoot.querySelector<HTMLButtonElement>(
-    '[data-ai-action="send"]',
-  );
+  const aiRequestButton = shadowRoot.querySelector<HTMLButtonElement>('[data-ai-action="send"]');
   aiRequestButton?.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1209,9 +989,7 @@ function openAnswerMenuPortal(
         error: currentT("quiz.menu.aiQuestionMissing"),
       });
       setActiveMenuItem(
-        shadowRoot.querySelector<HTMLElement>(
-          '.menu-item[data-answer-menu="ai-answer"]',
-        ),
+        shadowRoot.querySelector<HTMLElement>('.menu-item[data-answer-menu="ai-answer"]'),
       );
       return;
     }
@@ -1224,9 +1002,7 @@ function openAnswerMenuPortal(
       error: null,
     });
     setActiveMenuItem(
-      shadowRoot.querySelector<HTMLElement>(
-        '.menu-item[data-answer-menu="ai-answer"]',
-      ),
+      shadowRoot.querySelector<HTMLElement>('.menu-item[data-answer-menu="ai-answer"]'),
     );
 
     void buildAiAnswerRequestPayload(questionNode, questionId)
@@ -1237,9 +1013,7 @@ function openAnswerMenuPortal(
           answer: response.ok ? (response.answer ?? "") : null,
           confidence: response.ok ? (response.confidence ?? 0) : null,
           actions: response.ok ? (response.actions ?? []) : [],
-          error: response.ok
-            ? null
-            : (response.error ?? currentT("quiz.menu.empty")),
+          error: response.ok ? null : (response.error ?? currentT("quiz.menu.empty")),
         });
       })
       .catch((error) => {
@@ -1248,10 +1022,7 @@ function openAnswerMenuPortal(
           answer: null,
           confidence: null,
           actions: [],
-          error:
-            error instanceof Error
-              ? error.message
-              : currentT("quiz.menu.empty"),
+          error: error instanceof Error ? error.message : currentT("quiz.menu.empty"),
         });
       });
   });
@@ -1278,9 +1049,7 @@ function openAnswerMenuPortal(
       aiState.status === "success" &&
       applyAiAnswerForQuestion(questionNode, aiState)
     ) {
-      void reportSolvedQuestions([
-        getQuestionProgressId(questionNode, questionId),
-      ]);
+      void reportSolvedQuestions([getQuestionProgressId(questionNode, questionId)]);
     }
 
     window.setTimeout(() => closePortal(), 120);
@@ -1317,15 +1086,10 @@ function openAnswerMenuPortal(
   );
   for (const option of flyoutOptions) {
     const labelEl = option.querySelector<HTMLElement>(".flyout-label");
-    const labelText =
-      option.dataset.answerLabel ??
-      (labelEl ?? option).textContent?.trim() ??
-      "";
+    const labelText = option.dataset.answerLabel ?? (labelEl ?? option).textContent?.trim() ?? "";
     const rawSlotIndex = option.dataset.answerSlotIndex;
     const actionSlotIndex =
-      rawSlotIndex && /^\d+$/.test(rawSlotIndex)
-        ? Number.parseInt(rawSlotIndex, 10)
-        : null;
+      rawSlotIndex && /^\d+$/.test(rawSlotIndex) ? Number.parseInt(rawSlotIndex, 10) : null;
     if (!labelText) continue;
 
     option.style.cursor = "pointer";
@@ -1337,20 +1101,12 @@ function openAnswerMenuPortal(
       const sourceKey = getAnswerSourceKeyForFlyoutOption(option);
       if (
         questionNode &&
-        selectAnswerByLabelForTrigger(
-          trigger,
-          questionNode,
-          labelText,
-          actionSlotIndex,
-          {
-            questionId,
-            sourceKey,
-          },
-        )
+        selectAnswerByLabelForTrigger(trigger, questionNode, labelText, actionSlotIndex, {
+          questionId,
+          sourceKey,
+        })
       ) {
-        void reportSolvedQuestions([
-          getQuestionProgressId(questionNode, questionId),
-        ]);
+        void reportSolvedQuestions([getQuestionProgressId(questionNode, questionId)]);
       }
 
       window.setTimeout(() => closePortal(), 120);
@@ -1482,9 +1238,7 @@ function setAnswerWidgetAccent(accentColor: string) {
     host.style.setProperty("--reduxshare-accent", accentColor);
   }
 
-  const menuPortal = document.querySelector(
-    `[${ANSWER_MENU_PORTAL_ATTR}="true"]`,
-  );
+  const menuPortal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);
 
   if (menuPortal instanceof HTMLElement) {
     menuPortal.style.setProperty("--reduxshare-accent", accentColor);
@@ -1495,9 +1249,7 @@ function setAnswerWidgetAccent(accentColor: string) {
 
 const OVERLAY_OPACITY_STYLE_ID = "reduxshare-overlay-opacity";
 
-function getPageOverlayOpacity(
-  settings: StoredStateLike["settings"] | undefined,
-) {
+function getPageOverlayOpacity(settings: StoredStateLike["settings"] | undefined) {
   const rawOpacity = settings?.pageOverlayOpacity;
 
   if (typeof rawOpacity !== "number" || !Number.isFinite(rawOpacity)) {
@@ -1507,12 +1259,8 @@ function getPageOverlayOpacity(
   return Math.min(1, Math.max(0.4, rawOpacity));
 }
 
-export function syncPageOverlayOpacity(
-  storedState: StoredStateLike | undefined,
-) {
-  const opacity = getPageOverlayOpacity(
-    storedState?.settings ?? currentStoredState?.settings,
-  );
+export function syncPageOverlayOpacity(storedState: StoredStateLike | undefined) {
+  const opacity = getPageOverlayOpacity(storedState?.settings ?? currentStoredState?.settings);
   let styleElement = document.getElementById(OVERLAY_OPACITY_STYLE_ID);
 
   if (!(styleElement instanceof HTMLStyleElement)) {
@@ -1534,10 +1282,7 @@ function shouldMountAnswerWidgetForQuestion(entry: AnswerEntry) {
     return false;
   }
 
-  if (
-    questionType !== null &&
-    SUPPORTED_WIDGET_QUESTION_TYPES.has(questionType)
-  ) {
+  if (questionType !== null && SUPPORTED_WIDGET_QUESTION_TYPES.has(questionType)) {
     return true;
   }
 
@@ -1546,9 +1291,7 @@ function shouldMountAnswerWidgetForQuestion(entry: AnswerEntry) {
 
 function removeAnswerWidgetsFromQuestion(questionNode: Element) {
   const hosts = Array.from(
-    questionNode.querySelectorAll<HTMLElement>(
-      `[${ANSWER_WIDGET_ATTR}="true"]`,
-    ),
+    questionNode.querySelectorAll<HTMLElement>(`[${ANSWER_WIDGET_ATTR}="true"]`),
   );
 
   for (const host of hosts) {
@@ -1557,21 +1300,13 @@ function removeAnswerWidgetsFromQuestion(questionNode: Element) {
   }
 }
 
-function getChoiceAnswerWidgetTarget(
-  questionNode: Element,
-  input: HTMLInputElement,
-) {
-  const labelledByIds = (input.getAttribute("aria-labelledby") ?? "")
-    .split(/\s+/)
-    .filter(Boolean);
+function getChoiceAnswerWidgetTarget(questionNode: Element, input: HTMLInputElement) {
+  const labelledByIds = (input.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean);
 
   for (const labelledById of labelledByIds) {
     const labelledByElement = document.getElementById(labelledById);
 
-    if (
-      isHTMLElement(labelledByElement) &&
-      questionNode.contains(labelledByElement)
-    ) {
+    if (isHTMLElement(labelledByElement) && questionNode.contains(labelledByElement)) {
       return labelledByElement;
     }
   }
@@ -1579,10 +1314,7 @@ function getChoiceAnswerWidgetTarget(
   if (input.id) {
     const generatedLabel = document.getElementById(`${input.id}_label`);
 
-    if (
-      isHTMLElement(generatedLabel) &&
-      questionNode.contains(generatedLabel)
-    ) {
+    if (isHTMLElement(generatedLabel) && questionNode.contains(generatedLabel)) {
       return generatedLabel;
     }
   }
@@ -1609,13 +1341,8 @@ function mountGapSelectAnswerWidgets(entry: AnswerEntry, accentColor: string) {
       continue;
     }
 
-    const { answerData, slotIndex } = getAnswerDataForQuestionSelect(
-      questionId,
-      select,
-    );
-    const existingHost = targetNode.querySelector(
-      `[${ANSWER_WIDGET_ATTR}="true"]`,
-    );
+    const { answerData, slotIndex } = getAnswerDataForQuestionSelect(questionId, select);
+    const existingHost = targetNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
       existingHost.style.setProperty("--reduxshare-accent", accentColor);
@@ -1649,10 +1376,7 @@ function mountGapSelectAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   }
 }
 
-function mountMultiChoiceAnswerWidgets(
-  entry: AnswerEntry,
-  accentColor: string,
-) {
+function mountMultiChoiceAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -1665,9 +1389,7 @@ function mountMultiChoiceAnswerWidgets(
 
   const choiceInputs = isCompoundQuestionType(questionNode)
     ? getChoiceAnswerInputs(questionNode)
-    : getChoiceAnswerInputs(questionNode).filter(
-        (answerInput) => answerInput.type === "checkbox",
-      );
+    : getChoiceAnswerInputs(questionNode).filter((answerInput) => answerInput.type === "checkbox");
 
   for (const input of choiceInputs) {
     const targetNode = getChoiceAnswerWidgetTarget(questionNode, input);
@@ -1681,9 +1403,7 @@ function mountMultiChoiceAnswerWidgets(
       questionNode,
       input,
     );
-    const existingHost = targetNode.querySelector(
-      `[${ANSWER_WIDGET_ATTR}="true"]`,
-    );
+    const existingHost = targetNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
       existingHost.style.setProperty("--reduxshare-accent", accentColor);
@@ -1747,25 +1467,16 @@ function mountTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     }
 
     targetNode.setAttribute("data-reduxshare-text-control", "true");
-    const { answerData, slotIndex } = getAnswerDataForQuestionTextControl(
-      questionId,
-      input,
-    );
+    const { answerData, slotIndex } = getAnswerDataForQuestionTextControl(questionId, input);
     const existingHost = Array.from(
-      targetNode.querySelectorAll<HTMLElement>(
-        `[${ANSWER_WIDGET_ATTR}="true"]`,
-      ),
+      targetNode.querySelectorAll<HTMLElement>(`[${ANSWER_WIDGET_ATTR}="true"]`),
     ).find((host) => {
-      if (
-        input.id &&
-        host.getAttribute("data-reduxshare-text-input-id") === input.id
-      ) {
+      if (input.id && host.getAttribute("data-reduxshare-text-input-id") === input.id) {
         return true;
       }
 
       return (
-        slotIndex !== null &&
-        host.getAttribute("data-reduxshare-text-slot") === String(slotIndex)
+        slotIndex !== null && host.getAttribute("data-reduxshare-text-slot") === String(slotIndex)
       );
     });
 
@@ -1778,10 +1489,7 @@ function mountTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
         existingHost.removeAttribute("data-reduxshare-text-slot");
       } else {
         existingHost.dataset.reduxshareSlotIndex = String(slotIndex);
-        existingHost.setAttribute(
-          "data-reduxshare-text-slot",
-          String(slotIndex),
-        );
+        existingHost.setAttribute("data-reduxshare-text-slot", String(slotIndex));
       }
 
       if (input.id) {
@@ -1896,9 +1604,7 @@ function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
       questionNode.querySelector<HTMLElement>(
         `.draghomes .marker.choice${choice.choiceIndex}.dragplaceholder`,
       ) ??
-      questionNode.querySelector<HTMLElement>(
-        `.draghomes .marker.choice${choice.choiceIndex}`,
-      );
+      questionNode.querySelector<HTMLElement>(`.draghomes .marker.choice${choice.choiceIndex}`);
 
     if (!targetNode) {
       continue;
@@ -1917,12 +1623,7 @@ function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
         targetNode.after(existingHost);
       }
       if (targetNode.closest(".droparea") && coordinate) {
-        positionDdmarkerAnswerWidgetHost(
-          questionNode,
-          choice.choiceIndex,
-          coordinate,
-          targetNode,
-        );
+        positionDdmarkerAnswerWidgetHost(questionNode, choice.choiceIndex, coordinate, targetNode);
       } else {
         resetDdmarkerAnswerWidgetHostPlacement(existingHost);
       }
@@ -1946,28 +1647,17 @@ function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
       true,
     );
     host.hidden = !answerWidgetsVisible;
-    host.setAttribute(
-      "data-reduxshare-ddmarker-choice",
-      String(choice.choiceIndex),
-    );
+    host.setAttribute("data-reduxshare-ddmarker-choice", String(choice.choiceIndex));
     targetNode.after(host);
     if (targetNode.closest(".droparea") && coordinate) {
-      positionDdmarkerAnswerWidgetHost(
-        questionNode,
-        choice.choiceIndex,
-        coordinate,
-        targetNode,
-      );
+      positionDdmarkerAnswerWidgetHost(questionNode, choice.choiceIndex, coordinate, targetNode);
     } else {
       resetDdmarkerAnswerWidgetHostPlacement(host);
     }
   }
 }
 
-function mountDdimageOrTextAnswerWidgets(
-  entry: AnswerEntry,
-  accentColor: string,
-) {
+function mountDdimageOrTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2011,10 +1701,7 @@ function mountDdimageOrTextAnswerWidgets(
     host.hidden = !answerWidgetsVisible;
 
     if (slotIndex !== null) {
-      host.setAttribute(
-        "data-reduxshare-ddimageortext-slot",
-        String(slotIndex),
-      );
+      host.setAttribute("data-reduxshare-ddimageortext-slot", String(slotIndex));
     }
 
     drop.after(host);
@@ -2040,14 +1727,8 @@ function mountOrderingAnswerWidgets(entry: AnswerEntry, accentColor: string) {
       continue;
     }
 
-    const { answerData, slotIndex } = getAnswerDataForOrderingItem(
-      questionId,
-      item,
-      items.length,
-    );
-    const existingHost = targetNode.querySelector(
-      `[${ANSWER_WIDGET_ATTR}="true"]`,
-    );
+    const { answerData, slotIndex } = getAnswerDataForOrderingItem(questionId, item, items.length);
+    const existingHost = targetNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
       existingHost.style.setProperty("--reduxshare-accent", accentColor);
@@ -2083,8 +1764,7 @@ function mountOrderingAnswerWidgets(entry: AnswerEntry, accentColor: string) {
 
 function mountCompoundAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   const { questionId, questionNode, answerNode } = entry;
-  const targetNode =
-    questionNode.querySelector<HTMLElement>(".formulation") ?? answerNode;
+  const targetNode = questionNode.querySelector<HTMLElement>(".formulation") ?? answerNode;
   removeAnswerWidgetsFromQuestion(questionNode);
 
   const host = createAnswerWidgetHost(
@@ -2147,9 +1827,7 @@ function mountAnswerWidgets(accentColor: string) {
       continue;
     }
 
-    const existingHost = answerNode.querySelector(
-      `[${ANSWER_WIDGET_ATTR}="true"]`,
-    );
+    const existingHost = answerNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
       existingHost.style.setProperty("--reduxshare-accent", accentColor);
@@ -2194,9 +1872,6 @@ function resetRestrictedQuizState() {
   removeAttemptStatusPanel();
 }
 
-// Sub-fields of StoredState that the expensive storage-change pipeline actually reads.
-// Everything else that shares APP_STORAGE_KEY (userProfile counters, updateState, context
-// bookkeeping) changes frequently and must not trigger widget remounts.
 const PIPELINE_RELEVANT_SETTING_KEYS = [
   "extensionEnabled",
   "stealthMode",
@@ -2212,9 +1887,7 @@ const PIPELINE_RELEVANT_SETTING_KEYS = [
   "language",
 ] as const;
 
-function getAnswerPipelineFingerprint(
-  storedState: StoredStateLike | undefined,
-): string {
+function getAnswerPipelineFingerprint(storedState: StoredStateLike | undefined): string {
   const settings = storedState?.settings ?? {};
 
   return JSON.stringify([
@@ -2240,20 +1913,13 @@ function watchStoredSettingsChanges() {
       return;
     }
 
-    const nextState = changes[APP_STORAGE_KEY].newValue as
-      | StoredStateLike
-      | undefined;
+    const nextState = changes[APP_STORAGE_KEY].newValue as StoredStateLike | undefined;
     const pipelineChanged =
       pendingPipelineRun ||
-      getAnswerPipelineFingerprint(nextState) !==
-        getAnswerPipelineFingerprint(currentStoredState);
+      getAnswerPipelineFingerprint(nextState) !== getAnswerPipelineFingerprint(currentStoredState);
 
     setCurrentStoredState(nextState);
 
-    // The quiz view page (no attempt) shares this watcher only to keep the preview
-    // button and its hotkey in sync with the stored settings; the attempt pipeline
-    // below needs no run, and arming the attempt hotkey there would hide the answer
-    // widgets of an attempt started later in the same tab.
     if (isQuizViewUrl(window.location)) {
       if (pipelineChanged) {
         syncLanguage(nextState);
@@ -2271,9 +1937,6 @@ function watchStoredSettingsChanges() {
       syncPageOverlayOpacity(nextState);
     }
 
-    // The attempt-status-panel "closed" flag is not part of the answer pipeline
-    // fingerprint, so it must be synced on every settings change — otherwise
-    // toggling it from the popup wouldn't update the panel on the quiz page.
     void syncAttemptStatusPanelClosedState(nextState);
 
     if (!canUseQuizFeatures(nextState)) {
@@ -2282,8 +1945,6 @@ function watchStoredSettingsChanges() {
     }
 
     if (!currentQuizAttemptContext) {
-      // Initialization is async and may still be waiting for the attempt context, so arm the
-      // next event to run the mounted-widget pipeline regardless of whether anything changed.
       pendingPipelineRun = true;
       void initializeQuizAttemptFeatures();
       return;
@@ -2305,9 +1966,7 @@ function watchStoredSettingsChanges() {
   });
 }
 
-function requestQuizAnswers(
-  context: QuizAttemptContext,
-): Promise<QuizAnswersResponse> {
+function requestQuizAnswers(context: QuizAttemptContext): Promise<QuizAnswersResponse> {
   const sourceQuestions = context.questions.filter(
     (question) => !isAiOnlyQuestionTypeName(question.questionType),
   );
@@ -2351,7 +2010,6 @@ function requestQuizAnswers(
         },
       );
     } catch (error) {
-      // Synchronous throw: the extension context is gone (reloaded/removed).
       reject(error instanceof Error ? error : new Error(String(error)));
     }
   });
@@ -2369,10 +2027,7 @@ async function loadQuizAnswers(context: QuizAttemptContext) {
 
     if (!response.ok) {
       renderAttemptStatusPanel();
-      logReduxShareWarning(
-        "ReduxShare: quiz answers request failed",
-        response.error,
-      );
+      logReduxShareWarning("ReduxShare: quiz answers request failed", response.error);
       return;
     }
 
@@ -2434,9 +2089,7 @@ async function initializeQuizAttemptFeatures() {
     const bareContext = createBareQuizAttemptContext();
     await saveQuizAttemptContext(bareContext);
     mountAnswerWidgets(accentColor);
-    logReduxShareInfo(
-      "ReduxShare: quiz attempt page detected, metadata not found",
-    );
+    logReduxShareInfo("ReduxShare: quiz attempt page detected, metadata not found");
     return;
   }
 
@@ -2472,14 +2125,10 @@ async function initializeQuizSummaryTracking() {
     createdAt: new Date().toISOString(),
   });
 
-  logReduxShareInfo(
-    "ReduxShare: quiz summary page detected, waiting for review page",
-  );
+  logReduxShareInfo("ReduxShare: quiz summary page detected, waiting for review page");
 }
 
 async function bootstrapQuizPageDetection() {
-  // The extension was reloaded/removed while this tab stayed open: the old
-  // content script keeps running, so stop before any chrome.* call throws.
   if (!isExtensionContextValid()) {
     return;
   }
@@ -2512,7 +2161,7 @@ async function bootstrapQuizPageDetection() {
 function resetQuizAttemptTestState() {
   closeActiveAnswerWidgetMenu();
   cancelAllAutoSelectSchedules();
-  // Each spec watches settings through its own fresh chrome mock.
+
   storageWatcherInstalled = false;
   removeAnswerWidgets();
   variantCountsByQuestionId.clear();
@@ -2543,7 +2192,7 @@ function resetQuizAttemptTestState() {
   syncLanguage(currentStoredState);
   setAnswerWidgetsVisible(true);
   resetAttemptStatusPanelState();
-  syncAttemptStatusPanelClosedState(currentStoredState);
+  void syncAttemptStatusPanelClosedState(currentStoredState);
 }
 
 function installQuizAttemptTestApi() {
@@ -2578,7 +2227,6 @@ function installQuizAttemptTestApi() {
   resetQuizAttemptTestState();
 }
 
-// Export functions for auto-select module
 export {
   getQuestionAnswerLabels,
   getQuestionText,

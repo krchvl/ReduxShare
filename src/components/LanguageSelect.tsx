@@ -1,4 +1,13 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { LANGUAGE_OPTIONS, type TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
@@ -60,7 +69,7 @@ export function LanguageSelect({ value, onChange }: LanguageSelectProps) {
     const maxLeft = viewportWidth - width - LANGUAGE_LISTBOX_EDGE_PADDING;
     const left = Math.max(
       LANGUAGE_LISTBOX_EDGE_PADDING,
-      Math.min(triggerRect.right - width, Math.max(LANGUAGE_LISTBOX_EDGE_PADDING, maxLeft))
+      Math.min(triggerRect.right - width, Math.max(LANGUAGE_LISTBOX_EDGE_PADDING, maxLeft)),
     );
     const belowTop = triggerRect.bottom + LANGUAGE_LISTBOX_GAP;
     const aboveTop = triggerRect.top - height - LANGUAGE_LISTBOX_GAP;
@@ -73,13 +82,13 @@ export function LanguageSelect({ value, onChange }: LanguageSelectProps) {
       position: "fixed",
       top,
       left,
-      right: "auto"
+      right: "auto",
     };
   }
 
-  function updateFloatingListboxPosition() {
+  const updateFloatingListboxPosition = useEffectEvent(() => {
     setListboxStyle(getFloatingListboxStyle());
-  }
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -92,6 +101,7 @@ export function LanguageSelect({ value, onChange }: LanguageSelectProps) {
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- post-layout measurement for the floating listbox
     updateFloatingListboxPosition();
   }, [isListboxMounted, isOpen, value]);
 
@@ -108,12 +118,6 @@ export function LanguageSelect({ value, onChange }: LanguageSelectProps) {
   }, [isListboxMounted]);
 
   useEffect(() => {
-    if (!isOpen) {
-      setActiveIndex(Math.max(0, getLanguageIndex(value)));
-    }
-  }, [isOpen, value]);
-
-  useEffect(() => {
     return () => {
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current);
@@ -126,6 +130,7 @@ export function LanguageSelect({ value, onChange }: LanguageSelectProps) {
       window.clearTimeout(closeTimerRef.current);
     }
 
+    setActiveIndex(Math.max(0, getLanguageIndex(value)));
     setIsOpen(false);
     closeTimerRef.current = window.setTimeout(() => {
       setIsListboxMounted(false);

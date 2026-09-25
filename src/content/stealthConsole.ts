@@ -1,7 +1,4 @@
 (() => {
-  // This bridge runs in the MAIN world and owns its entry chunk, so it deliberately re-declares
-  // the two message names and the origin marker it answers to instead of importing
-  // src/shared/messages.ts. Keep them byte-for-byte identical to that module.
   const STEALTH_MODE_MESSAGE = "REDUXSHARE_STEALTH_MODE";
   const COPY_UNLOCK_MESSAGE = "REDUXSHARE_COPY_UNLOCK";
   const STEALTH_MESSAGE_SOURCE = "ReduxShare";
@@ -9,7 +6,7 @@
   const SUPPRESSED_CONSOLE_PATTERNS = [
     /^ReduxShare\b/i,
     /^Starting Moodle session\b/i,
-    /\bMoodle session\b.*\b(?:keep-alive|timeout|warning)\b/i
+    /\bMoodle session\b.*\b(?:keep-alive|timeout|warning)\b/i,
   ];
 
   let stealthModeEnabled = false;
@@ -20,7 +17,7 @@
     error: console.error.bind(console),
     info: console.info.bind(console),
     log: console.log.bind(console),
-    warn: console.warn.bind(console)
+    warn: console.warn.bind(console),
   };
 
   type ConsoleMethodName = keyof typeof originalConsole;
@@ -96,7 +93,7 @@
     "beforepaste",
     "contextmenu",
     "selectstart",
-    "dragstart"
+    "dragstart",
   ] as const;
   const COPY_UNLOCK_SHORTCUTS = ["c", "x", "v", "a", "insert"];
 
@@ -119,7 +116,6 @@
   }
 
   function allowCopyPasteEvent(event: Event) {
-    // Keyboard handler is narrowly scoped: any other key must reach the page.
     if (
       (event.type === "keydown" || event.type === "keyup" || event.type === "keypress") &&
       !isCopyUnlockShortcut(event)

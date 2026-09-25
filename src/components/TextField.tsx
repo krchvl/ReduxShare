@@ -15,7 +15,7 @@ export function TextField({
   onChange,
   autoComplete = "off",
   disabled = false,
-  required = false
+  required = false,
 }: TextFieldProps) {
   return (
     <label className="field">

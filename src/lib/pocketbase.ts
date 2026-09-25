@@ -8,7 +8,9 @@ export const TASKS_COLLECTION = "reduxshare_tasks";
 export const REVIEW_IMPORTS_COLLECTION = "reduxshare_review_imports";
 
 export function getPocketBaseUrl() {
-  const rawUrl = (import.meta.env.VITE_POCKETBASE_URL as string | undefined)?.trim().replace(/\/+$/, "");
+  const rawUrl = (import.meta.env.VITE_POCKETBASE_URL as string | undefined)
+    ?.trim()
+    .replace(/\/+$/, "");
 
   if (!rawUrl) {
     throw new I18nError("errors.pocketbaseMissingConfig");
@@ -48,7 +50,10 @@ export function pingStatusForLatency(latencyMs: number | null): PingStatus {
   return "bad";
 }
 
-export async function measurePocketBasePing(baseUrl: string, timeoutMs = 5000): Promise<number | null> {
+export async function measurePocketBasePing(
+  baseUrl: string,
+  timeoutMs = 5000,
+): Promise<number | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
@@ -56,7 +61,7 @@ export async function measurePocketBasePing(baseUrl: string, timeoutMs = 5000): 
   try {
     const response = await fetch(`${baseUrl}/api/health`, {
       method: "GET",
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -98,34 +103,24 @@ export function mapPocketBaseSession(pb: PocketBase): AuthSession | null {
 
   return {
     accessToken: pb.authStore.token,
-    // PocketBase uses a single stateless auth token (no separate refresh token).
-    // refreshToken mirrors accessToken to keep the StoredState shape compatible.
+
     refreshToken: pb.authStore.token,
     expiresAt: getJwtExpiresAt(pb.authStore.token),
     user: {
       id: model.id,
-      email: typeof model.email === "string" ? model.email : null
-    }
+      email: typeof model.email === "string" ? model.email : null,
+    },
   };
 }
 
-/**
- * Creates a PocketBase client. A fresh instance is built per call on purpose:
- * the background service worker and the popup do not share memory, and the
- * persisted AuthSession from chrome.storage is the source of truth.
- */
 export function getPocketBase(authSession?: AuthSession | null) {
-  // In-memory auth store on purpose: the persisted AuthSession from
-  // chrome.storage is the single source of truth. The default
-  // LocalAuthStore would additionally leak tokens into window.localStorage
-  // on extension pages.
   const pb = new PocketBase(getPocketBaseUrl(), new BaseAuthStore());
   pb.autoCancellation(false);
 
   if (authSession?.accessToken) {
     pb.authStore.save(authSession.accessToken, {
       id: authSession.user.id,
-      email: authSession.user.email ?? ""
+      email: authSession.user.email ?? "",
     } as unknown as AuthModel);
   }
 
@@ -171,20 +166,16 @@ export function toI18nError(error: unknown, messageKey: TranslationKey) {
   return new I18nError(messageKey, { message: getClientResponseMessage(error) });
 }
 
-/**
- * Runs a PocketBase request with the stored session, refreshing the token once
- * when the server reports it as unauthorized (expired/invalid).
- */
 export async function withPocketBaseSessionRetry<TResult>(
   authSession: AuthSession,
-  runner: (pb: PocketBase, session: AuthSession) => Promise<TResult>
+  runner: (pb: PocketBase, session: AuthSession) => Promise<TResult>,
 ): Promise<{ authSession: AuthSession; result: TResult }> {
   let nextAuthSession = await ensurePocketBaseSession(authSession);
 
   try {
     return {
       authSession: nextAuthSession,
-      result: await runner(getPocketBase(nextAuthSession), nextAuthSession)
+      result: await runner(getPocketBase(nextAuthSession), nextAuthSession),
     };
   } catch (error) {
     if (!isUnauthorizedError(error)) {
@@ -195,7 +186,7 @@ export async function withPocketBaseSessionRetry<TResult>(
 
     return {
       authSession: nextAuthSession,
-      result: await runner(getPocketBase(nextAuthSession), nextAuthSession)
+      result: await runner(getPocketBase(nextAuthSession), nextAuthSession),
     };
   }
 }

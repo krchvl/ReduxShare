@@ -1,5 +1,9 @@
 import { ANSWER_WIDGET_ATTR, type AnswerData } from "../../model";
-import { getClassNumber, getMoodleAnswerLabelText, splitSequentialAnswerLabels } from "../../dom/questionDom";
+import {
+  getClassNumber,
+  getMoodleAnswerLabelText,
+  splitSequentialAnswerLabels,
+} from "../../dom/questionDom";
 import { getPreferredSuggestionLabels } from "../../data/answerData";
 import { isDragMarkerQuestionType } from "../../dom/questionTypes";
 import { getAnswerSlotByIndex } from "./answerControls";
@@ -11,19 +15,22 @@ export function getDdmarkerChoiceIndex(element: Element) {
 export function getDdmarkerChoiceInput(questionNode: Element, choiceIndex: number) {
   return (
     questionNode.querySelector<HTMLInputElement>(
-      `input.choices.choice${choiceIndex}, input[type="hidden"].choice${choiceIndex}, input[type="hidden"][name$="_c${choiceIndex}"]`
+      `input.choices.choice${choiceIndex}, input[type="hidden"].choice${choiceIndex}, input[type="hidden"][name$="_c${choiceIndex}"]`,
     ) ?? null
   );
 }
 
 export function getDdmarkerChoiceInputs(questionNode: Element) {
-  return Array.from(questionNode.querySelectorAll<HTMLInputElement>("input.choices"))
-    .filter((input) => getDdmarkerChoiceIndex(input) !== null);
+  return Array.from(questionNode.querySelectorAll<HTMLInputElement>("input.choices")).filter(
+    (input) => getDdmarkerChoiceIndex(input) !== null,
+  );
 }
 
 export function getDdmarkerMarkerLabel(marker: Element) {
   const markerText = marker.querySelector(".markertext");
-  return getMoodleAnswerLabelText(markerText ?? marker).replace(/\s+/g, " ").trim();
+  return getMoodleAnswerLabelText(markerText ?? marker)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function getDdmarkerChoices(questionNode: Element) {
@@ -34,7 +41,7 @@ export function getDdmarkerChoices(questionNode: Element) {
         (choiceIndex === null
           ? null
           : questionNode.querySelector(
-              `.dd-original .marker.choice${choiceIndex}, .draghomes .marker.choice${choiceIndex}.dragplaceholder, .draghomes .marker.choice${choiceIndex}`
+              `.dd-original .marker.choice${choiceIndex}, .draghomes .marker.choice${choiceIndex}.dragplaceholder, .draghomes .marker.choice${choiceIndex}`,
             )) ?? null;
 
       return choiceIndex === null
@@ -42,7 +49,7 @@ export function getDdmarkerChoices(questionNode: Element) {
         : {
             input,
             choiceIndex,
-            label: marker ? getDdmarkerMarkerLabel(marker) : `Marker ${choiceIndex}`
+            label: marker ? getDdmarkerMarkerLabel(marker) : `Marker ${choiceIndex}`,
           };
     })
     .filter((choice): choice is { input: HTMLInputElement; choiceIndex: number; label: string } => {
@@ -70,13 +77,17 @@ export function getDdmarkerDropArea(questionNode: Element) {
 
 export function getDdmarkerVisualMarker(questionNode: Element, choiceIndex: number) {
   return questionNode.querySelector<HTMLElement>(
-    `.droparea [data-reduxshare-ddmarker-marker="true"][data-reduxshare-ddmarker-choice="${choiceIndex}"]`
+    `.droparea [data-reduxshare-ddmarker-marker="true"][data-reduxshare-ddmarker-choice="${choiceIndex}"]`,
   );
 }
 
-export function setDdmarkerHomeMarkerHidden(questionNode: Element, choiceIndex: number, hidden: boolean) {
+export function setDdmarkerHomeMarkerHidden(
+  questionNode: Element,
+  choiceIndex: number,
+  hidden: boolean,
+) {
   for (const marker of Array.from(
-    questionNode.querySelectorAll<HTMLElement>(`.draghomes .marker.choice${choiceIndex}`)
+    questionNode.querySelectorAll<HTMLElement>(`.draghomes .marker.choice${choiceIndex}`),
   )) {
     marker.style.display = hidden ? "none" : "";
     marker.dataset.reduxshareDdmarkerHomeHidden = hidden ? "true" : "false";
@@ -85,7 +96,7 @@ export function setDdmarkerHomeMarkerHidden(questionNode: Element, choiceIndex: 
 
 export function getDdmarkerAnswerWidgetHost(questionNode: Element, choiceIndex: number) {
   return questionNode.querySelector<HTMLElement>(
-    `[${ANSWER_WIDGET_ATTR}="true"][data-reduxshare-ddmarker-choice="${choiceIndex}"]`
+    `[${ANSWER_WIDGET_ATTR}="true"][data-reduxshare-ddmarker-choice="${choiceIndex}"]`,
   );
 }
 
@@ -100,10 +111,12 @@ export function positionDdmarkerAnswerWidgetHost(
   questionNode: Element,
   choiceIndex: number,
   coordinate: string,
-  marker: HTMLElement
+  marker: HTMLElement,
 ) {
   const host = getDdmarkerAnswerWidgetHost(questionNode, choiceIndex);
-  const coordinateMatch = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(normalizeDdmarkerCoordinate(coordinate));
+  const coordinateMatch = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(
+    normalizeDdmarkerCoordinate(coordinate),
+  );
 
   if (!host || !coordinateMatch) {
     return;
@@ -125,20 +138,27 @@ export function positionDdmarkerAnswerWidgetHost(
 
 export function getDdmarkerMarkerTemplate(questionNode: Element, choiceIndex: number) {
   return questionNode.querySelector<HTMLElement>(
-    `.dd-original .marker.choice${choiceIndex}, .draghomes .marker.choice${choiceIndex}.dragplaceholder, .draghomes .marker.choice${choiceIndex}`
+    `.dd-original .marker.choice${choiceIndex}, .draghomes .marker.choice${choiceIndex}.dragplaceholder, .draghomes .marker.choice${choiceIndex}`,
   );
 }
 
 export function getDdmarkerChoiceLabel(questionNode: Element, choiceIndex: number) {
-  return getDdmarkerChoices(questionNode).find((choice) => choice.choiceIndex === choiceIndex)?.label ?? `Marker ${choiceIndex}`;
+  return (
+    getDdmarkerChoices(questionNode).find((choice) => choice.choiceIndex === choiceIndex)?.label ??
+    `Marker ${choiceIndex}`
+  );
 }
 
 export function createDdmarkerVisualMarker(questionNode: Element, choiceIndex: number) {
   const template = getDdmarkerMarkerTemplate(questionNode, choiceIndex);
-  const marker = template ? (template.cloneNode(true) as HTMLElement) : document.createElement("span");
+  const marker = template
+    ? (template.cloneNode(true) as HTMLElement)
+    : document.createElement("span");
 
   marker.querySelectorAll<HTMLElement>("[id]").forEach((element) => element.removeAttribute("id"));
-  marker.querySelectorAll<HTMLElement>("[tabindex]").forEach((element) => element.removeAttribute("tabindex"));
+  marker
+    .querySelectorAll<HTMLElement>("[tabindex]")
+    .forEach((element) => element.removeAttribute("tabindex"));
   marker.removeAttribute("id");
   marker.removeAttribute("tabindex");
   marker.removeAttribute("draggable");
@@ -156,7 +176,11 @@ export function createDdmarkerVisualMarker(questionNode: Element, choiceIndex: n
   return marker;
 }
 
-export function setDdmarkerVisualMarker(questionNode: Element, choiceIndex: number, coordinateLabel: string) {
+export function setDdmarkerVisualMarker(
+  questionNode: Element,
+  choiceIndex: number,
+  coordinateLabel: string,
+) {
   const coordinate = normalizeDdmarkerCoordinate(coordinateLabel);
   const coordinateMatch = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(coordinate);
   const dropArea = getDdmarkerDropArea(questionNode);
@@ -192,7 +216,11 @@ export function setDdmarkerVisualMarker(questionNode: Element, choiceIndex: numb
   positionDdmarkerAnswerWidgetHost(questionNode, choiceIndex, coordinate, marker);
 }
 
-export function setDdmarkerChoiceAnswer(questionNode: Element, choiceIndex: number, coordinateLabel: string) {
+export function setDdmarkerChoiceAnswer(
+  questionNode: Element,
+  choiceIndex: number,
+  coordinateLabel: string,
+) {
   const coordinate = normalizeDdmarkerCoordinate(coordinateLabel);
   const input = getDdmarkerChoiceInput(questionNode, choiceIndex);
 
@@ -213,7 +241,7 @@ export function setDdmarkerChoiceAnswer(questionNode: Element, choiceIndex: numb
 export function getDdmarkerExactCoordinateSet(questionNode: Element, answerData: AnswerData) {
   const choices = getDdmarkerChoices(questionNode);
   const slottedCoordinates = choices
-    .map((choice, index) => {
+    .map((choice) => {
       const slot = getAnswerSlotByIndex(answerData, choice.choiceIndex);
       const labels = slot ? getPreferredSuggestionLabels(slot.suggestions) : [];
       const coordinate = labels.map(normalizeDdmarkerCoordinate).find(Boolean) ?? "";
@@ -221,7 +249,7 @@ export function getDdmarkerExactCoordinateSet(questionNode: Element, answerData:
       return coordinate
         ? {
             choiceIndex: choice.choiceIndex,
-            coordinate
+            coordinate,
           }
         : null;
     })
@@ -233,7 +261,7 @@ export function getDdmarkerExactCoordinateSet(questionNode: Element, answerData:
 
   const sequentialCoordinates = splitSequentialAnswerLabels(
     getPreferredSuggestionLabels(answerData.suggestions),
-    choices.length
+    choices.length,
   )
     .map(normalizeDdmarkerCoordinate)
     .filter(Boolean);
@@ -244,7 +272,7 @@ export function getDdmarkerExactCoordinateSet(questionNode: Element, answerData:
 
   return choices.map((choice, index) => ({
     choiceIndex: choice.choiceIndex,
-    coordinate: sequentialCoordinates[index]
+    coordinate: sequentialCoordinates[index],
   }));
 }
 

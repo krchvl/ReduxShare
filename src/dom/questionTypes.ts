@@ -10,7 +10,7 @@ import {
   MATCHING_QUESTION_TYPES,
   SELECTABLE_QUESTION_TYPES,
   SUPPORTED_AUTO_SELECT_QUESTION_TYPES,
-  TEXT_INPUT_QUESTION_TYPES
+  TEXT_INPUT_QUESTION_TYPES,
 } from "../model";
 
 export function getSecondQuestionClass(questionNode: Element) {
@@ -25,7 +25,9 @@ export function getSecondQuestionClass(questionNode: Element) {
 }
 
 export function isMatchingQuestionTypeName(questionType: string | null | undefined) {
-  return questionType !== null && questionType !== undefined && MATCHING_QUESTION_TYPES.has(questionType);
+  return (
+    questionType !== null && questionType !== undefined && MATCHING_QUESTION_TYPES.has(questionType)
+  );
 }
 
 export function isMatchingQuestionNode(questionNode: Element | null | undefined) {
@@ -72,11 +74,17 @@ export function isEssayQuestionType(questionNode: Element) {
 }
 
 export function isAiOnlyQuestionTypeName(questionType: string | null | undefined) {
-  return questionType !== null && questionType !== undefined && AI_ONLY_QUESTION_TYPES.has(questionType);
+  return (
+    questionType !== null && questionType !== undefined && AI_ONLY_QUESTION_TYPES.has(questionType)
+  );
 }
 
 export function isAiDisabledQuestionTypeName(questionType: string | null | undefined) {
-  return questionType !== null && questionType !== undefined && AI_DISABLED_QUESTION_TYPES.has(questionType);
+  return (
+    questionType !== null &&
+    questionType !== undefined &&
+    AI_DISABLED_QUESTION_TYPES.has(questionType)
+  );
 }
 
 export function isChoiceQuestionType(questionNode: Element) {
@@ -86,5 +94,7 @@ export function isChoiceQuestionType(questionNode: Element) {
 
 export function getSupportedAutoSelectQuestionType(questionNode: Element) {
   const questionType = getSecondQuestionClass(questionNode);
-  return questionType && SUPPORTED_AUTO_SELECT_QUESTION_TYPES.has(questionType) ? questionType : null;
+  return questionType && SUPPORTED_AUTO_SELECT_QUESTION_TYPES.has(questionType)
+    ? questionType
+    : null;
 }

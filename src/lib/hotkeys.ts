@@ -11,7 +11,7 @@ const NON_BINDABLE_KEYS = new Set([
   "Process",
   "Shift",
   "Tab",
-  "Unidentified"
+  "Unidentified",
 ]);
 
 const NON_BINDABLE_CODES = new Set([
@@ -26,7 +26,7 @@ const NON_BINDABLE_CODES = new Set([
   "ShiftLeft",
   "ShiftRight",
   "Tab",
-  "Unidentified"
+  "Unidentified",
 ]);
 
 const CODE_LABELS: Record<string, string> = {
@@ -41,7 +41,7 @@ const CODE_LABELS: Record<string, string> = {
   Quote: "'",
   Semicolon: ";",
   Slash: "/",
-  Space: "Space"
+  Space: "Space",
 };
 
 export interface HotkeyBinding {
@@ -158,7 +158,7 @@ export function formatHotkeyBindingFromKeyboardEvent(event: KeyboardEvent): Hotk
     if (codeLabel) {
       return {
         label: codeLabel,
-        code: event.code
+        code: event.code,
       };
     }
   }
@@ -175,7 +175,6 @@ export function formatHotkeyBindingFromKeyboardEvent(event: KeyboardEvent): Hotk
 
   return {
     label: hotkey,
-    code: (inferCodeFromHotkey(hotkey) ?? event.code) || hotkey
+    code: (inferCodeFromHotkey(hotkey) ?? event.code) || hotkey,
   };
 }
-

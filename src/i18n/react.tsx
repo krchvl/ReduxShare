@@ -20,9 +20,9 @@ export function I18nProvider({ language, children }: I18nProviderProps) {
     () => ({
       language,
       resolvedLanguage: resolveLanguage(language),
-      t: getTranslator(language)
+      t: getTranslator(language),
     }),
-    [language]
+    [language],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

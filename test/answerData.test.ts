@@ -8,7 +8,7 @@ function variantResult(data: QuizVariantResult["data"]): QuizVariantResult {
     questionType: "multichoice",
     questionHash: "hash",
     ok: true,
-    data
+    data,
   };
 }
 
@@ -17,27 +17,32 @@ describe("source answer data parsing", () => {
     const result = variantResult([
       {
         anchor: { index: 1, label: "63 percent of the time." },
-        suggestions: [{ label: "false", correctness: 2, confidence: 1, count: 1 }]
+        suggestions: [{ label: "false", correctness: 2, confidence: 1, count: 1 }],
       },
       {
         anchor: { index: 2, label: "23 percent of the time." },
-        suggestions: [{ label: "false", correctness: 2, confidence: 1, count: 1 }]
+        suggestions: [{ label: "false", correctness: 2, confidence: 1, count: 1 }],
       },
       {
         anchor: { index: 3, label: "between 10 and 20 percent of the time." },
-        suggestions: [{ label: "false", correctness: 2, confidence: 1, count: 1 }]
+        suggestions: [{ label: "false", correctness: 2, confidence: 1, count: 1 }],
       },
       {
         anchor: { index: 4, label: "47 percent of the time." },
-        suggestions: [{ label: "true", correctness: 2, confidence: 1, count: 1 }]
-      }
+        suggestions: [{ label: "true", correctness: 2, confidence: 1, count: 1 }],
+      },
     ]);
 
     const data = getAnswerData(result);
 
     expect(getVariantCounts(result)).toEqual({ anchors: 4, suggestions: 4, submissions: 0 });
     expect(data.slots.map((slot) => slot.index)).toEqual([1, 2, 3, 4]);
-    expect(data.slots.map((slot) => slot.suggestions[0]?.label)).toEqual(["false", "false", "false", "true"]);
+    expect(data.slots.map((slot) => slot.suggestions[0]?.label)).toEqual([
+      "false",
+      "false",
+      "false",
+      "true",
+    ]);
     expect(data.submissions).toHaveLength(0);
   });
 
@@ -45,8 +50,8 @@ describe("source answer data parsing", () => {
     const result = variantResult([
       {
         anchor: { index: 4, label: "47 percent of the time." },
-        submissions: [{ label: "true", correctness: 1, count: 3 }]
-      }
+        submissions: [{ label: "true", correctness: 1, count: 3 }],
+      },
     ]);
 
     const data = getAnswerData(result);
@@ -62,9 +67,9 @@ describe("source answer data parsing", () => {
       variantResult([
         {
           anchor: { index: 1, label: "Option A" },
-          suggestions: [{ label: "false", correctness: 1, confidence: 0.5 }]
-        }
-      ])
+          suggestions: [{ label: "false", correctness: 1, confidence: 0.5 }],
+        },
+      ]),
     );
 
     expect(data.suggestions).toHaveLength(0);

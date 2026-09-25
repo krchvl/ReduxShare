@@ -1,11 +1,9 @@
-// Auto-select: applies exact answers to questions, dispatches to the per-type modules and
-// reports the questions it solved. Moved out of src/content/quizAttempt.ts.
 import {
   CHOICE_QUESTION_TYPES,
   TEXT_INPUT_QUESTION_TYPES,
   type AnswerData,
   type SourceAnswerData,
-  type StoredStateLike
+  type StoredStateLike,
 } from "../../model";
 import { getPreferredSuggestionLabels } from "../../data/answerData";
 import { getAnswerLabelMatchKeys } from "../../dom/questionDom";
@@ -17,7 +15,7 @@ import {
   isDragMarkerQuestionType,
   isDragTextQuestionType,
   isMatchingQuestionTypeName,
-  isOrderingQuestionType
+  isOrderingQuestionType,
 } from "../../dom/questionTypes";
 import { isLoggedInToExtension } from "../../logic/settings";
 import { logReduxShareInfo } from "../../logic/runtime";
@@ -28,8 +26,6 @@ import {
   findSelectOptionByLabel,
   getAnswerDataForQuestion,
   getAnswerEntries,
-  getAnswerSlotByIndex,
-  getAnswerSlotForControl,
   getChoiceAnswerInputs,
   getChoiceAnswerSlotMatch,
   getExactBooleanChoiceSlotValue,
@@ -37,53 +33,37 @@ import {
   getQuestionProgressId,
   getAnswerSlotForSelect,
   getSelectableAnswerControls,
-  getTextAnswerInputs,
   reportSolvedQuestions,
   selectNextSelectOptionByLabel,
   selectTextAnswerByLabel,
   setAnswerInputChecked,
-  setSelectValue
+  setSelectValue,
 } from "./answerControls";
-import { applyDdmarkerExactCoordinateSet } from "./ddmarker";
 import { autoSelectDdmarkerAnswers } from "./ddmarker";
 import { autoSelectDdwtosAnswers } from "./ddwtos";
 import { autoSelectDdimageOrTextAnswers } from "./ddimageortext";
 import { autoSelectCompoundAnswers } from "./compound";
-import { getDdwtosDrops, getDdwtosDropSlotIndex, setDdwtosDropAnswer } from "./ddwtos";
-import { getDdimageOrTextDrops, getDdimageOrTextDropSlotIndex, setDdimageOrTextDropAnswer } from "./ddimageortext";
+
 import {
-  applyOrderingOrder,
   autoSelectOrderingAnswers,
   getOrderingExactOrder,
-  getOrderingItemLabel,
-  getOrderingItems,
-  getOrderingList,
-  getOrderingSlotPosition,
-  labelsMatch,
   splitSequentialAnswerLabels,
-  syncOrderingResponseInput
 } from "./ordering";
-import { setTextAnswerValue } from "./textControls";
 
-// Human-like auto-select: instead of filling a question the instant data arrives, the answer
-// waits a random delay around the configured average so the attempt does not look automated.
 const DEFAULT_AUTO_SELECT_AVG_SECONDS = 4;
-// The settings copy advertises a random 60-140% of the average delay. The spread itself is
-// randomized per question (25-55%) so consecutive answers never land in a metronomic pattern
-// that Moodle's attempt log could betray.
+
 const AUTO_SELECT_DELAY_SPREAD_MIN = 0.25;
 const AUTO_SELECT_DELAY_SPREAD_MAX = 0.55;
 const AUTO_SELECT_MIN_DELAY_MS = 1000;
 const AUTO_SELECT_MAX_DELAY_MS = 60000;
-// When the attempt is nearly over, stop waiting around the average and answer within a fraction
-// of the remaining time.
+
 const AUTO_SELECT_RUSH_TIME_FRACTION = 0.1;
 const AUTO_SELECT_PROGRESS_TICK_MS = 100;
 const QUIZ_TIME_LEFT_SELECTORS = [
   "#quiz-time-left",
   "[data-region='quiz-timer']",
   ".tertiary-navigation .timer",
-  ".quiz-timer"
+  ".quiz-timer",
 ];
 
 type PendingAutoSelectAnswer = {
@@ -103,8 +83,6 @@ function isAutoSelectEnabled(settings: StoredStateLike["settings"] | undefined):
   return settings?.extensionEnabled !== false && settings?.autoSelect !== false;
 }
 
-// The test API drives timers itself: unless a test asks for the delayed path, answers land at
-// once so specs never have to wait out a human-like delay.
 function isImmediateAutoSelectMode() {
   return Boolean(globalThis.__REDUXSHARE_TEST_MODE__);
 }
@@ -112,26 +90,30 @@ function isImmediateAutoSelectMode() {
 export function computeAutoSelectDelayMs(
   avgSeconds: number,
   random: () => number = Math.random,
-  timeLeftSeconds: number | null = null
+  timeLeftSeconds: number | null = null,
 ): number {
   const averageSeconds =
     Number.isFinite(avgSeconds) && avgSeconds > 0 ? avgSeconds : DEFAULT_AUTO_SELECT_AVG_SECONDS;
   const baseDelayMs = averageSeconds * 1000;
   const spread =
-    AUTO_SELECT_DELAY_SPREAD_MIN + (AUTO_SELECT_DELAY_SPREAD_MAX - AUTO_SELECT_DELAY_SPREAD_MIN) * random();
+    AUTO_SELECT_DELAY_SPREAD_MIN +
+    (AUTO_SELECT_DELAY_SPREAD_MAX - AUTO_SELECT_DELAY_SPREAD_MIN) * random();
   const variance = (random() * 2 - 1) * spread;
   let delayMs = baseDelayMs * (1 + variance);
-  const timeLeft = typeof timeLeftSeconds === "number" && Number.isFinite(timeLeftSeconds) ? timeLeftSeconds : null;
+  const timeLeft =
+    typeof timeLeftSeconds === "number" && Number.isFinite(timeLeftSeconds)
+      ? timeLeftSeconds
+      : null;
 
   if (timeLeft !== null && timeLeft > 0) {
     delayMs = Math.min(delayMs, timeLeft * 1000 * AUTO_SELECT_RUSH_TIME_FRACTION);
   }
 
-  return Math.round(Math.min(AUTO_SELECT_MAX_DELAY_MS, Math.max(AUTO_SELECT_MIN_DELAY_MS, delayMs)));
+  return Math.round(
+    Math.min(AUTO_SELECT_MAX_DELAY_MS, Math.max(AUTO_SELECT_MIN_DELAY_MS, delayMs)),
+  );
 }
 
-// Moodle renders the countdown as "h:mm:ss" or "mm:ss" behind a localized label, and as
-// "unlimited" when the attempt has no time limit.
 export function parseQuizTimeLeftSeconds(text: string | null | undefined): number | null {
   if (typeof text !== "string") {
     return null;
@@ -214,7 +196,11 @@ function dropAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer) {
   stopAutoSelectProgress(pending);
 }
 
-function applyAutoSelectAnswer(questionNode: Element, questionId: string | null, answerData: AnswerData) {
+function applyAutoSelectAnswer(
+  questionNode: Element,
+  questionId: string | null,
+  answerData: AnswerData,
+) {
   if (!autoSelectQuestionAnswers(questionNode, answerData)) {
     return false;
   }
@@ -228,13 +214,11 @@ function applyAutoSelectAnswer(questionNode: Element, questionId: string | null,
   return true;
 }
 
-// Schedules (or immediately applies, in test mode) the exact answer of one question. Returns
-// false when there is nothing exact to answer with.
 export function scheduleAutoSelectAnswer(
   questionId: string | null,
   questionNode: Element,
   storedState: StoredStateLike | undefined,
-  immediate: boolean = isImmediateAutoSelectMode()
+  immediate: boolean = isImmediateAutoSelectMode(),
 ): boolean {
   if (!isAutoSelectEnabled(storedState?.settings)) {
     return false;
@@ -243,7 +227,7 @@ export function scheduleAutoSelectAnswer(
   const answerData = getPreferredAutoSelectAnswerDataForQuestion(
     questionNode,
     getAnswerDataForQuestion(questionId),
-    isLoggedInToExtension(storedState)
+    isLoggedInToExtension(storedState),
   );
 
   if (!hasExactAutoSelectData(answerData)) {
@@ -260,8 +244,6 @@ export function scheduleAutoSelectAnswer(
 
   const key = getAutoSelectScheduleKey(questionNode, questionId);
 
-  // Settings and answer data keep arriving while an attempt runs; an answer that is already
-  // waiting keeps its countdown instead of restarting it on every update.
   if (pendingAutoSelectAnswers.has(key)) {
     return true;
   }
@@ -269,7 +251,7 @@ export function scheduleAutoSelectAnswer(
   const delayMs = computeAutoSelectDelayMs(
     storedState?.settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
     Math.random,
-    readQuizTimeLeftSeconds()
+    readQuizTimeLeftSeconds(),
   );
   const pending: PendingAutoSelectAnswer = {
     questionId,
@@ -278,23 +260,21 @@ export function scheduleAutoSelectAnswer(
     intervalId: null,
     hosts: getAutoSelectWidgetHosts(questionNode, questionId),
     startedAt: Date.now(),
-    delayMs
+    delayMs,
   };
 
   pending.timeoutId = window.setTimeout(() => {
-    // Forget the schedule before applying: writing an answer fires input/change events that would
-    // otherwise cancel the very answer being written.
     pendingAutoSelectAnswers.delete(key);
     stopAutoSelectProgress(pending);
-    // Answer with the data that is current when the wait ends, not with the stale snapshot.
+
     applyAutoSelectAnswer(
       questionNode,
       questionId,
       getPreferredAutoSelectAnswerDataForQuestion(
         questionNode,
         getAnswerDataForQuestion(questionId),
-        isLoggedInToExtension(currentStoredState)
-      )
+        isLoggedInToExtension(currentStoredState),
+      ),
     );
   }, delayMs);
   pendingAutoSelectAnswers.set(key, pending);
@@ -316,8 +296,6 @@ export function cancelAllAutoSelectSchedules() {
   }
 }
 
-// A human answering the question themselves outranks the scheduled auto-select, so any manual
-// input inside a question drops its pending answer.
 function handleAutoSelectUserInput(event: Event) {
   if (pendingAutoSelectAnswers.size === 0) {
     return;
@@ -362,7 +340,9 @@ function selectAnswerByLabel(questionNode: Element, label: string): boolean {
 
 function getExactAnswerLabels(answerData: AnswerData): string[] {
   if (answerData.slots.length > 1) {
-    const slottedLabels = answerData.slots.flatMap((slot) => getPreferredSuggestionLabels(slot.suggestions));
+    const slottedLabels = answerData.slots.flatMap((slot) =>
+      getPreferredSuggestionLabels(slot.suggestions),
+    );
 
     if (slottedLabels.length > 0) {
       return Array.from(new Set(slottedLabels));
@@ -372,7 +352,10 @@ function getExactAnswerLabels(answerData: AnswerData): string[] {
   return getPreferredSuggestionLabels(answerData.suggestions);
 }
 
-function autoSelectChoiceQuestionAnswers(questionNode: Element, exactAnswerLabels: string[]): boolean {
+function autoSelectChoiceQuestionAnswers(
+  questionNode: Element,
+  exactAnswerLabels: string[],
+): boolean {
   const answerInputs = getChoiceAnswerInputs(questionNode);
 
   if (answerInputs.length === 0) {
@@ -380,7 +363,9 @@ function autoSelectChoiceQuestionAnswers(questionNode: Element, exactAnswerLabel
   }
 
   if (answerInputs.some((input) => input.type === "checkbox")) {
-    const exactAnswerKeys = new Set(exactAnswerLabels.flatMap((label) => [...getAnswerLabelMatchKeys(label)]));
+    const exactAnswerKeys = new Set(
+      exactAnswerLabels.flatMap((label) => [...getAnswerLabelMatchKeys(label)]),
+    );
     let changed = false;
 
     for (const input of answerInputs.filter((answerInput) => answerInput.type === "checkbox")) {
@@ -403,7 +388,10 @@ function autoSelectChoiceQuestionAnswers(questionNode: Element, exactAnswerLabel
   return false;
 }
 
-function autoSelectBooleanChoiceQuestionAnswers(questionNode: Element, answerData: AnswerData): {
+function autoSelectBooleanChoiceQuestionAnswers(
+  questionNode: Element,
+  answerData: AnswerData,
+): {
   hasBooleanData: boolean;
   changed: boolean;
 } {
@@ -445,7 +433,11 @@ function autoSelectQuestionAnswers(questionNode: Element, answerData: AnswerData
     return false;
   }
 
-  if (questionType === "gapselect" || questionType === "gapfill" || isMatchingQuestionTypeName(questionType)) {
+  if (
+    questionType === "gapselect" ||
+    questionType === "gapfill" ||
+    isMatchingQuestionTypeName(questionType)
+  ) {
     return autoSelectGapSelectAnswers(questionNode, answerData);
   }
 
@@ -486,7 +478,9 @@ function autoSelectQuestionAnswers(questionNode: Element, answerData: AnswerData
   }
 
   if (TEXT_INPUT_QUESTION_TYPES.has(questionType)) {
-    return exactAnswerLabels.length === 1 ? selectTextAnswerByLabel(questionNode, exactAnswerLabels[0]) : false;
+    return exactAnswerLabels.length === 1
+      ? selectTextAnswerByLabel(questionNode, exactAnswerLabels[0])
+      : false;
   }
 
   return false;
@@ -522,8 +516,8 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
         getPreferredAutoSelectAnswerDataForQuestion(
           questionNode,
           getAnswerDataForQuestion(questionId),
-          allowReduxShareSource
-        )
+          allowReduxShareSource,
+        ),
       )
     ) {
       if (questionNode instanceof HTMLElement) {
@@ -542,13 +536,15 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
 
 function getPreferredAutoSelectAnswerData(
   answerData: SourceAnswerData,
-  allowReduxShareSource = true
+  allowReduxShareSource = true,
 ): AnswerData {
   if (!allowReduxShareSource) {
     return answerData.external;
   }
 
-  return getExactAnswerLabels(answerData.reduxshare).length > 0 ? answerData.reduxshare : answerData.external;
+  return getExactAnswerLabels(answerData.reduxshare).length > 0
+    ? answerData.reduxshare
+    : answerData.external;
 }
 
 function hasExactAutoSelectData(answerData: AnswerData): boolean {
@@ -558,7 +554,7 @@ function hasExactAutoSelectData(answerData: AnswerData): boolean {
 function getPreferredAutoSelectAnswerDataForQuestion(
   questionNode: Element,
   answerData: SourceAnswerData,
-  allowReduxShareSource = true
+  allowReduxShareSource = true,
 ): AnswerData {
   if (!allowReduxShareSource) {
     return answerData.external;
@@ -576,7 +572,9 @@ function getPreferredAutoSelectAnswerDataForQuestion(
     isDragImageOrTextQuestionType(questionNode) ||
     isDragMarkerQuestionType(questionNode)
   ) {
-    return hasExactAutoSelectData(answerData.reduxshare) ? answerData.reduxshare : answerData.external;
+    return hasExactAutoSelectData(answerData.reduxshare)
+      ? answerData.reduxshare
+      : answerData.external;
   }
 
   return getPreferredAutoSelectAnswerData(answerData, allowReduxShareSource);
@@ -609,7 +607,10 @@ function autoSelectGapSelectAnswers(questionNode: Element, answerData: AnswerDat
     return changed;
   }
 
-  const sequentialLabels = splitSequentialAnswerLabels(getPreferredSuggestionLabels(answerData.suggestions), selects.length);
+  const sequentialLabels = splitSequentialAnswerLabels(
+    getPreferredSuggestionLabels(answerData.suggestions),
+    selects.length,
+  );
 
   if (selects.length === 0 || sequentialLabels.length !== selects.length) {
     return false;
@@ -637,5 +638,5 @@ export {
   getPreferredAutoSelectAnswerDataForQuestion,
   hasExactAutoSelectData,
   isAutoSelectEnabled,
-  selectAnswerByLabel
+  selectAnswerByLabel,
 };

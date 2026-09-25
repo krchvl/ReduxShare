@@ -13,13 +13,7 @@ function renderHeader(updateState: UpdateState, language: LanguageSetting = "ru"
   root = createRoot(container);
 
   act(() => {
-    root?.render(
-      createElement(
-        I18nProvider,
-        { language },
-        createElement(Header, { updateState })
-      )
-    );
+    root?.render(createElement(I18nProvider, { language }, createElement(Header, { updateState })));
   });
 
   return container;
@@ -46,7 +40,7 @@ describe("Header update badge", () => {
       ...DEFAULT_UPDATE_STATE,
       status: "available",
       latestVersion: "0.2.0",
-      releaseUrl: "https://github.com/krchvl/ReduxShare/releases/latest"
+      releaseUrl: "https://github.com/krchvl/ReduxShare/releases/latest",
     };
     const container = renderHeader(updateState, "ru");
 
@@ -58,7 +52,7 @@ describe("Header update badge", () => {
       ...DEFAULT_UPDATE_STATE,
       status: "available",
       latestVersion: "0.2.0",
-      releaseUrl: "https://github.com/krchvl/ReduxShare/releases/latest"
+      releaseUrl: "https://github.com/krchvl/ReduxShare/releases/latest",
     };
     const container = renderHeader(updateState, "en");
 

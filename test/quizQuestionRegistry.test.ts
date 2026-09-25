@@ -21,12 +21,16 @@ describe("quiz question registry", () => {
     await recordQuizQuestions("school.moodledemo.net", 66, 789, [
       { questionId: "1349", questionType: "match", questionHash: "h1" },
       { questionId: null, questionType: "truefalse", questionHash: "h2" },
-      { questionId: "  ", questionType: null, questionHash: null }
+      { questionId: "  ", questionType: null, questionHash: null },
     ]);
 
     const stubs = await getQuizQuestionStubs("school.moodledemo.net", 66, 789);
     expect(stubs).toHaveLength(1);
-    expect(stubs[0]).toMatchObject({ questionId: "1349", questionType: "match", questionHash: "h1" });
+    expect(stubs[0]).toMatchObject({
+      questionId: "1349",
+      questionType: "match",
+      questionHash: "h1",
+    });
   });
 
   it("skips quizzes without course or quiz ids", async () => {
@@ -39,10 +43,10 @@ describe("quiz question registry", () => {
 
   it("merges repeat sightings, keeping the first statement and freshening metadata", async () => {
     await recordQuizQuestions("school.moodledemo.net", 66, 789, [
-      { questionId: "1349", questionType: "match", questionHash: "h1", questionText: "Условие" }
+      { questionId: "1349", questionType: "match", questionHash: "h1", questionText: "Условие" },
     ]);
     await recordQuizQuestions("school.moodledemo.net", 66, 789, [
-      { questionId: "1349", questionType: "match", questionHash: "h1-new", questionText: null }
+      { questionId: "1349", questionType: "match", questionHash: "h1-new", questionText: null },
     ]);
 
     const stubs = await getQuizQuestionStubs("school.moodledemo.net", 66, 789);
@@ -56,7 +60,10 @@ describe("quiz question registry", () => {
       "school.moodledemo.net",
       66,
       789,
-      Array.from({ length: 510 }, (_, index) => ({ questionId: String(index + 1), questionType: null }))
+      Array.from({ length: 510 }, (_, index) => ({
+        questionId: String(index + 1),
+        questionType: null,
+      })),
     );
 
     const stored = await getStoredStubs();

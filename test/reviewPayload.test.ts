@@ -19,11 +19,18 @@ function getSavedQuestion(questions: ReviewQuestionPayload[]) {
 
 function getAnswersBySlot(question: ReviewQuestionPayload) {
   return [...question.answers].sort((left, right) => {
-    return (left.slotIndex ?? Number.MAX_SAFE_INTEGER) - (right.slotIndex ?? Number.MAX_SAFE_INTEGER);
+    return (
+      (left.slotIndex ?? Number.MAX_SAFE_INTEGER) - (right.slotIndex ?? Number.MAX_SAFE_INTEGER)
+    );
   });
 }
 
-function expectBooleanAnswers(answers: ReviewAnswerPayload[], labels: string[], correctness: number, isCorrect: boolean) {
+function expectBooleanAnswers(
+  answers: ReviewAnswerPayload[],
+  labels: string[],
+  correctness: number,
+  isCorrect: boolean,
+) {
   expect(answers.map((answer) => answer.label)).toEqual(labels);
   expect(answers.map((answer) => answer.correctness)).toEqual(labels.map(() => correctness));
   expect(answers.map((answer) => answer.isCorrect)).toEqual(labels.map(() => isCorrect));
@@ -36,10 +43,12 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("multichoice", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
 
     expect(question.questionText).toBe(
-      "Research from Harvard shows the mind wanders, on average....."
+      "Research from Harvard shows the mind wanders, on average.....",
     );
   });
 
@@ -48,19 +57,20 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("multichoice", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
 
-    // The option pool includes labels nobody selected, deduplicated case-insensitively.
     expect(question.answerOptions).toEqual(
       expect.arrayContaining([
         "63 percent of the time.",
         "23 percent of the time.",
         "between 10 and 20 percent of the time.",
-        "47 percent of the time."
-      ])
+        "47 percent of the time.",
+      ]),
     );
     expect(new Set(question.answerOptions!.map((option) => option.toLowerCase())).size).toBe(
-      question.answerOptions!.length
+      question.answerOptions!.length,
     );
   });
 
@@ -69,7 +79,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("multichoice", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("1385");
@@ -80,7 +92,7 @@ describe("Moodle review payload builder", () => {
       "63 percent of the time.",
       "23 percent of the time.",
       "between 10 and 20 percent of the time.",
-      "47 percent of the time."
+      "47 percent of the time.",
     ]);
     expectBooleanAnswers(answers, ["false", "false", "false", "true"], 2, true);
   });
@@ -90,7 +102,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("multichoice", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("1385");
@@ -100,30 +114,29 @@ describe("Moodle review payload builder", () => {
       "63 percent of the time.",
       "23 percent of the time.",
       "between 10 and 20 percent of the time.",
-      "47 percent of the time."
+      "47 percent of the time.",
     ]);
     expectBooleanAnswers(answers, ["false", "false", "false", "true"], 1, false);
   });
 
   it("falls back to statistics when a failed review's correct answer matches no option", async () => {
-    // Regression: shuffled/paraphrased options made labelsMatch fail for the rightanswer text,
-    // and every checkbox was saved as correctness-2 "false" — poisoning the next attempt.
     const api = await getQuizAttemptTestApi();
 
     document.body.innerHTML = `<div id="question-126-1" class="que multichoice deferredfeedback notanswered"><div class="info"><h3 class="no">Question <span class="qno">1</span></h3><div class="state">Not answered</div><div class="grade">Marked out of 1.00</div><div class="questionflag editable"><input type="hidden" name="q126:1_:flagged" value="0"><input type="hidden" value="qaid=888&amp;qubaid=126&amp;qid=1385&amp;slot=1&amp;checksum=a212338df7fd9f259b7b98a9c9c94595&amp;sesskey=aFHd5HyKHw&amp;newstate=" class="questionflagpostdata"></div><div class="editquestion"><a href="https://school.moodledemo.net/question/bank/editquestion/question.php?cmid=978&amp;returnurl=%2Fmod%2Fquiz%2Freview.php%3Fattempt%3D90%26cmid%3D978%23&amp;id=1385"><i class="icon fa fa-pen fa-fw iconsmall" title="Edit" role="img" aria-label="Edit"></i>Edit question</a></div></div><div class="content"><div class="formulation clearfix"><div class="qtext"><div class="clearfix">Research from Harvard shows the mind wanders, on average.....</div></div><fieldset class="ablock"><div class="answer"><div class="r0"><input type="checkbox" name="q126:1_choice0" disabled="disabled" value="1" id="q126:1_choice0" aria-labelledby="q126:1_choice0_label"><div class="d-flex w-auto" id="q126:1_choice0_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">63 percent of the time.</p></div></div></div><div class="r1"><input type="checkbox" name="q126:1_choice1" disabled="disabled" value="1" id="q126:1_choice1" aria-labelledby="q126:1_choice1_label"><div class="d-flex w-auto" id="q126:1_choice1_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">47 percent of the time.</p></div></div></div><div class="r0"><input type="checkbox" name="q126:1_choice2" disabled="disabled" value="1" id="q126:1_choice2" aria-labelledby="q126:1_choice2_label"><div class="d-flex w-auto" id="q126:1_choice2_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">between 10 and 20 percent of the time.</p></div></div></div><div class="r1"><input type="checkbox" name="q126:1_choice3" disabled="disabled" value="1" id="q126:1_choice3" aria-labelledby="q126:1_choice3_label"><div class="d-flex w-auto" id="q126:1_choice3_label" data-region="answer-label"><div class="flex-fill ms-1"><p dir="ltr">23 percent of the time.</p></div></div></div></div></fieldset></div><div class="outcome clearfix"><div class="feedback"><div class="specificfeedback clearfix">Your answer is incorrect.</div><div class="rightanswer">The correct answer is: <p dir="ltr">about half of the time.</p></div></div></div></div></div>`;
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
-    // No correctness-2 "true"/"false" pair may be invented: the truth is simply unknown.
     expect(answers.some((answer) => answer.correctness === 2)).toBe(false);
     expect(answers.some((answer) => answer.isCorrect)).toBe(false);
-    // Observed statistics are still recorded so the answer keeps contributing counts.
+
     expect(answers.map((answer) => answer.slotKey)).toEqual([
       "63 percent of the time.",
       "47 percent of the time.",
       "between 10 and 20 percent of the time.",
-      "23 percent of the time."
+      "23 percent of the time.",
     ]);
     expect(answers.every((answer) => answer.correctness === 1)).toBe(true);
   });
@@ -143,7 +156,7 @@ describe("Moodle review payload builder", () => {
     expect(attemptSummary).toMatchObject({
       questionId: "1385",
       questionType: "multichoice",
-      questionText: "Research from Harvard shows the mind wanders, on average....."
+      questionText: "Research from Harvard shows the mind wanders, on average.....",
     });
     expect(hiddenReviewSummary.questionHash).toBe(attemptSummary.questionHash);
     expect(openReviewSummary.questionHash).toBe(attemptSummary.questionHash);
@@ -159,40 +172,42 @@ describe("Moodle review payload builder", () => {
     wrongSelected.checked = true;
     missedCorrect.checked = false;
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(answers).toEqual(
       expect.arrayContaining([
-      expect.objectContaining({
-        slotKey: "63 percent of the time.",
-        label: "false",
-        correctness: 2,
-        isCorrect: true,
-        wasSelected: false
-      }),
-      expect.objectContaining({
-        slotKey: "63 percent of the time.",
-        label: "true",
-        correctness: 0,
-        isCorrect: false,
-        wasSelected: true
-      }),
-      expect.objectContaining({
-        slotKey: "47 percent of the time.",
-        label: "true",
-        correctness: 2,
-        isCorrect: true,
-        wasSelected: false
-      }),
-      expect.objectContaining({
-        slotKey: "47 percent of the time.",
-        label: "false",
-        correctness: 0,
-        isCorrect: false,
-        wasSelected: true
-      })
-      ])
+        expect.objectContaining({
+          slotKey: "63 percent of the time.",
+          label: "false",
+          correctness: 2,
+          isCorrect: true,
+          wasSelected: false,
+        }),
+        expect.objectContaining({
+          slotKey: "63 percent of the time.",
+          label: "true",
+          correctness: 0,
+          isCorrect: false,
+          wasSelected: true,
+        }),
+        expect.objectContaining({
+          slotKey: "47 percent of the time.",
+          label: "true",
+          correctness: 2,
+          isCorrect: true,
+          wasSelected: false,
+        }),
+        expect.objectContaining({
+          slotKey: "47 percent of the time.",
+          label: "false",
+          correctness: 0,
+          isCorrect: false,
+          wasSelected: true,
+        }),
+      ]),
     );
   });
 
@@ -201,7 +216,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("truefalse", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
 
     expect(question.questionId).toBe("3700");
     expect(question.questionType).toBe("truefalse");
@@ -212,16 +229,16 @@ describe("Moodle review payload builder", () => {
           label: "False",
           correctness: 2,
           isCorrect: true,
-          wasSelected: false
+          wasSelected: false,
         }),
         expect.objectContaining({
           slotKey: "question",
           label: "True",
           correctness: 0,
           isCorrect: false,
-          wasSelected: true
-        })
-      ])
+          wasSelected: true,
+        }),
+      ]),
     );
   });
 
@@ -230,7 +247,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("gapselect", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("3699");
@@ -243,7 +262,7 @@ describe("Moodle review payload builder", () => {
           label: "фвфывфв",
           correctness: 2,
           isCorrect: true,
-          wasSelected: false
+          wasSelected: false,
         }),
         expect.objectContaining({
           slotKey: "slot:1",
@@ -251,7 +270,7 @@ describe("Moodle review payload builder", () => {
           label: "фвфывфы",
           correctness: 0,
           isCorrect: false,
-          wasSelected: true
+          wasSelected: true,
         }),
         expect.objectContaining({
           slotKey: "slot:2",
@@ -259,7 +278,7 @@ describe("Moodle review payload builder", () => {
           label: "фвфывфы",
           correctness: 2,
           isCorrect: true,
-          wasSelected: false
+          wasSelected: false,
         }),
         expect.objectContaining({
           slotKey: "slot:2",
@@ -267,9 +286,9 @@ describe("Moodle review payload builder", () => {
           label: "фвфывфв",
           correctness: 0,
           isCorrect: false,
-          wasSelected: true
-        })
-      ])
+          wasSelected: true,
+        }),
+      ]),
     );
   });
 
@@ -278,14 +297,18 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("gapselect", "review-open-brackets");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("3701");
     expect(question.questionType).toBe("gapselect");
 
     const exactBySlot = new Map(
-      answers.filter((answer) => answer.correctness === 2).map((answer) => [answer.slotIndex, answer.label])
+      answers
+        .filter((answer) => answer.correctness === 2)
+        .map((answer) => [answer.slotIndex, answer.label]),
     );
 
     expect([...exactBySlot.entries()]).toEqual([
@@ -295,7 +318,7 @@ describe("Moodle review payload builder", () => {
       [4, "the United Kingdom"],
       [5, "the United Kingdom"],
       [6, "the Republic of Ireland"],
-      [7, "the Isle of Man"]
+      [7, "the Isle of Man"],
     ]);
 
     const selectedWrong = answers
@@ -307,15 +330,18 @@ describe("Moodle review payload builder", () => {
       [4, "Great Britain"],
       [5, "Great Britain"],
       [6, "Wales"],
-      [7, "Northern Ireland"]
+      [7, "Northern Ireland"],
     ]);
   });
 
-  it("saves gapselect hidden review as unknown per-slot statistics only", async () => {    const api = await getQuizAttemptTestApi();
+  it("saves gapselect hidden review as unknown per-slot statistics only", async () => {
+    const api = await getQuizAttemptTestApi();
 
     loadQuestionFixture("gapselect", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("3699");
@@ -327,7 +353,7 @@ describe("Moodle review payload builder", () => {
         label: "фвфывфы",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "slot:2",
@@ -335,8 +361,8 @@ describe("Moodle review payload builder", () => {
         label: "фвфывфв",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -345,7 +371,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("shortanswer", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
 
     expect(question.questionId).toBe("2011");
     expect(question.questionType).toBe("shortanswer");
@@ -354,8 +382,8 @@ describe("Moodle review payload builder", () => {
         label: "Joseph Stalin",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -364,7 +392,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("shortanswer", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
 
     expect(question.questionId).toBe("2011");
     expect(question.questionType).toBe("shortanswer");
@@ -373,8 +403,8 @@ describe("Moodle review payload builder", () => {
         label: "Joseph Stalin",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -383,7 +413,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("calculated", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
 
     expect(question.questionId).toBe("3699");
     expect(question.questionType).toBe("calculated");
@@ -393,8 +425,8 @@ describe("Moodle review payload builder", () => {
         label: "20.10",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
-      }
+        wasSelected: false,
+      },
     ]);
   });
 
@@ -410,7 +442,7 @@ describe("Moodle review payload builder", () => {
     expect(attemptSummary).toMatchObject({
       questionId: "3699",
       questionType: "calculated",
-      questionText: "Найдите площадь прямоугольника со сторонами 3 и 6.7."
+      questionText: "Найдите площадь прямоугольника со сторонами 3 и 6.7.",
     });
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
@@ -432,7 +464,7 @@ describe("Moodle review payload builder", () => {
       courseId: 2,
       quizId: 1150,
       attemptKey: "attempt:94|cmid:1150",
-      pageUrl: "http://localhost:3000/mod/quiz/review.php?attempt=94&cmid=1150"
+      pageUrl: "http://localhost:3000/mod/quiz/review.php?attempt=94&cmid=1150",
     });
     expect(payload?.questions).toHaveLength(1);
     expect(payload?.questions[0]).toMatchObject({
@@ -443,9 +475,9 @@ describe("Moodle review payload builder", () => {
           label: "20.10",
           correctness: 2,
           isCorrect: true,
-          wasSelected: false
-        }
-      ]
+          wasSelected: false,
+        },
+      ],
     });
   });
 
@@ -454,7 +486,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("match", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const bySlotAndLabel = [...question.answers].sort((left, right) => {
       return `${left.slotKey}:${left.label}`.localeCompare(`${right.slotKey}:${right.label}`);
     });
@@ -467,36 +501,36 @@ describe("Moodle review payload builder", () => {
         label: "Килограмм",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "Напряжение",
         label: "Вольт",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
+        wasSelected: false,
       },
       {
         slotKey: "Напряжение",
         label: "Килограмм",
         correctness: 0,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "сила",
         label: "Вольт",
         correctness: 0,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "сила",
         label: "ньютон",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
-      }
+        wasSelected: false,
+      },
     ]);
   });
 
@@ -505,8 +539,12 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("match", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
-    const bySlot = [...question.answers].sort((left, right) => left.slotKey.localeCompare(right.slotKey));
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
+    const bySlot = [...question.answers].sort((left, right) =>
+      left.slotKey.localeCompare(right.slotKey),
+    );
 
     expect(question.questionType).toBe("match");
     expect(bySlot).toMatchObject([
@@ -515,22 +553,22 @@ describe("Moodle review payload builder", () => {
         label: "ньютон",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "Напряжение",
         label: "Вольт",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "сила",
         label: "Килограмм",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -546,9 +584,11 @@ describe("Moodle review payload builder", () => {
     expect(attemptSummary).toMatchObject({
       questionId: "3699",
       questionType: "match",
-      questionText: "Сопоставьте физическую величину с её единицей измерения."
+      questionText: "Сопоставьте физическую величину с её единицей измерения.",
     });
-    expect(attemptSummary.answerLabels).toEqual(expect.arrayContaining(["Напряжение", "Масса", "сила", "Килограмм", "Вольт", "ньютон"]));
+    expect(attemptSummary.answerLabels).toEqual(
+      expect.arrayContaining(["Напряжение", "Масса", "сила", "Килограмм", "Вольт", "ньютон"]),
+    );
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
 
@@ -557,7 +597,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("match", "review-openwithimage");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const bySlot = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("1349");
@@ -568,36 +610,36 @@ describe("Moodle review payload builder", () => {
         label: "Snapchat",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "image:qtype_match/subquestion/95/icon3.png",
         label: "Instagram",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
+        wasSelected: false,
       },
       {
         slotKey: "image:qtype_match/subquestion/97/icon66.png",
         label: "Yelp",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
+        wasSelected: false,
       },
       {
         slotKey: "image:qtype_match/subquestion/99/icon1.png",
         label: "Twitter",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
+        wasSelected: false,
       },
       {
         slotKey: "image:qtype_match/subquestion/98/icon22.png",
         label: "LinkedIn",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
-      }
+        wasSelected: false,
+      },
     ]);
   });
 
@@ -613,7 +655,7 @@ describe("Moodle review payload builder", () => {
     expect(attemptSummary).toMatchObject({
       questionId: "1349",
       questionType: "match",
-      questionText: "Match the icons to their sites."
+      questionText: "Match the icons to their sites.",
     });
     expect(attemptSummary.answerLabels).toEqual(
       expect.arrayContaining([
@@ -626,8 +668,8 @@ describe("Moodle review payload builder", () => {
         "Instagram",
         "Yelp",
         "Twitter",
-        "LinkedIn"
-      ])
+        "LinkedIn",
+      ]),
     );
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
@@ -637,8 +679,12 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("randomsamatch", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
-    const bySlotKey = [...question.answers].sort((left, right) => left.slotKey.localeCompare(right.slotKey));
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
+    const bySlotKey = [...question.answers].sort((left, right) =>
+      left.slotKey.localeCompare(right.slotKey),
+    );
 
     expect(question.questionId).toBe("3700");
     expect(question.questionType).toBe("randomsamatch");
@@ -648,15 +694,15 @@ describe("Moodle review payload builder", () => {
         label: "цитоплазма",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
+        wasSelected: false,
       },
       {
         slotKey: "Какой органоид хранит наследственную информацию?",
         label: "ядро",
         correctness: 2,
         isCorrect: true,
-        wasSelected: false
-      }
+        wasSelected: false,
+      },
     ]);
   });
 
@@ -665,8 +711,12 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("randomsamatch", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
-    const bySlotKey = [...question.answers].sort((left, right) => left.slotKey.localeCompare(right.slotKey));
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
+    const bySlotKey = [...question.answers].sort((left, right) =>
+      left.slotKey.localeCompare(right.slotKey),
+    );
 
     expect(question.questionType).toBe("randomsamatch");
     expect(bySlotKey).toMatchObject([
@@ -675,15 +725,15 @@ describe("Moodle review payload builder", () => {
         label: "цитоплазма",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "Какой органоид хранит наследственную информацию?",
         label: "ядро",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -702,15 +752,15 @@ describe("Moodle review payload builder", () => {
     expect(attemptSummary).toMatchObject({
       questionId: "3700",
       questionType: "randomsamatch",
-      questionText: "Random short-answer matching"
+      questionText: "Random short-answer matching",
     });
     expect(attemptSummary.answerLabels).toEqual(
       expect.arrayContaining([
         "Как называется внутренняя жидкая среда клетки?",
         "Какой органоид хранит наследственную информацию?",
         "ядро",
-        "цитоплазма"
-      ])
+        "цитоплазма",
+      ]),
     );
     expect(hiddenReviewSummary.questionHash).toBe(attemptSummary.questionHash);
     expect(openReviewSummary.questionHash).toBe(attemptSummary.questionHash);
@@ -721,7 +771,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("multianswer", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("3700");
@@ -733,7 +785,7 @@ describe("Moodle review payload builder", () => {
         label: "цитоплазма",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotIndex: 2,
@@ -741,7 +793,7 @@ describe("Moodle review payload builder", () => {
         label: "ядро",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotIndex: 3,
@@ -749,8 +801,8 @@ describe("Moodle review payload builder", () => {
         label: "40",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -759,7 +811,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("multianswer", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionType).toBe("multianswer");
@@ -770,7 +824,7 @@ describe("Moodle review payload builder", () => {
         label: "ada",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotIndex: 2,
@@ -778,7 +832,7 @@ describe("Moodle review payload builder", () => {
         label: "митохондрия",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotIndex: 3,
@@ -786,8 +840,8 @@ describe("Moodle review payload builder", () => {
         label: "12",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -804,9 +858,11 @@ describe("Moodle review payload builder", () => {
       questionId: "3700",
       questionType: "multianswer",
       questionText:
-        "Заполните пропуски. Клеточная мембрана отделяет содержимое клетки от внешней среды. Основная жидкая внутренняя среда клетки называется . Органоид, отвечающий за хранение наследственной информации, называется . Если длина клетки на схеме равна 8 см, а ширина 5 см, то площадь условного прямоугольника равна см²."
+        "Заполните пропуски. Клеточная мембрана отделяет содержимое клетки от внешней среды. Основная жидкая внутренняя среда клетки называется . Органоид, отвечающий за хранение наследственной информации, называется . Если длина клетки на схеме равна 8 см, а ширина 5 см, то площадь условного прямоугольника равна см².",
     });
-    expect(attemptSummary.answerLabels).toEqual(expect.arrayContaining(["ядро", "митохондрия", "рибосома", "мембрана"]));
+    expect(attemptSummary.answerLabels).toEqual(
+      expect.arrayContaining(["ядро", "митохондрия", "рибосома", "мембрана"]),
+    );
     expect(reviewSummary.questionHash).toBe(attemptSummary.questionHash);
   });
 
@@ -815,7 +871,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("ordering", "review-open");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("3698");
@@ -828,7 +886,7 @@ describe("Moodle review payload builder", () => {
         label: "asdas",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "position:2",
@@ -836,7 +894,7 @@ describe("Moodle review payload builder", () => {
         label: "asdsa",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "position:3",
@@ -844,8 +902,8 @@ describe("Moodle review payload builder", () => {
         label: "adaa",
         correctness: 2,
         isCorrect: true,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -854,7 +912,9 @@ describe("Moodle review payload builder", () => {
 
     loadQuestionFixture("ordering", "review-hidden");
 
-    const question = getSavedQuestion(api.collectReviewQuestionsForSave() as ReviewQuestionPayload[]);
+    const question = getSavedQuestion(
+      api.collectReviewQuestionsForSave() as ReviewQuestionPayload[],
+    );
     const answers = getAnswersBySlot(question);
 
     expect(question.questionId).toBe("3698");
@@ -866,7 +926,7 @@ describe("Moodle review payload builder", () => {
         label: "asdsa",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "position:2",
@@ -874,7 +934,7 @@ describe("Moodle review payload builder", () => {
         label: "asdas",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
+        wasSelected: true,
       },
       {
         slotKey: "position:3",
@@ -882,8 +942,8 @@ describe("Moodle review payload builder", () => {
         label: "adaa",
         correctness: 1,
         isCorrect: false,
-        wasSelected: true
-      }
+        wasSelected: true,
+      },
     ]);
   });
 
@@ -902,7 +962,7 @@ describe("Moodle review payload builder", () => {
     expect(attemptSummary).toMatchObject({
       questionId: "3698",
       questionType: "ordering",
-      questionText: "dsadasd {{1}} adad {{2}} aaa {{3}}"
+      questionText: "dsadasd {{1}} adad {{2}} aaa {{3}}",
     });
     expect(attemptSummary.answerLabels).toEqual(["asdas", "asdsa", "adaa"]);
     expect(hiddenReviewSummary.questionHash).toBe(attemptSummary.questionHash);

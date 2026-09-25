@@ -1,85 +1,79 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// ReduxShare initial schema (PocketBase port of neon/migrations/*_init_schema.sql).
-//
-// Collections:
-//   users (built-in auth collection, extended) - account + profile counters
-//   reduxshare_tasks                            - aggregated shared answers
-//   reduxshare_review_imports                   - per-attempt import bookkeeping
-//   reduxshare_review_answer_imports            - per-answer dedup bookkeeping
-//
-// Access model: every rule requires an authenticated user, except public
-// self-registration on users.create. Shared task rows are readable by any
-// signed-in user by design (that is how answer statistics are shared).
-// Per-user import rows are partitioned by the `user` relation in queries.
-//
-// NOTE on rollback: the down migration drops the three custom collections.
-// The extra `users.*` fields and rules are intentionally left in place so a
-// rollback never destroys account data.
-
 migrate(
   (app) => {
     const users = app.findCollectionByNameOrId("users");
 
-    users.fields.addMarshaledJSON(JSON.stringify({
-      autogeneratePattern: "",
-      hidden: false,
-      id: "text_rs_username",
-      max: 32,
-      min: 3,
-      name: "username",
-      pattern: "",
-      presentable: true,
-      primaryKey: false,
-      required: true,
-      system: false,
-      type: "text"
-    }));
-    users.fields.addMarshaledJSON(JSON.stringify({
-      autogeneratePattern: "",
-      hidden: false,
-      id: "text_rs_moodledomain",
-      max: 0,
-      min: 0,
-      name: "moodle_domain",
-      pattern: "",
-      presentable: false,
-      primaryKey: false,
-      required: false,
-      system: false,
-      type: "text"
-    }));
-    users.fields.addMarshaledJSON(JSON.stringify({
-      hidden: false,
-      id: "number_rs_tests",
-      max: null,
-      min: null,
-      name: "solved_tests_count",
-      onlyInt: true,
-      presentable: false,
-      required: false,
-      system: false,
-      type: "number"
-    }));
-    users.fields.addMarshaledJSON(JSON.stringify({
-      hidden: false,
-      id: "number_rs_tasks",
-      max: null,
-      min: null,
-      name: "solved_tasks_count",
-      onlyInt: true,
-      presentable: false,
-      required: false,
-      system: false,
-      type: "number"
-    }));
+    users.fields.addMarshaledJSON(
+      JSON.stringify({
+        autogeneratePattern: "",
+        hidden: false,
+        id: "text_rs_username",
+        max: 32,
+        min: 3,
+        name: "username",
+        pattern: "",
+        presentable: true,
+        primaryKey: false,
+        required: true,
+        system: false,
+        type: "text",
+      }),
+    );
+    users.fields.addMarshaledJSON(
+      JSON.stringify({
+        autogeneratePattern: "",
+        hidden: false,
+        id: "text_rs_moodledomain",
+        max: 0,
+        min: 0,
+        name: "moodle_domain",
+        pattern: "",
+        presentable: false,
+        primaryKey: false,
+        required: false,
+        system: false,
+        type: "text",
+      }),
+    );
+    users.fields.addMarshaledJSON(
+      JSON.stringify({
+        hidden: false,
+        id: "number_rs_tests",
+        max: null,
+        min: null,
+        name: "solved_tests_count",
+        onlyInt: true,
+        presentable: false,
+        required: false,
+        system: false,
+        type: "number",
+      }),
+    );
+    users.fields.addMarshaledJSON(
+      JSON.stringify({
+        hidden: false,
+        id: "number_rs_tasks",
+        max: null,
+        min: null,
+        name: "solved_tasks_count",
+        onlyInt: true,
+        presentable: false,
+        required: false,
+        system: false,
+        type: "number",
+      }),
+    );
 
     users.listRule = "@request.auth.id != ''";
     users.viewRule = "@request.auth.id != ''";
     users.createRule = "";
     users.updateRule = "@request.auth.id = id";
     users.deleteRule = null;
-    users.indexes = [...(users.indexes || []), 'CREATE UNIQUE INDEX "idx_reduxshare_users_username" ON "users" ("username")'];
+    users.indexes = [
+      ...(users.indexes || []),
+      'CREATE UNIQUE INDEX "idx_reduxshare_users_username" ON "users" ("username")',
+    ];
     app.save(users);
 
     const tasks = new Collection({
@@ -98,7 +92,7 @@ migrate(
           primaryKey: true,
           required: true,
           system: true,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -112,7 +106,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -124,7 +118,7 @@ migrate(
           presentable: false,
           required: true,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           hidden: false,
@@ -136,7 +130,7 @@ migrate(
           presentable: false,
           required: true,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           autogeneratePattern: "",
@@ -150,7 +144,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -164,7 +158,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -178,7 +172,7 @@ migrate(
           primaryKey: false,
           required: false,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -192,7 +186,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -204,7 +198,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           autogeneratePattern: "",
@@ -218,7 +212,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -232,7 +226,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -244,7 +238,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           hidden: false,
@@ -256,7 +250,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           hidden: false,
@@ -268,7 +262,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           hidden: false,
@@ -280,7 +274,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           cascadeDelete: false,
@@ -293,7 +287,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "relation"
+          type: "relation",
         },
         {
           cascadeDelete: false,
@@ -306,7 +300,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "relation"
+          type: "relation",
         },
         {
           hidden: false,
@@ -316,7 +310,7 @@ migrate(
           onUpdate: false,
           presentable: false,
           system: false,
-          type: "autodate"
+          type: "autodate",
         },
         {
           hidden: false,
@@ -326,20 +320,20 @@ migrate(
           onUpdate: true,
           presentable: false,
           system: false,
-          type: "autodate"
-        }
+          type: "autodate",
+        },
       ],
       id: "pbc_rs_tasks",
       indexes: [
         'CREATE UNIQUE INDEX "idx_reduxshare_tasks_identity" ON "reduxshare_tasks" ("moodle_domain", "course_id", "quiz_id", "question_id", "question_hash", "slot_key", "answer_key")',
-        'CREATE INDEX "idx_reduxshare_tasks_lookup" ON "reduxshare_tasks" ("moodle_domain", "course_id", "quiz_id", "question_id")'
+        'CREATE INDEX "idx_reduxshare_tasks_lookup" ON "reduxshare_tasks" ("moodle_domain", "course_id", "quiz_id", "question_id")',
       ],
       listRule: "@request.auth.id != ''",
       name: "reduxshare_tasks",
       system: false,
       type: "base",
       updateRule: "@request.auth.id != ''",
-      viewRule: "@request.auth.id != ''"
+      viewRule: "@request.auth.id != ''",
     });
     app.save(tasks);
 
@@ -359,7 +353,7 @@ migrate(
           primaryKey: true,
           required: true,
           system: true,
-          type: "text"
+          type: "text",
         },
         {
           cascadeDelete: true,
@@ -372,7 +366,7 @@ migrate(
           presentable: false,
           required: true,
           system: false,
-          type: "relation"
+          type: "relation",
         },
         {
           autogeneratePattern: "",
@@ -386,7 +380,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -400,7 +394,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -412,7 +406,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           hidden: false,
@@ -424,7 +418,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           autogeneratePattern: "",
@@ -438,7 +432,7 @@ migrate(
           primaryKey: false,
           required: false,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -450,7 +444,7 @@ migrate(
           presentable: false,
           required: false,
           system: false,
-          type: "number"
+          type: "number",
         },
         {
           hidden: false,
@@ -460,7 +454,7 @@ migrate(
           onUpdate: false,
           presentable: false,
           system: false,
-          type: "autodate"
+          type: "autodate",
         },
         {
           hidden: false,
@@ -470,19 +464,19 @@ migrate(
           onUpdate: true,
           presentable: false,
           system: false,
-          type: "autodate"
-        }
+          type: "autodate",
+        },
       ],
       id: "pbc_rs_review_imports",
       indexes: [
-        'CREATE UNIQUE INDEX "idx_reduxshare_review_imports_identity" ON "reduxshare_review_imports" ("user", "moodle_domain", "attempt_key")'
+        'CREATE UNIQUE INDEX "idx_reduxshare_review_imports_identity" ON "reduxshare_review_imports" ("user", "moodle_domain", "attempt_key")',
       ],
       listRule: "@request.auth.id != ''",
       name: "reduxshare_review_imports",
       system: false,
       type: "base",
       updateRule: "@request.auth.id != ''",
-      viewRule: "@request.auth.id != ''"
+      viewRule: "@request.auth.id != ''",
     });
     app.save(reviewImports);
 
@@ -502,7 +496,7 @@ migrate(
           primaryKey: true,
           required: true,
           system: true,
-          type: "text"
+          type: "text",
         },
         {
           cascadeDelete: true,
@@ -515,7 +509,7 @@ migrate(
           presentable: false,
           required: true,
           system: false,
-          type: "relation"
+          type: "relation",
         },
         {
           autogeneratePattern: "",
@@ -529,7 +523,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -543,7 +537,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -557,7 +551,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -571,7 +565,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -585,7 +579,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           autogeneratePattern: "",
@@ -599,7 +593,7 @@ migrate(
           primaryKey: false,
           required: true,
           system: false,
-          type: "text"
+          type: "text",
         },
         {
           hidden: false,
@@ -609,7 +603,7 @@ migrate(
           onUpdate: false,
           presentable: false,
           system: false,
-          type: "autodate"
+          type: "autodate",
         },
         {
           hidden: false,
@@ -619,19 +613,19 @@ migrate(
           onUpdate: true,
           presentable: false,
           system: false,
-          type: "autodate"
-        }
+          type: "autodate",
+        },
       ],
       id: "pbc_rs_review_answer_imports",
       indexes: [
-        'CREATE UNIQUE INDEX "idx_reduxshare_review_answer_imports_identity" ON "reduxshare_review_answer_imports" ("user", "moodle_domain", "attempt_key", "question_id", "question_hash", "slot_key", "answer_key")'
+        'CREATE UNIQUE INDEX "idx_reduxshare_review_answer_imports_identity" ON "reduxshare_review_answer_imports" ("user", "moodle_domain", "attempt_key", "question_id", "question_hash", "slot_key", "answer_key")',
       ],
       listRule: "@request.auth.id != ''",
       name: "reduxshare_review_answer_imports",
       system: false,
       type: "base",
       updateRule: "@request.auth.id != ''",
-      viewRule: "@request.auth.id != ''"
+      viewRule: "@request.auth.id != ''",
     });
     app.save(reviewAnswerImports);
   },
@@ -639,5 +633,5 @@ migrate(
     app.delete(app.findCollectionByNameOrId("reduxshare_review_answer_imports"));
     app.delete(app.findCollectionByNameOrId("reduxshare_review_imports"));
     app.delete(app.findCollectionByNameOrId("reduxshare_tasks"));
-  }
+  },
 );

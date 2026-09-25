@@ -1,6 +1,3 @@
-// Regression coverage for the per-question-type modules that were split out of
-// src/content/quizAttempt.ts: the dispatcher must reach each module and each module must only
-// claim its own question type.
 import { describe, expect, it } from "vitest";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
@@ -24,7 +21,7 @@ describe("split question-type modules", () => {
     const questionNode = loadQuestionFixture("ddwtos", "attempt");
     const answerData = slottedAnswerData([
       answerSlot(1, { suggestions: [slottedExactSuggestion("adasdada", 1)] }),
-      answerSlot(2, { suggestions: [slottedExactSuggestion("qqq", 2)] })
+      answerSlot(2, { suggestions: [slottedExactSuggestion("qqq", 2)] }),
     ]);
 
     expect(api.autoSelectQuestionAnswers(questionNode, answerData)).toBe(true);
@@ -39,7 +36,7 @@ describe("split question-type modules", () => {
     const answerData = slottedAnswerData([
       answerSlot(1, { suggestions: [slottedExactSuggestion("цитоплазма", 1)] }),
       answerSlot(2, { suggestions: [slottedExactSuggestion("ядро", 2)] }),
-      answerSlot(3, { suggestions: [slottedExactSuggestion("40", 3)] })
+      answerSlot(3, { suggestions: [slottedExactSuggestion("40", 3)] }),
     ]);
 
     expect(api.autoSelectQuestionAnswers(questionNode, answerData)).toBe(true);
@@ -52,8 +49,23 @@ describe("split question-type modules", () => {
   it("does not let one type module claim another type's question", async () => {
     const api = await getQuizAttemptTestApi();
 
-    expect(api.autoSelectQuestionAnswers(loadQuestionFixture("ddimageortext", "attempt"), slottedAnswerData([]))).toBe(false);
-    expect(api.autoSelectQuestionAnswers(loadQuestionFixture("ddwtos", "attempt"), slottedAnswerData([]))).toBe(false);
-    expect(api.autoSelectQuestionAnswers(loadQuestionFixture("ordering", "attempt"), slottedAnswerData([]))).toBe(false);
+    expect(
+      api.autoSelectQuestionAnswers(
+        loadQuestionFixture("ddimageortext", "attempt"),
+        slottedAnswerData([]),
+      ),
+    ).toBe(false);
+    expect(
+      api.autoSelectQuestionAnswers(
+        loadQuestionFixture("ddwtos", "attempt"),
+        slottedAnswerData([]),
+      ),
+    ).toBe(false);
+    expect(
+      api.autoSelectQuestionAnswers(
+        loadQuestionFixture("ordering", "attempt"),
+        slottedAnswerData([]),
+      ),
+    ).toBe(false);
   });
 });

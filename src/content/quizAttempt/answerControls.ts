@@ -1,5 +1,3 @@
-// Answer control discovery, answer-data lookups and progress reporting that several
-// quiz-attempt modules share. Moved out of src/content/quizAttempt.ts.
 import {
   UNSUPPORTED_DRAG_DROP_QUESTION_TYPES,
   type AnswerData,
@@ -8,14 +6,11 @@ import {
   type AnswerVariantCounts,
   type QuizAttemptContext,
   type QuizProgressReports,
-  type QuizQuestionSummary,
   type RecordQuizProgressResponse,
-  type QuizAnswersResponse,
   type QuizVariantResult,
   type SourceAnswerData,
-  type StoredStateLike,
   type SuggestionItem,
-  type SubmissionItem
+  type SubmissionItem,
 } from "../../model";
 import { QUIZ_PROGRESS_REPORTS_STORAGE_KEY } from "../../shared/storageKeys";
 import { RECORD_QUIZ_PROGRESS_MESSAGE } from "../../shared/messages";
@@ -26,13 +21,12 @@ import {
   getAnswerData,
   getPreferredSuggestionLabels,
   getVariantCounts,
-  hasAnswerData
+  hasAnswerData,
 } from "../../data/answerData";
 import {
   findClosestLabel,
   getAnswerLabelMatchKeys,
   getClassNumber,
-  getImageFileName,
   getMoodleAnswerLabelText,
   getMoodleAnswerLabelTextOrImageIdentity,
   getQuestionText,
@@ -43,13 +37,12 @@ import {
   itemLabelMatches,
   javaStringHashCode,
   labelsMatch,
-  normalizeAnswerLabel,
   normalizeFingerprintText,
   splitSequentialAnswerLabels,
   stableHashText,
-  stripMoodleAnswerPrefix
+  stripMoodleAnswerPrefix,
 } from "../../dom/questionDom";
-import { getQuestionId, getQuestionPostData } from "../../dom/questionIdentity";
+import { getQuestionId } from "../../dom/questionIdentity";
 import {
   answerDataHasZeroBasedOrderingSlots,
   getOrderingItemLabel,
@@ -57,45 +50,51 @@ import {
   getOrderingPositionLabel,
   getOrderingSlotPosition,
   mapSubmissionToOrderingPosition,
-  mapSuggestionToOrderingPosition
+  mapSuggestionToOrderingPosition,
 } from "../../dom/ordering";
 import {
   getSecondQuestionClass,
-  getSupportedAutoSelectQuestionType,
   isChoiceQuestionType,
-  isEssayQuestionType,
   isMatchingQuestionNode,
-  isMatchingQuestionTypeName,
-  isSelectableQuestionType,
-  isTextInputQuestionType
 } from "../../dom/questionTypes";
-import { isExtensionContextValid, logReduxShareInfo, logReduxShareWarning } from "../../logic/runtime";
+import { isExtensionContextValid, logReduxShareWarning } from "../../logic/runtime";
 import { canUseAuthenticatedQuizFeatures } from "../../logic/settings";
-import { answerDataByQuestionId, currentQuizAttemptContext, currentStoredState, variantCountsByQuestionId } from "../../state";
+import {
+  answerDataByQuestionId,
+  currentQuizAttemptContext,
+  currentStoredState,
+  variantCountsByQuestionId,
+} from "../../state";
 import { getDdwtosChoices, getDdwtosDropSlotIndex } from "./ddwtos";
 import { getDdmarkerChoices } from "./ddmarker";
 import { getDdimageOrTextChoices, getDdimageOrTextDropSlotIndex } from "./ddimageortext";
-import { setTextAnswerValue, setTextareaAnswerValue } from "./textControls";
+import { setTextAnswerValue } from "./textControls";
 
 export function getQuestionAnswerLabels(
   questionNode: Element,
-  options: { includePlaceholderSelectOptions?: boolean } = {}
+  options: { includePlaceholderSelectOptions?: boolean } = {},
 ) {
   const includePlaceholderSelectOptions = options.includePlaceholderSelectOptions ?? true;
   const labels: string[] = [];
   const choiceInputs = Array.from(
-    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
   );
 
   for (const input of choiceInputs) {
-    if (input.closest(".questionflag") || input.name.includes("_:flagged") || isMoodleClearChoiceInput(input)) {
+    if (
+      input.closest(".questionflag") ||
+      input.name.includes("_:flagged") ||
+      isMoodleClearChoiceInput(input)
+    ) {
       continue;
     }
 
     labels.push(getInputAnswerLabelText(questionNode, input));
   }
 
-  for (const [selectIndex, select] of Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select")).entries()) {
+  for (const [selectIndex, select] of Array.from(
+    questionNode.querySelectorAll<HTMLSelectElement>("select"),
+  ).entries()) {
     if (isMatchingQuestionNode(questionNode)) {
       labels.push(getSelectControlLabel(questionNode, select, selectIndex));
     }
@@ -126,7 +125,6 @@ export function getQuestionAnswerLabels(
   return getUniqueTexts(labels);
 }
 
-
 export function getQuizAttemptUrlIdentity(pageUrl: string) {
   try {
     const url = new URL(pageUrl);
@@ -147,16 +145,14 @@ export function getQuizAttemptUrlIdentity(pageUrl: string) {
   }
 }
 
-
 export function getQuizProgressTestKey(context: QuizAttemptContext) {
   return [
     `domain:${context.domain}`,
     `course:${context.courseId ?? "unknown"}`,
     `quiz:${context.contextInstanceId ?? "unknown"}`,
-    getQuizAttemptUrlIdentity(context.pageUrl)
+    getQuizAttemptUrlIdentity(context.pageUrl),
   ].join("|");
 }
-
 
 export function getQuestionProgressId(questionNode: Element, questionId: string | null) {
   if (questionId) {
@@ -166,7 +162,6 @@ export function getQuestionProgressId(questionNode: Element, questionId: string 
   const questionIndex = Array.from(document.querySelectorAll(".que")).indexOf(questionNode);
   return `index:${questionIndex >= 0 ? questionIndex : "unknown"}`;
 }
-
 
 export function requestQuizProgressRecord(payload: {
   moodleDomain: string | null;
@@ -178,7 +173,7 @@ export function requestQuizProgressRecord(payload: {
       chrome.runtime.sendMessage(
         {
           type: RECORD_QUIZ_PROGRESS_MESSAGE,
-          payload
+          payload,
         },
         (response: RecordQuizProgressResponse | undefined) => {
           const runtimeError = chrome.runtime.lastError;
@@ -189,26 +184,26 @@ export function requestQuizProgressRecord(payload: {
           }
 
           resolve(response ?? { ok: false, error: "Background script did not return a response." });
-        }
+        },
       );
     } catch (error) {
-      // Synchronous throw: the extension context is gone (reloaded/removed).
       reject(error instanceof Error ? error : new Error(String(error)));
     }
   });
 }
 
-
 export async function reportSolvedQuestions(questionProgressIds: string[]) {
   const context = currentQuizAttemptContext;
   const uniqueQuestionProgressIds = Array.from(new Set(questionProgressIds.filter(Boolean)));
 
-  if (!context || uniqueQuestionProgressIds.length === 0 || !canUseAuthenticatedQuizFeatures(currentStoredState)) {
+  if (
+    !context ||
+    uniqueQuestionProgressIds.length === 0 ||
+    !canUseAuthenticatedQuizFeatures(currentStoredState)
+  ) {
     return;
   }
 
-  // Auto-select timeouts can fire after the extension context is gone
-  // (reloaded/removed): bail out before touching chrome.storage.
   if (!isExtensionContextValid()) {
     return;
   }
@@ -229,7 +224,7 @@ export async function reportSolvedQuestions(questionProgressIds: string[]) {
     const response = await requestQuizProgressRecord({
       moodleDomain: context.domain,
       solvedTestsDelta,
-      solvedTasksDelta
+      solvedTasksDelta,
     });
 
     if (!response.ok) {
@@ -251,10 +246,9 @@ export async function reportSolvedQuestions(questionProgressIds: string[]) {
   }
 }
 
-
 export function getChoiceAnswerInputs(questionNode: Element) {
   return Array.from(
-    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
   ).filter((input) => {
     return (
       !input.disabled &&
@@ -265,15 +259,18 @@ export function getChoiceAnswerInputs(questionNode: Element) {
   });
 }
 
-
 export function isMultiAnswerMultichoiceQuestion(questionNode: Element) {
-  return isChoiceQuestionType(questionNode) && getChoiceAnswerInputs(questionNode).some((input) => input.type === "checkbox");
+  return (
+    isChoiceQuestionType(questionNode) &&
+    getChoiceAnswerInputs(questionNode).some((input) => input.type === "checkbox")
+  );
 }
-
 
 export function getInputAnswerLabelText(questionNode: Element, input: HTMLInputElement) {
   const getUniqueLabelText = (labelTexts: string[]) =>
-    Array.from(new Set(labelTexts.map((text) => text.replace(/\s+/g, " ").trim()).filter(Boolean))).join(" ");
+    Array.from(
+      new Set(labelTexts.map((text) => text.replace(/\s+/g, " ").trim()).filter(Boolean)),
+    ).join(" ");
   const labelTexts: string[] = [];
   const labels = input.labels ? Array.from(input.labels) : [];
 
@@ -340,7 +337,6 @@ export function getInputAnswerLabelText(questionNode: Element, input: HTMLInputE
   return getUniqueLabelText(labelTexts);
 }
 
-
 export function selectNextSelectOptionByLabel(questionNode: Element, label: string) {
   for (const select of getSelectableAnswerControls(questionNode)) {
     const option = findSelectOptionByLabel(select, label);
@@ -353,22 +349,22 @@ export function selectNextSelectOptionByLabel(questionNode: Element, label: stri
   return false;
 }
 
-
-
-
 export function getChoiceInputIndex(input: HTMLInputElement) {
-  const indexMatch = /(?:^|[_:])choice(\d+)$/.exec(input.id) ?? /(?:^|[_:])choice(\d+)$/.exec(input.name);
+  const indexMatch =
+    /(?:^|[_:])choice(\d+)$/.exec(input.id) ?? /(?:^|[_:])choice(\d+)$/.exec(input.name);
   return indexMatch ? Number.parseInt(indexMatch[1], 10) : null;
 }
 
-
-export function getSubQuestionIndex(control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+export function getSubQuestionIndex(
+  control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+) {
   const subMatch = /(?:^|[_:])sub(\d+)(?:[_:]|$)/.exec(`${control.name} ${control.id}`);
   return subMatch ? Number.parseInt(subMatch[1], 10) : null;
 }
 
-
-export function getAnswerControlSlotIndex(control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+export function getAnswerControlSlotIndex(
+  control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+) {
   const placeClassIndex = getClassNumber(control, "place");
 
   if (placeClassIndex !== null) {
@@ -390,10 +386,9 @@ export function getAnswerControlSlotIndex(control: HTMLInputElement | HTMLSelect
   return null;
 }
 
-
 export function getAnswerControlSlotIndexCandidates(
   control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
-  answerData?: AnswerData
+  answerData?: AnswerData,
 ) {
   const candidates: number[] = [];
   const primaryIndex = getAnswerControlSlotIndex(control);
@@ -408,15 +403,22 @@ export function getAnswerControlSlotIndexCandidates(
     candidates.push(subIndex, subIndex + 1);
   }
 
-  return Array.from(new Set(candidates.filter((candidate) => {
-    if (!Number.isFinite(candidate) || candidate < 0) {
-      return false;
-    }
+  return Array.from(
+    new Set(
+      candidates.filter((candidate) => {
+        if (!Number.isFinite(candidate) || candidate < 0) {
+          return false;
+        }
 
-    return !answerData || answerData.slots.length === 0 || answerData.slots.some((slot) => slot.index === candidate);
-  })));
+        return (
+          !answerData ||
+          answerData.slots.length === 0 ||
+          answerData.slots.some((slot) => slot.index === candidate)
+        );
+      }),
+    ),
+  );
 }
-
 
 export function getChoiceSlotIndex(input: HTMLInputElement, answerData: AnswerData) {
   const choiceIndex = getChoiceInputIndex(input);
@@ -433,24 +435,24 @@ export function getChoiceSlotIndex(input: HTMLInputElement, answerData: AnswerDa
   return answerData.slots.some((slot) => slot.index === 0) ? choiceIndex : choiceIndex + 1;
 }
 
-
 export function isOpaqueMatchAnchor(value: string) {
   return /^-?\d+$/.test(value.trim());
 }
 
-
 export function getPromptHashCandidates(label: string) {
   const collapsed = label.replace(/\s+/g, " ").trim();
   return Array.from(
-    new Set([collapsed, normalizeFingerprintText(label), normalizeFingerprintText(stripMoodleAnswerPrefix(label))].filter(Boolean))
+    new Set(
+      [
+        collapsed,
+        normalizeFingerprintText(label),
+        normalizeFingerprintText(stripMoodleAnswerPrefix(label)),
+      ].filter(Boolean),
+    ),
   );
 }
 
-
 export function hashAnchorMatchesPrompt(anchor: string, label: string) {
-  // Some external providers send opaque integer anchors (e.g. ["", "-1510145339"])
-  // that look like Java-style prompt hashes. They can never match prompt labels
-  // by text, but they match exactly when the provider hashed the same prompt.
   if (!isOpaqueMatchAnchor(anchor)) {
     return false;
   }
@@ -461,9 +463,10 @@ export function hashAnchorMatchesPrompt(anchor: string, label: string) {
     return false;
   }
 
-  return getPromptHashCandidates(label).some((candidate) => javaStringHashCode(candidate) === target);
+  return getPromptHashCandidates(label).some(
+    (candidate) => javaStringHashCode(candidate) === target,
+  );
 }
-
 
 export function anchorMatchesPrompt(anchor: string, label: string) {
   if (labelsMatch(anchor, label)) {
@@ -474,16 +477,12 @@ export function anchorMatchesPrompt(anchor: string, label: string) {
     return true;
   }
 
-  // Machine identifiers (paths, URLs, image identities) must match exactly:
-  // fuzzy-matching them binds near-identical wrong variants (".../icon5.png"
-  // vs ".../icon3.png"). Typo tolerance applies to human text only.
   if (/[/:]/.test(anchor)) {
     return false;
   }
 
   return findClosestLabel(label, [anchor]) !== null;
 }
-
 
 export function answerSlotMatchesLabel(slot: AnswerSlotData, label: string) {
   return (
@@ -493,10 +492,6 @@ export function answerSlotMatchesLabel(slot: AnswerSlotData, label: string) {
   );
 }
 
-
-// Strict variant without typo tolerance. Quiz options are often near-duplicates
-// ("23 percent of the time." vs "63 percent of the time." differ by one character), so the
-// fuzzy pass can bind several checkboxes to one slot; an exact match is always unambiguous.
 export function answerSlotMatchesLabelExactly(slot: AnswerSlotData, label: string) {
   return (
     slot.anchors.some((anchor) => labelsMatch(anchor, label)) ||
@@ -505,13 +500,12 @@ export function answerSlotMatchesLabelExactly(slot: AnswerSlotData, label: strin
   );
 }
 
-
 export function answerSlotHasBooleanConflict(slot: AnswerSlotData) {
   const booleanValues = new Set<boolean>();
 
   for (const label of [
     ...slot.suggestions.map((suggestion) => suggestion.label),
-    ...slot.submissions.map((submission) => submission.label)
+    ...slot.submissions.map((submission) => submission.label),
   ]) {
     const booleanValue = getBooleanChoiceAnswerValue(label);
 
@@ -523,16 +517,23 @@ export function answerSlotHasBooleanConflict(slot: AnswerSlotData) {
   return booleanValues.size > 1;
 }
 
-
-export function getChoiceAnswerSlotMatch(answerData: AnswerData, input: HTMLInputElement, label: string) {
+export function getChoiceAnswerSlotMatch(
+  answerData: AnswerData,
+  input: HTMLInputElement,
+  label: string,
+) {
   const slotIndex = getChoiceSlotIndex(input, answerData);
-  // Exact label match wins before the typo-tolerant pass: near-duplicate option labels would
-  // otherwise let the first fuzzy-matched slot swallow every checkbox of the question.
-  const exactLabelMatchedSlot = answerData.slots.find((slot) => answerSlotMatchesLabelExactly(slot, label));
+
+  const exactLabelMatchedSlot = answerData.slots.find((slot) =>
+    answerSlotMatchesLabelExactly(slot, label),
+  );
   const labelMatchedSlot =
     exactLabelMatchedSlot ?? answerData.slots.find((slot) => answerSlotMatchesLabel(slot, label));
   const indexMatchedSlot =
-    slotIndex === null ? null : (answerData.slots.find((slot) => slot.hasExplicitIndex && slot.index === slotIndex) ?? null);
+    slotIndex === null
+      ? null
+      : (answerData.slots.find((slot) => slot.hasExplicitIndex && slot.index === slotIndex) ??
+        null);
   const isCheckboxChoice = input.type === "checkbox" && !input.closest(".que.multianswer");
 
   if (isCheckboxChoice && labelMatchedSlot) {
@@ -543,11 +544,12 @@ export function getChoiceAnswerSlotMatch(answerData: AnswerData, input: HTMLInpu
     return { slot: null, slotIndex };
   }
 
-  const slot = input.closest(".que.multianswer") ? (indexMatchedSlot ?? labelMatchedSlot) : (labelMatchedSlot ?? indexMatchedSlot);
+  const slot = input.closest(".que.multianswer")
+    ? (indexMatchedSlot ?? labelMatchedSlot)
+    : (labelMatchedSlot ?? indexMatchedSlot);
 
   return { slot, slotIndex };
 }
-
 
 export function getBooleanChoiceAnswerValue(label: string) {
   const normalizedLabel = label.trim().toLowerCase();
@@ -563,13 +565,16 @@ export function getBooleanChoiceAnswerValue(label: string) {
   return null;
 }
 
-
 export function getBooleanChoiceSuggestionTotals(
   suggestions: SuggestionItem[],
-  booleanValue: boolean
+  booleanValue: boolean,
 ) {
   return suggestions
-    .filter((suggestion) => suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === booleanValue)
+    .filter(
+      (suggestion) =>
+        suggestion.correctness === 2 &&
+        getBooleanChoiceAnswerValue(suggestion.label) === booleanValue,
+    )
     .reduce(
       (totals, suggestion) => {
         totals.entries.push(suggestion);
@@ -580,13 +585,14 @@ export function getBooleanChoiceSuggestionTotals(
       {
         entries: [] as SuggestionItem[],
         count: 0,
-        confidence: 0
-      }
+        confidence: 0,
+      },
     );
 }
 
-
-export function getPreferredBooleanChoiceExactSuggestion(slot: AnswerSlotData | null | undefined): SuggestionItem | null {
+export function getPreferredBooleanChoiceExactSuggestion(
+  slot: AnswerSlotData | null | undefined,
+): SuggestionItem | null {
   if (!slot) {
     return null;
   }
@@ -630,10 +636,9 @@ export function getPreferredBooleanChoiceExactSuggestion(slot: AnswerSlotData | 
     confidence: normalizedConfidence,
     count: winner.count,
     label: winnerLabel,
-    actionSlotIndex: winner.entries[0]?.actionSlotIndex
+    actionSlotIndex: winner.entries[0]?.actionSlotIndex,
   };
 }
-
 
 export function normalizeChoiceSlotForWidget(slot: AnswerSlotData): AnswerSlotData {
   const preferredBooleanSuggestion = getPreferredBooleanChoiceExactSuggestion(slot);
@@ -642,14 +647,20 @@ export function normalizeChoiceSlotForWidget(slot: AnswerSlotData): AnswerSlotDa
     return slot;
   }
 
-  const hasTrueExact = slot.suggestions.some((suggestion) => suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === true);
-  const hasFalseExact = slot.suggestions.some((suggestion) => suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === false);
+  const hasTrueExact = slot.suggestions.some(
+    (suggestion) =>
+      suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === true,
+  );
+  const hasFalseExact = slot.suggestions.some(
+    (suggestion) =>
+      suggestion.correctness === 2 && getBooleanChoiceAnswerValue(suggestion.label) === false,
+  );
   const hasConflictingBooleanExact = hasTrueExact && hasFalseExact;
 
   if (!hasConflictingBooleanExact) {
     return {
       ...slot,
-      suggestions: [preferredBooleanSuggestion]
+      suggestions: [preferredBooleanSuggestion],
     };
   }
 
@@ -665,26 +676,27 @@ export function normalizeChoiceSlotForWidget(slot: AnswerSlotData): AnswerSlotDa
           count: suggestion.count ?? 1,
           label: suggestion.label,
           displayLabel: suggestion.displayLabel,
-          actionSlotIndex: suggestion.actionSlotIndex
-        }))
-    ]
+          actionSlotIndex: suggestion.actionSlotIndex,
+        })),
+    ],
   };
 }
-
 
 export function getExactBooleanChoiceSlotValue(slot: AnswerSlotData | null | undefined) {
   return getBooleanChoiceAnswerValue(getPreferredBooleanChoiceExactSuggestion(slot)?.label ?? "");
 }
 
-
 export function getNonBooleanExactChoiceSuggestions(answerData: AnswerData) {
   const exactSuggestions = answerData.suggestions.filter((suggestion) => {
-    return suggestion.correctness === 2 && suggestion.label.trim() && getBooleanChoiceAnswerValue(suggestion.label) === null;
+    return (
+      suggestion.correctness === 2 &&
+      suggestion.label.trim() &&
+      getBooleanChoiceAnswerValue(suggestion.label) === null
+    );
   });
 
   return exactSuggestions.length > 0 ? exactSuggestions : [];
 }
-
 
 export function getNonBooleanChoiceSubmissions(answerData: AnswerData) {
   return answerData.submissions.filter((submission) => {
@@ -692,8 +704,11 @@ export function getNonBooleanChoiceSubmissions(answerData: AnswerData) {
   });
 }
 
-
-export function scopeQuestionLevelChoiceDataToBoolean(answerData: AnswerData, input: HTMLInputElement, label: string) {
+export function scopeQuestionLevelChoiceDataToBoolean(
+  answerData: AnswerData,
+  input: HTMLInputElement,
+  label: string,
+) {
   if (input.type !== "checkbox") {
     return null;
   }
@@ -706,26 +721,33 @@ export function scopeQuestionLevelChoiceDataToBoolean(answerData: AnswerData, in
   }
 
   const slotIndex = getChoiceSlotIndex(input, answerData) ?? getChoiceInputIndex(input);
-  const matchingSuggestion = exactSuggestions.find((suggestion) => itemLabelMatches(suggestion, label));
-  const matchingSubmission = nonBooleanSubmissions.find((submission) => itemLabelMatches(submission, label));
-  // The stored data is question-level while this scoping runs per checkbox. If nothing matches
-  // this option's label (slot bindings lost, shuffled options, rightanswer wording drift), the
-  // option's boolean value is unknown: inventing "false" here would leak it into the next
-  // attempt's menu and auto-select as a guaranteed-correct answer.
+  const matchingSuggestion = exactSuggestions.find((suggestion) =>
+    itemLabelMatches(suggestion, label),
+  );
+  const matchingSubmission = nonBooleanSubmissions.find((submission) =>
+    itemLabelMatches(submission, label),
+  );
+
   const hasMatchingData = matchingSuggestion !== undefined || matchingSubmission !== undefined;
   const hasExactData = exactSuggestions.length > 0 && hasMatchingData;
   const booleanLabel = (hasExactData ? matchingSuggestion : matchingSubmission) ? "true" : "false";
   const fallbackCount = Math.max(1, ...exactSuggestions.map((suggestion) => suggestion.count ?? 0));
-  const fallbackSubmissionCount = Math.max(1, ...nonBooleanSubmissions.map((submission) => submission.count));
-  const booleanCount = matchingSuggestion?.count ?? matchingSubmission?.count ?? (hasExactData ? fallbackCount : fallbackSubmissionCount);
+  const fallbackSubmissionCount = Math.max(
+    1,
+    ...nonBooleanSubmissions.map((submission) => submission.count),
+  );
+  const booleanCount =
+    matchingSuggestion?.count ??
+    matchingSubmission?.count ??
+    (hasExactData ? fallbackCount : fallbackSubmissionCount);
   const suggestions: SuggestionItem[] = hasExactData
     ? [
         {
           correctness: 2,
           confidence: 1,
           count: booleanCount,
-          label: booleanLabel
-        }
+          label: booleanLabel,
+        },
       ]
     : [];
   const submissions: SubmissionItem[] = hasExactData
@@ -734,7 +756,7 @@ export function scopeQuestionLevelChoiceDataToBoolean(answerData: AnswerData, in
         .map((submission): SubmissionItem => ({
           ...submission,
           label: "true",
-          displayLabel: "true"
+          displayLabel: "true",
         }))
     : [];
 
@@ -742,7 +764,7 @@ export function scopeQuestionLevelChoiceDataToBoolean(answerData: AnswerData, in
     submissions.push({
       correctness: hasExactData ? 2 : 1,
       count: booleanCount,
-      label: booleanLabel
+      label: booleanLabel,
     });
   }
 
@@ -760,16 +782,19 @@ export function scopeQuestionLevelChoiceDataToBoolean(answerData: AnswerData, in
                 hasExplicitIndex: false,
                 anchors: label ? [label] : [],
                 suggestions,
-                submissions
-              }
-            ]
+                submissions,
+              },
+            ],
     },
-    slotIndex
+    slotIndex,
   };
 }
 
-
-export function scopeAnswerDataToChoice(answerData: AnswerData, input: HTMLInputElement, label: string) {
+export function scopeAnswerDataToChoice(
+  answerData: AnswerData,
+  input: HTMLInputElement,
+  label: string,
+) {
   const booleanScopedData = scopeQuestionLevelChoiceDataToBoolean(answerData, input, label);
 
   if (booleanScopedData) {
@@ -786,15 +811,19 @@ export function scopeAnswerDataToChoice(answerData: AnswerData, input: HTMLInput
         anchors: normalizedSlot.anchors,
         suggestions: normalizedSlot.suggestions,
         submissions: normalizedSlot.submissions,
-        slots: [normalizedSlot]
+        slots: [normalizedSlot],
       },
-      slotIndex: normalizedSlot.index
+      slotIndex: normalizedSlot.index,
     };
   }
 
   const anchors = answerData.anchors.filter((anchor) => labelsMatch(anchor, label));
-  const suggestions = answerData.suggestions.filter((suggestion) => itemLabelMatches(suggestion, label));
-  const submissions = answerData.submissions.filter((submission) => itemLabelMatches(submission, label));
+  const suggestions = answerData.suggestions.filter((suggestion) =>
+    itemLabelMatches(suggestion, label),
+  );
+  const submissions = answerData.submissions.filter((submission) =>
+    itemLabelMatches(submission, label),
+  );
   const fallbackIndex = getChoiceInputIndex(input);
   const fallbackSlotIndex = slotIndex ?? fallbackIndex;
 
@@ -804,7 +833,8 @@ export function scopeAnswerDataToChoice(answerData: AnswerData, input: HTMLInput
       suggestions,
       submissions,
       slots:
-        fallbackSlotIndex === null || (anchors.length === 0 && suggestions.length === 0 && submissions.length === 0)
+        fallbackSlotIndex === null ||
+        (anchors.length === 0 && suggestions.length === 0 && submissions.length === 0)
           ? []
           : [
               {
@@ -812,23 +842,22 @@ export function scopeAnswerDataToChoice(answerData: AnswerData, input: HTMLInput
                 hasExplicitIndex: false,
                 anchors,
                 suggestions,
-                submissions
-              }
-            ]
+                submissions,
+              },
+            ],
     },
-    slotIndex: fallbackSlotIndex
+    slotIndex: fallbackSlotIndex,
   };
 }
 
-
 export function findInputForAnswerLabelContainer(questionNode: Element, container: Element) {
   const answerInputs = Array.from(
-    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
   ).filter((input) => !isMoodleClearChoiceInput(input));
 
   if (container.id) {
     const inputByAria = answerInputs.find((input) =>
-      (input.getAttribute("aria-labelledby") ?? "").split(/\s+/).includes(container.id)
+      (input.getAttribute("aria-labelledby") ?? "").split(/\s+/).includes(container.id),
     );
 
     if (inputByAria) {
@@ -854,12 +883,9 @@ export function findInputForAnswerLabelContainer(questionNode: Element, containe
   return row.querySelector<HTMLInputElement>('input[type="radio"], input[type="checkbox"]');
 }
 
-
 export function findInputForAnswerLabel(questionNode: Element, label: string) {
   const targetKeys = getAnswerLabelMatchKeys(label);
-  const labelContainers = Array.from(
-    questionNode.querySelectorAll('[data-region="answer-label"]')
-  );
+  const labelContainers = Array.from(questionNode.querySelectorAll('[data-region="answer-label"]'));
 
   for (const container of labelContainers) {
     const containerKeys = getAnswerLabelMatchKeys(getMoodleAnswerLabelText(container));
@@ -876,7 +902,7 @@ export function findInputForAnswerLabel(questionNode: Element, label: string) {
   }
 
   const answerInputs = Array.from(
-    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]')
+    questionNode.querySelectorAll<HTMLInputElement>('input[type="radio"], input[type="checkbox"]'),
   ).filter((input) => !isMoodleClearChoiceInput(input));
 
   for (const input of answerInputs) {
@@ -889,7 +915,6 @@ export function findInputForAnswerLabel(questionNode: Element, label: string) {
 
   return null;
 }
-
 
 export function setAnswerInputChecked(input: HTMLInputElement, checked: boolean) {
   if (input.disabled || input.checked === checked) {
@@ -907,11 +932,11 @@ export function setAnswerInputChecked(input: HTMLInputElement, checked: boolean)
   return true;
 }
 
-
 export function getSelectableAnswerControls(questionNode: Element) {
-  return Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select")).filter((select) => !select.disabled);
+  return Array.from(questionNode.querySelectorAll<HTMLSelectElement>("select")).filter(
+    (select) => !select.disabled,
+  );
 }
-
 
 export function findSelectOptionByLabel(select: HTMLSelectElement, label: string) {
   const options = Array.from(select.options).filter((option) => option.value);
@@ -927,12 +952,11 @@ export function findSelectOptionByLabel(select: HTMLSelectElement, label: string
 
   const closest = findClosestLabel(
     label,
-    options.map((option) => option.textContent ?? option.label)
+    options.map((option) => option.textContent ?? option.label),
   );
 
   return closest ? options[closest.index] : undefined;
 }
-
 
 export function setSelectValue(select: HTMLSelectElement, value: string) {
   if (select.value === value) {
@@ -945,7 +969,6 @@ export function setSelectValue(select: HTMLSelectElement, value: string) {
   return true;
 }
 
-
 export function getTextAnswerInputs(questionNode: Element) {
   return Array.from(questionNode.querySelectorAll<HTMLInputElement>("input")).filter((input) => {
     const type = (input.getAttribute("type") ?? "text").toLowerCase();
@@ -953,37 +976,39 @@ export function getTextAnswerInputs(questionNode: Element) {
   });
 }
 
-
 export function getEssayAnswerTextareas(questionNode: Element) {
-  return Array.from(questionNode.querySelectorAll<HTMLTextAreaElement>("textarea")).filter((textarea) => {
-    return !textarea.disabled && !textarea.readOnly && !textarea.closest(".questionflag");
-  });
+  return Array.from(questionNode.querySelectorAll<HTMLTextAreaElement>("textarea")).filter(
+    (textarea) => {
+      return !textarea.disabled && !textarea.readOnly && !textarea.closest(".questionflag");
+    },
+  );
 }
-
 
 export function selectTextAnswerByLabel(questionNode: Element, label: string) {
   const input = getTextAnswerInputs(questionNode)[0];
   return input ? setTextAnswerValue(input, label) : false;
 }
 
-
 export function getSelectSubIndex(select: HTMLSelectElement) {
   return getSubQuestionIndex(select);
 }
-
 
 export function getSelectQuestionNode(select: HTMLSelectElement) {
   return select.closest(".que");
 }
 
-
-export function getSelectControlLabelElements(questionNode: Element, select: HTMLSelectElement): HTMLElement[] {
+export function getSelectControlLabelElements(
+  questionNode: Element,
+  select: HTMLSelectElement,
+): HTMLElement[] {
   const elements: HTMLElement[] = [];
   const labelledByIds = (select.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean);
-  const describedByIds = (select.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+  const describedByIds = (select.getAttribute("aria-describedby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
   const labelIds = [
     ...labelledByIds,
-    ...describedByIds.filter((id) => /(?:^|[_-])(?:sub\d+_)?itemtext$|_itemtext$/i.test(id))
+    ...describedByIds.filter((id) => /(?:^|[_-])(?:sub\d+_)?itemtext$|_itemtext$/i.test(id)),
   ];
 
   for (const labelId of labelIds) {
@@ -1003,8 +1028,10 @@ export function getSelectControlLabelElements(questionNode: Element, select: HTM
   return elements;
 }
 
-
-export function getSelectPromptImageHashes(questionNode: Element, select: HTMLSelectElement): string[] {
+export function getSelectPromptImageHashes(
+  questionNode: Element,
+  select: HTMLSelectElement,
+): string[] {
   const hashes = new Set<string>();
 
   for (const labelElement of getSelectControlLabelElements(questionNode, select)) {
@@ -1023,8 +1050,11 @@ export function getSelectPromptImageHashes(questionNode: Element, select: HTMLSe
   return [...hashes];
 }
 
-
-export function getSelectControlLabel(questionNode: Element, select: HTMLSelectElement, index: number) {
+export function getSelectControlLabel(
+  questionNode: Element,
+  select: HTMLSelectElement,
+  index: number,
+) {
   for (const labelElement of getSelectControlLabelElements(questionNode, select)) {
     const label = getMoodleAnswerLabelTextOrImageIdentity(labelElement);
 
@@ -1036,22 +1066,15 @@ export function getSelectControlLabel(questionNode: Element, select: HTMLSelectE
   return `Select ${index + 1}`;
 }
 
-
 export function canMatchOpaqueMatchSlotsPositionally(answerData: AnswerData, selectCount: number) {
-  // Some external providers send opaque anchors such as ["", "-1510145339"]: no
-  // prompt text at all, only internal row ids. No client — including the
-  // provider's own — can bind such rows by content; the only possible binding
-  // is row order against DOM order (Moodle renders match stems in author-fixed
-  // order). Allow it only when every select maps to exactly one slot.
-  // Text anchors that disagree keep the strict behavior (no match) so answers
-  // from a wrong variant are never applied positionally.
   return (
     selectCount > 0 &&
     answerData.slots.length === selectCount &&
-    answerData.slots.every((slot) => slot.anchors.length > 0 && slot.anchors.every(isOpaqueMatchAnchor))
+    answerData.slots.every(
+      (slot) => slot.anchors.length > 0 && slot.anchors.every(isOpaqueMatchAnchor),
+    )
   );
 }
-
 
 export function getSelectPlaceIndex(select: HTMLSelectElement) {
   const slotIndex = getAnswerControlSlotIndex(select);
@@ -1063,7 +1086,6 @@ export function getSelectPlaceIndex(select: HTMLSelectElement) {
   const subIndex = getSelectSubIndex(select);
   return subIndex === null ? null : subIndex + 1;
 }
-
 
 export function getSelectSlotIndexCandidates(select: HTMLSelectElement, answerData?: AnswerData) {
   const candidates: number[] = [];
@@ -1090,11 +1112,11 @@ export function getSelectSlotIndexCandidates(select: HTMLSelectElement, answerDa
   return Array.from(new Set(candidates.filter((candidate) => Number.isFinite(candidate))));
 }
 
-
 export function getAnswerSlotByIndex(answerData: AnswerData, slotIndex: number | null) {
-  return slotIndex === null ? null : (answerData.slots.find((slot) => slot.index === slotIndex) ?? null);
+  return slotIndex === null
+    ? null
+    : (answerData.slots.find((slot) => slot.index === slotIndex) ?? null);
 }
-
 
 export function getAnswerSlotForSelect(answerData: AnswerData, select: HTMLSelectElement) {
   const questionNode = getSelectQuestionNode(select);
@@ -1109,20 +1131,22 @@ export function getAnswerSlotForSelect(answerData: AnswerData, select: HTMLSelec
       return labelMatchedSlot;
     }
 
-    // Image prompts carry no matchable text, but external providers hash the
-    // prompt image the same way (see hashQuestionImage): an exact hash match
-    // binds the row to its subquestion precisely.
     const promptImageHashes = getSelectPromptImageHashes(questionNode, select);
     const imageMatchedSlot =
       promptImageHashes.length > 0
-        ? answerData.slots.find((slot) => slot.anchors.some((anchor) => promptImageHashes.includes(anchor.trim())))
+        ? answerData.slots.find((slot) =>
+            slot.anchors.some((anchor) => promptImageHashes.includes(anchor.trim())),
+          )
         : null;
 
     if (imageMatchedSlot) {
       return imageMatchedSlot;
     }
 
-    if (answerData.slots.length > 0 && !canMatchOpaqueMatchSlotsPositionally(answerData, selects.length)) {
+    if (
+      answerData.slots.length > 0 &&
+      !canMatchOpaqueMatchSlotsPositionally(answerData, selects.length)
+    ) {
       return null;
     }
   }
@@ -1138,7 +1162,6 @@ export function getAnswerSlotForSelect(answerData: AnswerData, select: HTMLSelec
   return null;
 }
 
-
 export function getQuestionAnswerNode(questionNode: Element) {
   const answerNode = questionNode.querySelector(".answer");
 
@@ -1146,7 +1169,9 @@ export function getQuestionAnswerNode(questionNode: Element) {
     return answerNode;
   }
 
-  const fallbackNode = questionNode.querySelector(".content, .formulation, .answercontainer, .ddarea");
+  const fallbackNode = questionNode.querySelector(
+    ".content, .formulation, .answercontainer, .ddarea",
+  );
 
   if (isHTMLElement(fallbackNode)) {
     return fallbackNode;
@@ -1154,7 +1179,6 @@ export function getQuestionAnswerNode(questionNode: Element) {
 
   return isHTMLElement(questionNode) ? questionNode : null;
 }
-
 
 export function getAnswerEntries(): AnswerEntry[] {
   const answerEntries = Array.from(document.querySelectorAll(".que"))
@@ -1168,7 +1192,7 @@ export function getAnswerEntries(): AnswerEntry[] {
       return {
         answerNode,
         questionId: getQuestionId(questionNode),
-        questionNode
+        questionNode,
       };
     })
     .filter((entry): entry is AnswerEntry => entry !== null);
@@ -1189,39 +1213,37 @@ export function getAnswerEntries(): AnswerEntry[] {
       return {
         answerNode,
         questionId: null,
-        questionNode
+        questionNode,
       };
     })
     .filter((entry): entry is AnswerEntry => entry !== null);
 }
 
-
 export function getVariantCountsForQuestion(questionId: string | null) {
-  return questionId ? (variantCountsByQuestionId.get(questionId) ?? createEmptyVariantCounts()) : createEmptyVariantCounts();
+  return questionId
+    ? (variantCountsByQuestionId.get(questionId) ?? createEmptyVariantCounts())
+    : createEmptyVariantCounts();
 }
-
 
 export function getAnswerDataForQuestion(questionId: string | null): SourceAnswerData {
-  return questionId ? (answerDataByQuestionId.get(questionId) ?? createEmptySourceAnswerData()) : createEmptySourceAnswerData();
+  return questionId
+    ? (answerDataByQuestionId.get(questionId) ?? createEmptySourceAnswerData())
+    : createEmptySourceAnswerData();
 }
-
 
 export function clearReduxShareAnswerData() {
   for (const [questionId, answerData] of answerDataByQuestionId) {
     answerDataByQuestionId.set(questionId, {
       ...answerData,
-      reduxshare: createEmptyAnswerData()
+      reduxshare: createEmptyAnswerData(),
     });
   }
 }
-
 
 export function hasSourceAnswerData(answerData: SourceAnswerData) {
   return hasAnswerData(answerData.reduxshare) || hasAnswerData(answerData.external);
 }
 
-
-// Shared predicates used by several modules.
 export function isHTMLElement(value: Element | null): value is HTMLElement {
   return value instanceof HTMLElement;
 }
@@ -1245,34 +1267,38 @@ export function isUnsupportedDragDropQuestionType(questionNode: Element) {
   return questionType !== null && UNSUPPORTED_DRAG_DROP_QUESTION_TYPES.has(questionType);
 }
 
-
-export function scopeSourceAnswerDataToChoice(answerData: SourceAnswerData, input: HTMLInputElement, label: string) {
+export function scopeSourceAnswerDataToChoice(
+  answerData: SourceAnswerData,
+  input: HTMLInputElement,
+  label: string,
+) {
   const scopedReduxShare = scopeAnswerDataToChoice(answerData.reduxshare, input, label);
   const scopedExternal = scopeAnswerDataToChoice(answerData.external, input, label);
 
   return {
     answerData: {
       reduxshare: scopedReduxShare.answerData,
-      external: scopedExternal.answerData
+      external: scopedExternal.answerData,
     },
-    slotIndex: scopedReduxShare.slotIndex ?? scopedExternal.slotIndex
+    slotIndex: scopedReduxShare.slotIndex ?? scopedExternal.slotIndex,
   };
 }
 
-
-export function getUnboundExternalMatchStats(external: AnswerData, select: HTMLSelectElement): AnswerData {
+export function getUnboundExternalMatchStats(
+  external: AnswerData,
+  select: HTMLSelectElement,
+): AnswerData {
   const questionNode = getSelectQuestionNode(select);
 
   if (!questionNode || !isMatchingQuestionNode(questionNode) || external.submissions.length === 0) {
     return createEmptyAnswerData();
   }
 
-  // Opaque (hashed) anchors cannot be bound to prompts, but the aggregated
-  // statistics are still useful — including known-incorrect answers.
-  // Text anchors that disagree mean a wrong variant: keep those hidden entirely.
   const allAnchorsOpaque =
     external.slots.length > 0 &&
-    external.slots.every((slot) => slot.anchors.length > 0 && slot.anchors.every(isOpaqueMatchAnchor));
+    external.slots.every(
+      (slot) => slot.anchors.length > 0 && slot.anchors.every(isOpaqueMatchAnchor),
+    );
 
   if (!allAnchorsOpaque) {
     return createEmptyAnswerData();
@@ -1282,12 +1308,14 @@ export function getUnboundExternalMatchStats(external: AnswerData, select: HTMLS
     anchors: [],
     suggestions: [],
     submissions: external.submissions,
-    slots: []
+    slots: [],
   };
 }
 
-
-export function scopeSourceAnswerDataToSelect(answerData: SourceAnswerData, select: HTMLSelectElement) {
+export function scopeSourceAnswerDataToSelect(
+  answerData: SourceAnswerData,
+  select: HTMLSelectElement,
+) {
   const reduxShareSlot = getAnswerSlotForSelect(answerData.reduxshare, select);
   const externalSlot = getAnswerSlotForSelect(answerData.external, select);
   const fallbackSlotIndex = getSelectPlaceIndex(select);
@@ -1299,7 +1327,7 @@ export function scopeSourceAnswerDataToSelect(answerData: SourceAnswerData, sele
             anchors: reduxShareSlot.anchors,
             suggestions: reduxShareSlot.suggestions,
             submissions: reduxShareSlot.submissions,
-            slots: [reduxShareSlot]
+            slots: [reduxShareSlot],
           }
         : createEmptyAnswerData(),
       external: externalSlot
@@ -1307,18 +1335,17 @@ export function scopeSourceAnswerDataToSelect(answerData: SourceAnswerData, sele
             anchors: externalSlot.anchors,
             suggestions: externalSlot.suggestions,
             submissions: externalSlot.submissions,
-            slots: [externalSlot]
+            slots: [externalSlot],
           }
-        : getUnboundExternalMatchStats(answerData.external, select)
+        : getUnboundExternalMatchStats(answerData.external, select),
     },
-    slotIndex: reduxShareSlot?.index ?? externalSlot?.index ?? fallbackSlotIndex
+    slotIndex: reduxShareSlot?.index ?? externalSlot?.index ?? fallbackSlotIndex,
   };
 }
 
-
 export function getAnswerSlotForControl(
   answerData: AnswerData,
-  control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
 ) {
   for (const slotIndex of getAnswerControlSlotIndexCandidates(control, answerData)) {
     const slot = getAnswerSlotByIndex(answerData, slotIndex);
@@ -1331,19 +1358,24 @@ export function getAnswerSlotForControl(
   return null;
 }
 
-
 export function createAnswerDataFromSlot(slot: AnswerSlotData) {
   return {
     anchors: slot.anchors,
     suggestions: slot.suggestions,
     submissions: slot.submissions,
-    slots: [slot]
+    slots: [slot],
   };
 }
 
-
-export function shouldUseQuestionLevelTextAnswerData(answerData: AnswerData, control: HTMLInputElement | HTMLTextAreaElement) {
-  if (!hasAnswerData(answerData) || getAnswerControlSlotIndex(control) !== null || control.closest(".que.multianswer")) {
+export function shouldUseQuestionLevelTextAnswerData(
+  answerData: AnswerData,
+  control: HTMLInputElement | HTMLTextAreaElement,
+) {
+  if (
+    !hasAnswerData(answerData) ||
+    getAnswerControlSlotIndex(control) !== null ||
+    control.closest(".que.multianswer")
+  ) {
     return false;
   }
 
@@ -1356,39 +1388,47 @@ export function shouldUseQuestionLevelTextAnswerData(answerData: AnswerData, con
   return getTextAnswerInputs(questionNode).length <= 1;
 }
 
-
-export function scopeAnswerDataToTextControl(answerData: AnswerData, control: HTMLInputElement | HTMLTextAreaElement) {
+export function scopeAnswerDataToTextControl(
+  answerData: AnswerData,
+  control: HTMLInputElement | HTMLTextAreaElement,
+) {
   const slot = getAnswerSlotForControl(answerData, control);
 
   if (slot) {
     return {
       answerData: createAnswerDataFromSlot(slot),
-      slotIndex: slot.index
+      slotIndex: slot.index,
     };
   }
 
   return {
-    answerData: shouldUseQuestionLevelTextAnswerData(answerData, control) ? answerData : createEmptyAnswerData(),
-    slotIndex: getAnswerControlSlotIndex(control)
+    answerData: shouldUseQuestionLevelTextAnswerData(answerData, control)
+      ? answerData
+      : createEmptyAnswerData(),
+    slotIndex: getAnswerControlSlotIndex(control),
   };
 }
 
-
-export function scopeSourceAnswerDataToTextControl(answerData: SourceAnswerData, control: HTMLInputElement | HTMLTextAreaElement) {
+export function scopeSourceAnswerDataToTextControl(
+  answerData: SourceAnswerData,
+  control: HTMLInputElement | HTMLTextAreaElement,
+) {
   const scopedReduxShare = scopeAnswerDataToTextControl(answerData.reduxshare, control);
   const scopedExternal = scopeAnswerDataToTextControl(answerData.external, control);
 
   return {
     answerData: {
       reduxshare: scopedReduxShare.answerData,
-      external: scopedExternal.answerData
+      external: scopedExternal.answerData,
     },
-    slotIndex: scopedReduxShare.slotIndex ?? scopedExternal.slotIndex
+    slotIndex: scopedReduxShare.slotIndex ?? scopedExternal.slotIndex,
   };
 }
 
-
-export function scopeSourceAnswerDataToSlot(answerData: SourceAnswerData, slotIndex: number | null) {
+export function scopeSourceAnswerDataToSlot(
+  answerData: SourceAnswerData,
+  slotIndex: number | null,
+) {
   const reduxShareSlot = getAnswerSlotByIndex(answerData.reduxshare, slotIndex);
   const externalSlot = getAnswerSlotByIndex(answerData.external, slotIndex);
 
@@ -1399,7 +1439,7 @@ export function scopeSourceAnswerDataToSlot(answerData: SourceAnswerData, slotIn
             anchors: reduxShareSlot.anchors,
             suggestions: reduxShareSlot.suggestions,
             submissions: reduxShareSlot.submissions,
-            slots: [reduxShareSlot]
+            slots: [reduxShareSlot],
           }
         : createEmptyAnswerData(),
       external: externalSlot
@@ -1407,16 +1447,19 @@ export function scopeSourceAnswerDataToSlot(answerData: SourceAnswerData, slotIn
             anchors: externalSlot.anchors,
             suggestions: externalSlot.suggestions,
             submissions: externalSlot.submissions,
-            slots: [externalSlot]
+            slots: [externalSlot],
           }
-        : createEmptyAnswerData()
+        : createEmptyAnswerData(),
     },
-    slotIndex
+    slotIndex,
   };
 }
 
-
-export function scopeAnswerDataToOrderingItem(answerData: AnswerData, itemLabel: string, itemCount: number) {
+export function scopeAnswerDataToOrderingItem(
+  answerData: AnswerData,
+  itemLabel: string,
+  itemCount: number,
+) {
   const scopedAnswerData = createEmptyAnswerData();
   const hasZeroBasedSlots = answerDataHasZeroBasedOrderingSlots(answerData);
 
@@ -1447,7 +1490,7 @@ export function scopeAnswerDataToOrderingItem(answerData: AnswerData, itemLabel:
       hasExplicitIndex: true,
       anchors: [anchor],
       suggestions,
-      submissions
+      submissions,
     });
   }
 
@@ -1472,7 +1515,10 @@ export function scopeAnswerDataToOrderingItem(answerData: AnswerData, itemLabel:
   });
 
   if (scopedAnswerData.suggestions.length === 0) {
-    const sequentialLabels = splitSequentialAnswerLabels(getPreferredSuggestionLabels(answerData.suggestions), itemCount);
+    const sequentialLabels = splitSequentialAnswerLabels(
+      getPreferredSuggestionLabels(answerData.suggestions),
+      itemCount,
+    );
     const fallbackSuggestion = answerData.suggestions.find((suggestion) => suggestion.label.trim());
 
     if (fallbackSuggestion && sequentialLabels.length === itemCount) {
@@ -1482,10 +1528,10 @@ export function scopeAnswerDataToOrderingItem(answerData: AnswerData, itemLabel:
             mapSuggestionToOrderingPosition(
               {
                 ...fallbackSuggestion,
-                label
+                label,
               },
-              index + 1
-            )
+              index + 1,
+            ),
           );
         }
       });
@@ -1495,8 +1541,11 @@ export function scopeAnswerDataToOrderingItem(answerData: AnswerData, itemLabel:
   return scopedAnswerData;
 }
 
-
-export function scopeSourceAnswerDataToOrderingItem(answerData: SourceAnswerData, itemLabel: string, itemCount: number) {
+export function scopeSourceAnswerDataToOrderingItem(
+  answerData: SourceAnswerData,
+  itemLabel: string,
+  itemCount: number,
+) {
   const reduxshare = scopeAnswerDataToOrderingItem(answerData.reduxshare, itemLabel, itemCount);
   const external = scopeAnswerDataToOrderingItem(answerData.external, itemLabel, itemCount);
   const slotIndex =
@@ -1511,61 +1560,83 @@ export function scopeSourceAnswerDataToOrderingItem(answerData: SourceAnswerData
   return {
     answerData: {
       reduxshare,
-      external
+      external,
     },
-    slotIndex
+    slotIndex,
   };
 }
 
-
-export function getAnswerDataForQuestionSelect(questionId: string | null, select: HTMLSelectElement) {
+export function getAnswerDataForQuestionSelect(
+  questionId: string | null,
+  select: HTMLSelectElement,
+) {
   return scopeSourceAnswerDataToSelect(getAnswerDataForQuestion(questionId), select);
 }
 
-
-export function getAnswerDataForQuestionTextControl(questionId: string | null, control: HTMLInputElement | HTMLTextAreaElement) {
+export function getAnswerDataForQuestionTextControl(
+  questionId: string | null,
+  control: HTMLInputElement | HTMLTextAreaElement,
+) {
   return scopeSourceAnswerDataToTextControl(getAnswerDataForQuestion(questionId), control);
 }
 
-
-export function getAnswerDataForQuestionChoice(questionId: string | null, questionNode: Element, input: HTMLInputElement) {
+export function getAnswerDataForQuestionChoice(
+  questionId: string | null,
+  questionNode: Element,
+  input: HTMLInputElement,
+) {
   const fullAnswerData = getAnswerDataForQuestion(questionId);
   const label = getInputAnswerLabelText(questionNode, input);
 
   return scopeSourceAnswerDataToChoice(fullAnswerData, input, label);
 }
 
-
 export function getAnswerDataForDdwtosDrop(questionId: string | null, drop: Element) {
-  return scopeSourceAnswerDataToSlot(getAnswerDataForQuestion(questionId), getDdwtosDropSlotIndex(drop));
+  return scopeSourceAnswerDataToSlot(
+    getAnswerDataForQuestion(questionId),
+    getDdwtosDropSlotIndex(drop),
+  );
 }
-
 
 export function getAnswerDataForDdmarkerChoice(questionId: string | null, choiceIndex: number) {
   return scopeSourceAnswerDataToSlot(getAnswerDataForQuestion(questionId), choiceIndex);
 }
 
-
 export function getAnswerDataForDdimageOrTextDrop(questionId: string | null, drop: Element) {
-  return scopeSourceAnswerDataToSlot(getAnswerDataForQuestion(questionId), getDdimageOrTextDropSlotIndex(drop));
+  return scopeSourceAnswerDataToSlot(
+    getAnswerDataForQuestion(questionId),
+    getDdimageOrTextDropSlotIndex(drop),
+  );
 }
 
-
-export function getAnswerDataForOrderingItem(questionId: string | null, item: Element, itemCount: number) {
-  return scopeSourceAnswerDataToOrderingItem(getAnswerDataForQuestion(questionId), getOrderingItemLabel(item), itemCount);
+export function getAnswerDataForOrderingItem(
+  questionId: string | null,
+  item: Element,
+  itemCount: number,
+) {
+  return scopeSourceAnswerDataToOrderingItem(
+    getAnswerDataForQuestion(questionId),
+    getOrderingItemLabel(item),
+    itemCount,
+  );
 }
 
-
-export function addVariantCounts(left: AnswerVariantCounts, right: AnswerVariantCounts): AnswerVariantCounts {
+export function addVariantCounts(
+  left: AnswerVariantCounts,
+  right: AnswerVariantCounts,
+): AnswerVariantCounts {
   return {
     anchors: left.anchors + right.anchors,
     suggestions: left.suggestions + right.suggestions,
-    submissions: left.submissions + right.submissions
+    submissions: left.submissions + right.submissions,
   };
 }
 
-
-export function setSourceAnswerData(questionId: string | null, source: keyof SourceAnswerData, data: AnswerData) {
+export function setSourceAnswerData(
+  questionId: string | null,
+  source: keyof SourceAnswerData,
+  data: AnswerData,
+) {
   if (!questionId) {
     return;
   }
@@ -1574,12 +1645,14 @@ export function setSourceAnswerData(questionId: string | null, source: keyof Sou
 
   answerDataByQuestionId.set(questionId, {
     ...currentAnswerData,
-    [source]: data
+    [source]: data,
   });
 }
 
-
-export function applyQuizAnswerResults(results: QuizVariantResult[] | undefined, source: keyof SourceAnswerData) {
+export function applyQuizAnswerResults(
+  results: QuizVariantResult[] | undefined,
+  source: keyof SourceAnswerData,
+) {
   for (const result of results ?? []) {
     const counts = getVariantCounts(result);
     const data = getAnswerData(result);
@@ -1587,7 +1660,10 @@ export function applyQuizAnswerResults(results: QuizVariantResult[] | undefined,
     if (result.questionId) {
       variantCountsByQuestionId.set(
         result.questionId,
-        addVariantCounts(variantCountsByQuestionId.get(result.questionId) ?? createEmptyVariantCounts(), counts)
+        addVariantCounts(
+          variantCountsByQuestionId.get(result.questionId) ?? createEmptyVariantCounts(),
+          counts,
+        ),
       );
       setSourceAnswerData(result.questionId, source, data);
     }
@@ -1597,7 +1673,7 @@ export function applyQuizAnswerResults(results: QuizVariantResult[] | undefined,
 export function createEmptyProgressReports(): QuizProgressReports {
   return {
     tests: {},
-    questions: {}
+    questions: {},
   };
 }
 
@@ -1626,7 +1702,7 @@ export function normalizeProgressReports(value: unknown): QuizProgressReports {
 
   return {
     tests: normalizeProgressReportMap(record.tests),
-    questions: normalizeProgressReportMap(record.questions)
+    questions: normalizeProgressReportMap(record.questions),
   };
 }
 
@@ -1637,7 +1713,7 @@ export async function loadProgressReports(): Promise<QuizProgressReports> {
 
 export async function saveProgressReports(reports: QuizProgressReports) {
   await chrome.storage.local.set({
-    [QUIZ_PROGRESS_REPORTS_STORAGE_KEY]: reports
+    [QUIZ_PROGRESS_REPORTS_STORAGE_KEY]: reports,
   });
 }
 
@@ -1649,7 +1725,7 @@ export function getQuestionHash(questionNode: Element, questionType: string | nu
   const fingerprint = [
     normalizeFingerprintText(questionType ?? ""),
     normalizeFingerprintText(questionText),
-    ...answerLabels
+    ...answerLabels,
   ].join("|");
 
   return fingerprint ? stableHashText(fingerprint) : null;

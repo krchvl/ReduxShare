@@ -3,14 +3,11 @@ import {
   normalizeQuizIdScanRange,
   QUIZ_ID_SCAN_DEFAULT_FROM,
   QUIZ_ID_SCAN_DEFAULT_TO,
-  scanExternalQuestionIds
+  scanExternalQuestionIds,
 } from "../src/lib/quizIdScan";
 import { getQuizQuestionStubs } from "../src/lib/quizQuestionRegistry";
 
 function stubFetch(impl: (url: string, init?: RequestInit) => Promise<Response>) {
-  // NB: no unstub in afterEach — setup.ts provides a global chrome mock that
-  // unstubAllGlobals would destroy, and every fetch-using test stubs its own
-  // implementation below. Test files run in isolated environments.
   vi.stubGlobal("fetch", vi.fn(impl));
 }
 
@@ -36,7 +33,6 @@ describe("normalizeQuizIdScanRange", () => {
 
 describe("scanExternalQuestionIds", () => {
   it("discovers IDs with the same solution request the attempt page sends", async () => {
-    // The scan stops when the preview modal is gone; keep it mounted.
     document.body.innerHTML = '<div id="reduxshare-quiz-preview-modal"></div>';
     const requested: string[] = [];
     stubFetch(async (url: string) => {
@@ -52,12 +48,14 @@ describe("scanExternalQuestionIds", () => {
     const hits = await scanExternalQuestionIds("scan.example", 3, 9, 5, 9, {
       onProgress: (value) => {
         progress.push(value);
-      }
+      },
     });
 
-    expect(hits).toEqual([{ questionId: "7", questionType: "match", data: [{ anchor: ["", "h"] }] }]);
+    expect(hits).toEqual([
+      { questionId: "7", questionType: "match", data: [{ anchor: ["", "h"] }] },
+    ]);
     expect(progress.at(-1)).toMatchObject({ checked: 5, total: 5, found: 1 });
-    // Misses cost probes, hits stop at the matching type: no request may target a stale host.
+
     expect(requested.length).toBeGreaterThan(0);
     expect(requested.every((url) => url.startsWith("https://syncshare."))).toBe(true);
 
@@ -82,11 +80,11 @@ describe("scanExternalQuestionIds", () => {
     });
 
     const hits = await scanExternalQuestionIds("scan-cancel.example", 3, 9, 1, 500, {
-      isCancelled: () => calls > 5
+      isCancelled: () => calls > 5,
     });
 
     expect(hits).toEqual([]);
-    // Only the first batches ran instead of the whole range.
+
     expect(calls).toBeLessThan(500);
   });
 
@@ -111,7 +109,7 @@ describe("scanExternalQuestionIds", () => {
     });
 
     const hits = await scanExternalQuestionIds("scan-types.example", 3, 9, 7, 7, {
-      questionTypes: ["match", "multichoice"]
+      questionTypes: ["match", "multichoice"],
     });
 
     expect(hits).toHaveLength(1);
@@ -129,7 +127,7 @@ describe("scanExternalQuestionIds", () => {
     });
 
     const hits = await scanExternalQuestionIds("scan-deselected.example", 3, 9, 7, 7, {
-      questionTypes: ["multichoice", "truefalse"]
+      questionTypes: ["multichoice", "truefalse"],
     });
 
     expect(hits).toEqual([]);
@@ -145,7 +143,7 @@ describe("scanExternalQuestionIds", () => {
     });
 
     await scanExternalQuestionIds("scan-unknown.example", 3, 9, 1, 1, {
-      questionTypes: ["not-a-type"]
+      questionTypes: ["not-a-type"],
     });
 
     expect(requestedTypes.length).toBeGreaterThan(1);

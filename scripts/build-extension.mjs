@@ -21,11 +21,11 @@ await checkPocketBaseUrl(rootDir);
 
 for (const target of targets) {
   run("npx", ["vite", "build"], {
-    REDUXSHARE_BROWSER_TARGET: target
+    REDUXSHARE_BROWSER_TARGET: target,
   });
   run("npx", ["vite", "build"], {
     REDUXSHARE_BROWSER_TARGET: target,
-    REDUXSHARE_BUNDLE: "content"
+    REDUXSHARE_BUNDLE: "content",
   });
   await removeBuildJunk(resolve(rootDir, "dist", target));
   const manifest = await writeTargetManifest(target);
@@ -42,14 +42,16 @@ async function assertContentScriptsAreSelfContained(targetDir) {
 
     if (/^import[^\n]*from\s*["']/m.test(source)) {
       console.error(`${file} contains an ES import, which a classic content script cannot load.`);
-      console.error("Keep every module the content entries import inlined in their own build pass.");
+      console.error(
+        "Keep every module the content entries import inlined in their own build pass.",
+      );
       process.exit(1);
     }
   }
 }
 
 async function checkPocketBaseUrl(rootDir) {
-  let envFile = "";
+  let envFile;
 
   try {
     envFile = await readFile(resolve(rootDir, ".env"), "utf8");
@@ -64,7 +66,7 @@ async function checkPocketBaseUrl(rootDir) {
     console.warn(
       "WARNING: VITE_POCKETBASE_URL is not set. The built extension will show " +
         '"PocketBase is not configured" and all backend features will fail. ' +
-        "Copy .env.example to .env and set your server URL, then rebuild."
+        "Copy .env.example to .env and set your server URL, then rebuild.",
     );
     return;
   }
@@ -73,19 +75,20 @@ async function checkPocketBaseUrl(rootDir) {
     console.warn(
       `WARNING: VITE_POCKETBASE_URL=${url} points at localhost. ` +
         "This build will only work on the machine running PocketBase. " +
-        "Do not distribute it to other people."
+        "Do not distribute it to other people.",
     );
   }
 }
 
-function run(command, args, env = {}, cwd = rootDir) {  const result = spawnSync(command, args, {
+function run(command, args, env = {}, cwd = rootDir) {
+  const result = spawnSync(command, args, {
     cwd,
     env: {
       ...process.env,
-      ...env
+      ...env,
     },
     stdio: "inherit",
-    shell: process.platform === "win32"
+    shell: process.platform === "win32",
   });
 
   if (result.status !== 0) {
@@ -100,24 +103,29 @@ async function writeTargetManifest(target) {
   if (target === "firefox") {
     manifest.background = {
       scripts: ["assets/external.js"],
-      type: "module"
+      type: "module",
     };
     manifest.browser_specific_settings = {
       gecko: {
         id: "reduxshare@naloaty.me",
         strict_min_version: "140.0",
         data_collection_permissions: {
-          required: ["authenticationInfo", "personallyIdentifyingInfo", "websiteActivity", "websiteContent"]
-        }
+          required: [
+            "authenticationInfo",
+            "personallyIdentifyingInfo",
+            "websiteActivity",
+            "websiteContent",
+          ],
+        },
       },
       gecko_android: {
-        strict_min_version: "142.0"
-      }
+        strict_min_version: "142.0",
+      },
     };
   } else {
     manifest.background = {
       service_worker: "assets/external.js",
-      type: "module"
+      type: "module",
     };
     delete manifest.browser_specific_settings;
   }
@@ -147,7 +155,14 @@ async function createTargetArchive(target, version) {
 
 async function removeDistRootArtifacts(targetsToBuild) {
   const distDir = resolve(rootDir, "dist");
-  const legacyBuildEntries = new Set([".DS_Store", "_locales", "assets", "icons", "index.html", "manifest.json"]);
+  const legacyBuildEntries = new Set([
+    ".DS_Store",
+    "_locales",
+    "assets",
+    "icons",
+    "index.html",
+    "manifest.json",
+  ]);
 
   let entries;
 
@@ -177,7 +192,7 @@ async function removeDistRootArtifacts(targetsToBuild) {
       ) {
         await rm(entryPath, { force: true });
       }
-    })
+    }),
   );
 }
 
@@ -202,6 +217,6 @@ async function removeBuildJunk(directory) {
       if (entry.isDirectory()) {
         await removeBuildJunk(entryPath);
       }
-    })
+    }),
   );
 }

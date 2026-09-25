@@ -19,7 +19,7 @@ export function getBrowserLanguage() {
 
 export function resolveLanguage(
   language: LanguageSetting | undefined,
-  browserLanguage = getBrowserLanguage()
+  browserLanguage = getBrowserLanguage(),
 ): ResolvedLanguage {
   if (language === "ru" || language === "en") {
     return language;
@@ -43,7 +43,7 @@ export function translateKey<TKey extends string>(
   table: TranslationTable<TKey>,
   language: ResolvedLanguage,
   key: TKey,
-  params?: I18nParams
+  params?: I18nParams,
 ) {
   const template = table[language][key] ?? table.ru[key] ?? key;
   return interpolate(template, params);
@@ -51,7 +51,7 @@ export function translateKey<TKey extends string>(
 
 export function createTranslator<TKey extends string>(
   table: TranslationTable<TKey>,
-  language: LanguageSetting | undefined
+  language: LanguageSetting | undefined,
 ): Translator<TKey> {
   const resolvedLanguage = resolveLanguage(language);
   return (key, params) => translateKey(table, resolvedLanguage, key, params);

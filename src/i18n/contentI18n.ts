@@ -1,4 +1,4 @@
-import { createTranslator, type I18nParams, type Translator } from "../shared/i18nCore";
+import { createTranslator, type Translator } from "../shared/i18nCore";
 import type { LanguageSetting } from "../model";
 
 export const CONTENT_TRANSLATIONS = {
@@ -49,8 +49,9 @@ export const CONTENT_TRANSLATIONS = {
     "quiz.preview.question": "Вопрос {number}",
     "quiz.preview.conditionMissing": "Условие задания не найдено",
     "quiz.preview.options": "Варианты ответов",
-    "quiz.preview.externalDiscovery": "Ответы внешних источников появятся здесь после того, как вы откроете попытку этого квиза хотя бы один раз — так расширение узнает список заданий.",
-    "quiz.preview.statistic": "Статистика"
+    "quiz.preview.externalDiscovery":
+      "Ответы внешних источников появятся здесь после того, как вы откроете попытку этого квиза хотя бы один раз — так расширение узнает список заданий.",
+    "quiz.preview.statistic": "Статистика",
   },
   en: {
     "quiz.panel.user": "User",
@@ -99,16 +100,15 @@ export const CONTENT_TRANSLATIONS = {
     "quiz.preview.question": "Question {number}",
     "quiz.preview.conditionMissing": "Question statement not found",
     "quiz.preview.options": "Answer options",
-    "quiz.preview.externalDiscovery": "External answers will appear here after you open an attempt of this quiz at least once — that is how the extension learns the question list.",
-    "quiz.preview.statistic": "Statistics"
-  }
+    "quiz.preview.externalDiscovery":
+      "External answers will appear here after you open an attempt of this quiz at least once — that is how the extension learns the question list.",
+    "quiz.preview.statistic": "Statistics",
+  },
 } as const;
 
 export type ContentTranslationKey = keyof typeof CONTENT_TRANSLATIONS.ru;
 export type TranslateFn = Translator<ContentTranslationKey>;
 
-// Same resolution, interpolation and fallback rules as the popup translator; only the table is
-// content-specific, because the content bundle cannot import the popup locale JSON files.
 export function getContentTranslator(language: LanguageSetting | undefined): TranslateFn {
   return createTranslator(CONTENT_TRANSLATIONS, language);
 }
