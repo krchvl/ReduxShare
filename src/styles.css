@@ -120,6 +120,7 @@ html,
 body,
 #root {
   width: var(--popup-width);
+  height: 100%;
   min-height: var(--popup-height);
   margin: 0;
   overflow-x: hidden;
@@ -127,7 +128,6 @@ body,
 
 html,
 body {
-  height: auto;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
@@ -173,7 +173,10 @@ button:focus-visible {
 
 .popup-shell {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: var(--popup-width);
+  height: 100%;
   min-height: var(--popup-height);
   overflow-x: hidden;
   background:
@@ -189,6 +192,10 @@ button:focus-visible {
 .popup-shell[data-extension-enabled="false"] {
   --accent: #9ca3aa;
   --accent-soft: #c1c6cc;
+}
+
+.popup-shell > :not(.main-content) {
+  flex: none;
 }
 
 .app-header {
@@ -450,8 +457,27 @@ button:focus-visible {
 }
 
 .main-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   margin-top: 16px;
   margin-inline: 30px;
+}
+
+.main-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--border-strong);
 }
 
 .settings-tabs {
