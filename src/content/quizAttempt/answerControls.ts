@@ -69,7 +69,7 @@ import {
   isSelectableQuestionType,
   isTextInputQuestionType
 } from "../../dom/questionTypes";
-import { logReduxShareInfo, logReduxShareWarning } from "../../logic/runtime";
+import { isExtensionContextValid, logReduxShareInfo, logReduxShareWarning } from "../../logic/runtime";
 import { canUseAuthenticatedQuizFeatures } from "../../logic/settings";
 import { answerDataByQuestionId, currentQuizAttemptContext, currentStoredState, variantCountsByQuestionId } from "../../state";
 import { getDdwtosChoices, getDdwtosDropSlotIndex } from "./ddwtos";
@@ -174,22 +174,27 @@ export function requestQuizProgressRecord(payload: {
   solvedTasksDelta: number;
 }): Promise<RecordQuizProgressResponse> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      {
-        type: RECORD_QUIZ_PROGRESS_MESSAGE,
-        payload
-      },
-      (response: RecordQuizProgressResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: RECORD_QUIZ_PROGRESS_MESSAGE,
+          payload
+        },
+        (response: RecordQuizProgressResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
 
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(response ?? { ok: false, error: "Background script did not return a response." });
         }
-
-        resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      }
-    );
+      );
+    } catch (error) {
+      // Synchronous throw: the extension context is gone (reloaded/removed).
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 }
 
@@ -199,6 +204,12 @@ export async function reportSolvedQuestions(questionProgressIds: string[]) {
   const uniqueQuestionProgressIds = Array.from(new Set(questionProgressIds.filter(Boolean)));
 
   if (!context || uniqueQuestionProgressIds.length === 0 || !canUseAuthenticatedQuizFeatures(currentStoredState)) {
+    return;
+  }
+
+  // Auto-select timeouts can fire after the extension context is gone
+  // (reloaded/removed): bail out before touching chrome.storage.
+  if (!isExtensionContextValid()) {
     return;
   }
 

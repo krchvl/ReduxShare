@@ -15,6 +15,7 @@ import {
 } from "../src/ui/quizPreviewPanel";
 import { setCurrentStoredState, setCurrentT } from "../src/state";
 import { getContentTranslator } from "../src/i18n/contentI18n";
+import { isExtensionContextValid } from "../src/logic/runtime";
 import type { QuizPreviewQuestion } from "../src/model";
 
 function storedState(overrides: Record<string, unknown> = {}) {
@@ -473,5 +474,29 @@ describe("quiz preview refresh action", () => {
 
     setQuizPreviewScanRunning(false);
     setQuizPreviewScanHandlers(null);
+  });
+});
+
+describe("extension context guard", () => {
+  function stubChromeRuntimeId(id: string | undefined) {
+    const ambientChrome = (globalThis as unknown as { chrome?: Record<string, unknown> }).chrome ?? {};
+    const ambientRuntime = (ambientChrome.runtime as Record<string, unknown> | undefined) ?? {};
+    vi.stubGlobal("chrome", {
+      ...ambientChrome,
+      runtime: { ...ambientRuntime, id }
+    });
+  }
+
+  it("reports a live context", () => {
+    stubChromeRuntimeId("test-extension-id");
+    expect(isExtensionContextValid()).toBe(true);
+  });
+
+  it("reports an invalidated context without throwing", () => {
+    stubChromeRuntimeId(undefined);
+    expect(isExtensionContextValid()).toBe(false);
+
+    stubChromeRuntimeId("test-extension-id");
+    expect(isExtensionContextValid()).toBe(true);
   });
 });

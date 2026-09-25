@@ -427,22 +427,27 @@ export function requestAiGeneratedAnswer(payload: {
   pageUrl: string;
 }): Promise<AiAnswerResponse> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      {
-        type: GENERATE_AI_ANSWER_MESSAGE,
-        payload
-      },
-      (response: AiAnswerResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: GENERATE_AI_ANSWER_MESSAGE,
+          payload
+        },
+        (response: AiAnswerResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
 
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(response ?? { ok: false, error: "Background script did not return a response." });
         }
-
-        resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      }
-    );
+      );
+    } catch (error) {
+      // Synchronous throw: the extension context is gone (reloaded/removed).
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 }
 

@@ -220,6 +220,7 @@ import {
   syncQuizPreviewFeatures,
 } from "./quizPreview";
 import {
+  isExtensionContextValid,
   loadStoredState,
   logReduxShareInfo,
   logReduxShareWarning,
@@ -2320,34 +2321,39 @@ function requestQuizAnswers(
   }
 
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      {
-        type: FETCH_QUIZ_ANSWERS_MESSAGE,
-        payload: {
-          domain: context.domain,
-          courseId: context.courseId,
-          quizId: context.contextInstanceId,
-          attemptId: context.attemptId,
-          moodleUserId: context.moodleUserId,
-          questions: sourceQuestions,
-        },
-      },
-      (response: QuizAnswersResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
-
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
-        }
-
-        resolve(
-          response ?? {
-            ok: false,
-            error: "Background script did not return a response.",
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: FETCH_QUIZ_ANSWERS_MESSAGE,
+          payload: {
+            domain: context.domain,
+            courseId: context.courseId,
+            quizId: context.contextInstanceId,
+            attemptId: context.attemptId,
+            moodleUserId: context.moodleUserId,
+            questions: sourceQuestions,
           },
-        );
-      },
-    );
+        },
+        (response: QuizAnswersResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
+
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(
+            response ?? {
+              ok: false,
+              error: "Background script did not return a response.",
+            },
+          );
+        },
+      );
+    } catch (error) {
+      // Synchronous throw: the extension context is gone (reloaded/removed).
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 }
 
@@ -2472,6 +2478,12 @@ async function initializeQuizSummaryTracking() {
 }
 
 async function bootstrapQuizPageDetection() {
+  // The extension was reloaded/removed while this tab stayed open: the old
+  // content script keeps running, so stop before any chrome.* call throws.
+  if (!isExtensionContextValid()) {
+    return;
+  }
+
   installColorSchemeWatcher();
 
   if (isQuizAttemptUrl(window.location)) {

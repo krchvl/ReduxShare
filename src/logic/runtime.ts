@@ -20,6 +20,20 @@ import {
 
 
 
+// After the extension is reloaded, updated, or uninstalled, content scripts
+// already running in open tabs keep executing with a dead extension context:
+// every chrome.* call then throws "Extension context invalidated". The quiz
+// pages mutate constantly (timers, observers), so an unguarded hot path turns
+// into console spam. chrome.runtime.id is only present while the context is
+// alive, which makes it a cheap synchronous liveness check.
+export function isExtensionContextValid() {
+  try {
+    return typeof chrome !== "undefined" && !!chrome.runtime?.id;
+  } catch {
+    return false;
+  }
+}
+
 export async function loadStoredState(): Promise<StoredStateLike> {
   const result = await chrome.storage.local.get(APP_STORAGE_KEY);
   const storedState = (result[APP_STORAGE_KEY] as StoredStateLike | undefined) ?? {};

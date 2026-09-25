@@ -5,6 +5,7 @@
 import { findMoodleConfig, parseMoodleNumericId } from "../moodleContext";
 import { canUseQuizFeatures } from "../logic/settings";
 import {
+  isExtensionContextValid,
   loadStoredState,
   logReduxShareInfo,
   logReduxShareWarning,
@@ -488,6 +489,13 @@ function watchQuizPreviewButtonMount() {
   quizPreviewMountObserverInstalled = true;
 
   const observer = new MutationObserver(() => {
+    // A dead context (extension reloaded/removed) leaves this observer running
+    // in the page: disconnect instead of throwing on every DOM mutation.
+    if (!isExtensionContextValid()) {
+      observer.disconnect();
+      return;
+    }
+
     ensureQuizPreviewButton();
   });
 

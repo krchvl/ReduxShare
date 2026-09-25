@@ -152,6 +152,7 @@ vi.stubGlobal("chrome", {
     getUILanguage: vi.fn(() => "ru")
   },
   runtime: {
+    id: "test-extension-id",
     lastError: null,
     sendMessage: runtimeSendMessage,
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
