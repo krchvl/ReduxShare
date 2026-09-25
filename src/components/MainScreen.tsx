@@ -16,6 +16,7 @@ import {
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
 import { AiProviderIcon } from "./AiProviderIcon";
+import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
 import { LanguageSelect } from "./LanguageSelect";
@@ -1165,7 +1166,11 @@ export function MainScreen({
             title={t("settings.human.title")}
             lines={[t("settings.human.line1"), t("settings.human.line2")]}
             control={
-              <div className="human-behavior">
+              <div
+                className="ai-provider-tabs ai-provider-tabs--compact"
+                role="group"
+                aria-label={t("settings.human.title")}
+              >
                 {(
                   [
                     ["humanTyping", "settings.humanTyping"],
@@ -1173,16 +1178,26 @@ export function MainScreen({
                     ["humanReading", "settings.humanReading"],
                     ["humanOrder", "settings.humanOrder"],
                   ] as const
-                ).map(([settingKey, keyPrefix]) => (
-                  <label key={settingKey} className="human-behavior__row">
-                    <Switch
-                      checked={settings[settingKey]}
-                      label={t(`${keyPrefix}.title`)}
-                      onChange={(checked) => updateSetting(settingKey, checked)}
-                    />
-                    <span className="human-behavior__label">{t(`${keyPrefix}.title`)}</span>
-                  </label>
-                ))}
+                ).map(([settingKey, keyPrefix]) => {
+                  const active = settings[settingKey];
+
+                  return (
+                    <button
+                      key={settingKey}
+                      type="button"
+                      role="switch"
+                      aria-checked={active}
+                      aria-label={t(`${keyPrefix}.title`)}
+                      className={`ai-provider-tab${active ? " ai-provider-tab--active" : ""}`}
+                      onClick={() => updateSetting(settingKey, !active)}
+                    >
+                      <span className="ai-provider-tab__icon" aria-hidden="true">
+                        <HumanizationIcon option={settingKey} />
+                      </span>
+                      <span className="ai-provider-tab__label">{t(`${keyPrefix}.title`)}</span>
+                    </button>
+                  );
+                })}
               </div>
             }
           />

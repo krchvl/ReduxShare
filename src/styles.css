@@ -732,21 +732,8 @@ button:focus-visible {
   justify-items: end;
 }
 
-.human-behavior {
-  display: grid;
-  gap: 10px;
-  justify-items: end;
-}
-
-.human-behavior__row {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.human-behavior__label {
-  font-size: 13px;
+.ai-provider-tabs.ai-provider-tabs--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .autoselect-timing__chips {

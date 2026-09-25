@@ -42,17 +42,19 @@ describe("humanization settings section", () => {
       );
     });
 
-    const rows = Array.from(container.querySelectorAll(".human-behavior__row"));
-    expect(rows).toHaveLength(4);
+    const tabs = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('.ai-provider-tab[role="switch"]'),
+    );
+    expect(tabs).toHaveLength(4);
 
-    const labels = rows.map((row) => row.textContent?.trim());
+    const labels = tabs.map((tab) => tab.textContent?.trim());
     expect(labels).toEqual(["Живая печать", "Скролл и фокус", "Время чтения", "Случайный порядок"]);
+    expect(tabs[0].querySelector(".ai-provider-tab__icon svg")).not.toBeNull();
 
-    const firstSwitch = rows[0].querySelector<HTMLButtonElement>(".switch");
-    expect(firstSwitch?.getAttribute("aria-checked")).toBe("true");
+    expect(tabs[0].getAttribute("aria-checked")).toBe("true");
 
     act(() => {
-      firstSwitch!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      tabs[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onSettingsChange).toHaveBeenCalledTimes(1);
