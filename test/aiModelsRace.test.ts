@@ -101,8 +101,10 @@ describe("MainScreen AI model auto-fetch", () => {
     renderMainScreen();
     expect(clickProviderTab()).toBe(true);
 
-    const providerSelect = container!.querySelector<HTMLSelectElement>("select.ai-select");
-    expect(providerSelect).not.toBeNull();
+    const googleTab = container!.querySelector<HTMLButtonElement>(
+      '.ai-provider-tab[aria-label="Google"]',
+    );
+    expect(googleTab).not.toBeNull();
 
     let resolveFirst: (value: {
       ok: boolean;
@@ -119,11 +121,15 @@ describe("MainScreen AI model auto-fetch", () => {
       vi.advanceTimersByTime(200);
     });
     expect(requestAiModelsMock).toHaveBeenCalledTimes(1);
-    expect(providerSelect!.value).toBe("google");
+    expect(googleTab!.getAttribute("aria-checked")).toBe("true");
+
+    const openRouterTab = container!.querySelector<HTMLButtonElement>(
+      '.ai-provider-tab[aria-label="OpenRouter"]',
+    );
+    expect(openRouterTab).not.toBeNull();
 
     act(() => {
-      providerSelect!.value = "openrouter";
-      providerSelect!.dispatchEvent(new Event("change", { bubbles: true }));
+      openRouterTab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     act(() => {
       vi.advanceTimersByTime(200);

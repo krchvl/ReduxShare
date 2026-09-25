@@ -15,6 +15,7 @@ import {
   type UpdateState,
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
+import { AiProviderIcon } from "./AiProviderIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
 import { LanguageSelect } from "./LanguageSelect";
@@ -831,22 +832,41 @@ export function MainScreen({
               </div>
             </div>
             <div className="ai-settings-form">
-              <label className="ai-field">
+              <div className="ai-field">
                 <span>{t("settings.ai.provider")}</span>
-                <select
-                  className="ai-select"
-                  value={aiDraft.provider}
-                  onChange={(event) =>
-                    updateAiProvider(event.target.value as AiSettings["provider"])
-                  }
+                <div
+                  className="ai-provider-tabs"
+                  role="radiogroup"
+                  aria-label={t("settings.ai.provider")}
                 >
-                  {AI_PROVIDER_OPTIONS.map((provider) => (
-                    <option key={provider.value} value={provider.value}>
-                      {getAiProviderLabel(provider.value, t)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  {AI_PROVIDER_OPTIONS.map((provider) => {
+                    const active = aiDraft.provider === provider.value;
+
+                    return (
+                      <button
+                        key={provider.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        aria-label={getAiProviderLabel(provider.value, t)}
+                        className={`ai-provider-tab${active ? " ai-provider-tab--active" : ""}`}
+                        onClick={() => {
+                          if (!active) {
+                            updateAiProvider(provider.value);
+                          }
+                        }}
+                      >
+                        <span className="ai-provider-tab__icon" aria-hidden="true">
+                          <AiProviderIcon provider={provider.value} />
+                        </span>
+                        <span className="ai-provider-tab__label">
+                          {getAiProviderLabel(provider.value, t)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               {isCustomProvider ? (
                 <>
                   <label className="ai-field">
