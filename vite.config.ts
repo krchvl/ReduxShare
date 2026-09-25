@@ -21,6 +21,7 @@ export default defineConfig({
   plugins: [react()],
   define: {
     __REDUXSHARE_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __REDUXSHARE_DEV_BUILD__: JSON.stringify(process.env.REDUXSHARE_DEV_BUILD === "1"),
   },
   build: {
     outDir: extensionTarget ? resolve(__dirname, "dist", extensionTarget) : "dist",

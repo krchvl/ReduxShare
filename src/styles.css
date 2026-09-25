@@ -233,6 +233,39 @@ button:focus-visible {
   box-shadow: 0 6px 18px rgba(255, 115, 120, 0.34);
 }
 
+.update-toast {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.update-toast__title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.update-toast__body {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.update-toast__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.update-toast__actions .button {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
 .update-badge {
   position: absolute;
   top: 8px;

@@ -33,6 +33,7 @@ import {
   tryGetPocketBaseUrl,
 } from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
+import { UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY } from "../shared/storageKeys";
 import githubIcon from "../assets/github.svg";
 import telegramIcon from "../assets/telegram.svg";
 
@@ -311,6 +312,8 @@ function mergeAiModelOptions(
   return mergedModels;
 }
 
+const isDevBuild = import.meta.env.DEV || __REDUXSHARE_DEV_BUILD__;
+
 function openExternalUrl(url: string) {
   if (typeof chrome !== "undefined" && chrome.tabs?.create) {
     void chrome.tabs.create({ url });
@@ -345,6 +348,7 @@ export function MainScreen({
     models: [],
     message: null,
   });
+  const [updateToastDismissed, setUpdateToastDismissed] = useState(false);
 
   const aiDraftRef = useRef(aiDraft);
   const aiModelsStateRef = useRef(aiModelsState);
@@ -941,9 +945,60 @@ export function MainScreen({
     if (activeTab === "extra") {
       const releaseUrl = updateState.status === "available" ? updateState.releaseUrl : null;
       const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
+      // On the `npm run dev` page there is no real update check, so preview
+      // the toast with demo data when nothing is actually available.
+      const previewUpdateState: UpdateState =
+        isDevBuild && updateState.status !== "available"
+          ? {
+              ...updateState,
+              status: "available",
+              latestVersion: "9.9.9-dev",
+              releaseUrl: null,
+            }
+          : updateState;
+      const showUpdateToast =
+        isDevBuild &&
+        previewUpdateState.status === "available" &&
+        previewUpdateState.latestVersion !== null &&
+        !updateToastDismissed;
+      const previewReleaseUrl = previewUpdateState.releaseUrl;
+
+      const dismissUpdateToast = () => {
+        setUpdateToastDismissed(true);
+
+        if (
+          typeof chrome !== "undefined" &&
+          chrome.storage?.local &&
+          previewUpdateState.checkedAt !== null
+        ) {
+          void chrome.storage.local.set({
+            [UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]: previewUpdateState.checkedAt,
+          });
+        }
+      };
 
       return (
         <div className="settings-panel__rows">
+          {showUpdateToast && (
+            <div className="update-toast" role="status">
+              <div className="update-toast__title">{t("updates.toast.title")}</div>
+              <div className="update-toast__body">
+                {t("updates.toast.body", {
+                  version: previewUpdateState.latestVersion ?? "",
+                })}
+              </div>
+              <div className="update-toast__actions">
+                {previewReleaseUrl && (
+                  <Button variant="primary" onClick={() => openExternalUrl(previewReleaseUrl)}>
+                    {t("updates.toast.open")}
+                  </Button>
+                )}
+                <Button variant="outline" onClick={dismissUpdateToast}>
+                  {t("updates.toast.later")}
+                </Button>
+              </div>
+            </div>
+          )}
           <SettingPanelRow
             title={t("settings.server.title")}
             lines={[t("settings.server.line1"), t("settings.server.line2")]}

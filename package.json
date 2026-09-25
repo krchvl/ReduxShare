@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/build-extension.mjs all",
+    "build:dev": "REDUXSHARE_DEV_BUILD=1 node scripts/build-extension.mjs all",
     "build:chrome": "node scripts/build-extension.mjs chrome",
     "build:firefox": "node scripts/build-extension.mjs firefox",
     "build:all": "node scripts/build-extension.mjs all",

@@ -134,6 +134,10 @@
   "updates.action.openRelease": "Открыть релиз",
   "updates.action.check": "Проверить",
   "updates.badge.new": "Новое обновление",
+  "updates.toast.title": "Доступно обновление",
+  "updates.toast.body": "Вышла версия {version}",
+  "updates.toast.open": "Скачать",
+  "updates.toast.later": "Позже",
 
   "quiz.menu.internalSources": "Внутренние источники",
   "quiz.menu.externalSources": "Внешние источники",

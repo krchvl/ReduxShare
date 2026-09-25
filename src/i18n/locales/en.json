@@ -134,6 +134,10 @@
   "updates.action.openRelease": "Open release",
   "updates.action.check": "Check",
   "updates.badge.new": "New update",
+  "updates.toast.title": "Update available",
+  "updates.toast.body": "Version {version} is out",
+  "updates.toast.open": "Download",
+  "updates.toast.later": "Later",
 
   "quiz.menu.internalSources": "Internal sources",
   "quiz.menu.externalSources": "External sources",
