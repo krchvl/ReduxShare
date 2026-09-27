@@ -313,7 +313,11 @@ export function normalizeAutoSelectAvgSeconds(value: unknown) {
     return DEFAULT_SETTINGS.autoSelectAvgSeconds;
   }
 
-  return Math.min(30, Math.max(1, Math.round(value * 10) / 10));
+  // Диапазон слайдера темпа: от «Быстро» до «Реализм».
+  return Math.min(
+    AUTO_SELECT_TEMPO_PRESETS.realistic,
+    Math.max(AUTO_SELECT_TEMPO_PRESETS.brisk, Math.round(value * 10) / 10),
+  );
 }
 
 export function normalizeSettings(

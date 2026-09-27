@@ -35,6 +35,12 @@ import {
   tryGetPocketBaseUrl,
 } from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
+import {
+  AUTO_SELECT_SLIDER_POSITION_MAX,
+  AUTO_SELECT_SLIDER_POSITION_MIN,
+  autoSelectTempoPositionToSeconds,
+  autoSelectTempoSecondsToPosition,
+} from "../logic/settings";
 import { UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY } from "../shared/storageKeys";
 import githubIcon from "../assets/github.svg";
 import telegramIcon from "../assets/telegram.svg";
@@ -1143,18 +1149,42 @@ export function MainScreen({
                   )}
                 </div>
                 <div className="autoselect-timing__slider">
-                  <input
-                    className="opacity-slider"
-                    type="range"
-                    min={1}
-                    max={30}
-                    step={0.5}
-                    value={settings.autoSelectAvgSeconds}
-                    aria-label={t("settings.autoselectAvg.title")}
-                    onChange={(event) =>
-                      updateSetting("autoSelectAvgSeconds", Number(event.target.value))
-                    }
-                  />
+                  <div className="autoselect-timing__field">
+                    <input
+                      className="opacity-slider"
+                      type="range"
+                      min={AUTO_SELECT_SLIDER_POSITION_MIN}
+                      max={AUTO_SELECT_SLIDER_POSITION_MAX}
+                      step={1}
+                      value={autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds)}
+                      aria-label={t("settings.autoselectAvg.title")}
+                      onChange={(event) =>
+                        updateSetting(
+                          "autoSelectAvgSeconds",
+                          autoSelectTempoPositionToSeconds(Number(event.target.value)),
+                        )
+                      }
+                    />
+                    <div className="autoselect-timing__scale" aria-hidden="true">
+                      {(
+                        [
+                          // Тики стоят по той же формуле, что и центр ползунка:
+                          // margin(2px) + половина ширины ползунка (8px) + f * (100% - 16px).
+                          ["brisk", "10px"],
+                          ["balanced", "calc(10px + (100% - 16px) * 0.5)"],
+                          ["realistic", "calc(100% - 6px)"],
+                        ] as const
+                      ).map(([preset, position]) => (
+                        <span
+                          key={preset}
+                          className="autoselect-timing__tick"
+                          style={{ left: position }}
+                        >
+                          {t(`settings.autoselectTempo.${preset}`)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                   <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
                 </div>
               </div>

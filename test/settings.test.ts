@@ -8,6 +8,10 @@ import {
   normalizeSettings,
   resolveColorScheme,
 } from "../src/types";
+import {
+  autoSelectTempoPositionToSeconds,
+  autoSelectTempoSecondsToPosition,
+} from "../src/logic/settings";
 
 describe("opacity settings", () => {
   it("clamps opacity values into the supported range", () => {
@@ -46,8 +50,8 @@ describe("opacity settings", () => {
   it("clamps the average auto-select time", () => {
     expect(DEFAULT_SETTINGS.autoSelectAvgSeconds).toBe(4);
     expect(normalizeAutoSelectAvgSeconds(4)).toBe(4);
-    expect(normalizeAutoSelectAvgSeconds(0.2)).toBe(1);
-    expect(normalizeAutoSelectAvgSeconds(99)).toBe(30);
+    expect(normalizeAutoSelectAvgSeconds(0.2)).toBe(1.5);
+    expect(normalizeAutoSelectAvgSeconds(99)).toBe(12);
     expect(normalizeAutoSelectAvgSeconds(Number.NaN)).toBe(4);
     expect(normalizeSettings({ autoSelectAvgSeconds: 7.5 }).autoSelectAvgSeconds).toBe(7.5);
     expect(normalizeSettings({}).autoSelectAvgSeconds).toBe(4);
@@ -56,7 +60,36 @@ describe("opacity settings", () => {
   it("keeps the realistic preset within the clamped range", () => {
     expect(AUTO_SELECT_TEMPO_PRESETS.realistic).toBe(12);
     expect(normalizeAutoSelectAvgSeconds(AUTO_SELECT_TEMPO_PRESETS.realistic)).toBe(12);
-    expect(normalizeAutoSelectAvgSeconds(13.333)).toBe(13.3);
+    expect(normalizeAutoSelectAvgSeconds(13.333)).toBe(12);
+  });
+
+  it("maps tempo presets onto the slider scale anchors", () => {
+    expect(autoSelectTempoSecondsToPosition(AUTO_SELECT_TEMPO_PRESETS.brisk)).toBe(0);
+    expect(autoSelectTempoSecondsToPosition(AUTO_SELECT_TEMPO_PRESETS.balanced)).toBe(50);
+    expect(autoSelectTempoSecondsToPosition(AUTO_SELECT_TEMPO_PRESETS.realistic)).toBe(100);
+    expect(autoSelectTempoSecondsToPosition(0.2)).toBe(0);
+    expect(autoSelectTempoSecondsToPosition(99)).toBe(100);
+  });
+
+  it("maps slider positions back to seconds on a 0.5 step", () => {
+    expect(autoSelectTempoPositionToSeconds(0)).toBe(1.5);
+    expect(autoSelectTempoPositionToSeconds(50)).toBe(4);
+    expect(autoSelectTempoPositionToSeconds(100)).toBe(12);
+    expect(autoSelectTempoPositionToSeconds(-5)).toBe(1.5);
+    expect(autoSelectTempoPositionToSeconds(105)).toBe(12);
+
+    for (let position = 0; position <= 100; position += 1) {
+      const seconds = autoSelectTempoPositionToSeconds(position);
+      expect(seconds * 2).toBe(Math.round(seconds * 2));
+    }
+  });
+
+  it("roundtrips slider positions through seconds", () => {
+    for (const seconds of [1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 11, 12]) {
+      expect(autoSelectTempoPositionToSeconds(autoSelectTempoSecondsToPosition(seconds))).toBe(
+        seconds,
+      );
+    }
   });
 
   it("defaults humanization flags to on and preserves explicit choices", () => {

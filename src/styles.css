@@ -732,8 +732,35 @@ button:focus-visible {
   justify-items: end;
 }
 
-.ai-provider-tabs.ai-provider-tabs--compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.autoselect-timing__scale {
+  position: relative;
+  height: 22px;
+  margin-top: 0;
+  margin-bottom: 0;
+  width: 180px;
+}
+
+.autoselect-timing__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-weight: 600;
+  text-align: center;
+}
+
+.autoselect-timing__tick::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 4px;
+  background: var(--muted);
+  transform: translateX(-50%);
 }
 
 .autoselect-timing__chips {
@@ -771,9 +798,15 @@ button:focus-visible {
 
 .autoselect-timing__slider {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   transition: all 300ms;
+}
+
+.autoselect-timing__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .autoselect-timing__slider .opacity-slider {
@@ -930,6 +963,10 @@ button:focus-visible {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.ai-provider-tabs--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .ai-provider-tab {
