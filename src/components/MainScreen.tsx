@@ -19,6 +19,7 @@ import { AiProviderIcon } from "./AiProviderIcon";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
+import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
@@ -699,48 +700,6 @@ export function MainScreen({
               />
             }
           />
-          <SettingPanelRow
-            title={t("settings.opacity.popup.title")}
-            lines={[t("settings.opacity.popup.line"), ""]}
-            control={
-              <div className="opacity-control">
-                <input
-                  className="opacity-slider"
-                  type="range"
-                  min={40}
-                  max={100}
-                  step={5}
-                  value={Math.round(settings.popupOpacity * 100)}
-                  aria-label={t("settings.opacity.popup.title")}
-                  onChange={(event) =>
-                    updateSetting("popupOpacity", Number(event.target.value) / 100)
-                  }
-                />
-                <span className="opacity-value">{`${Math.round(settings.popupOpacity * 100)}%`}</span>
-              </div>
-            }
-          />
-          <SettingPanelRow
-            title={t("settings.opacity.overlay.title")}
-            lines={[t("settings.opacity.overlay.line"), ""]}
-            control={
-              <div className="opacity-control">
-                <input
-                  className="opacity-slider"
-                  type="range"
-                  min={40}
-                  max={100}
-                  step={5}
-                  value={Math.round(settings.pageOverlayOpacity * 100)}
-                  aria-label={t("settings.opacity.overlay.title")}
-                  onChange={(event) =>
-                    updateSetting("pageOverlayOpacity", Number(event.target.value) / 100)
-                  }
-                />
-                <span className="opacity-value">{`${Math.round(settings.pageOverlayOpacity * 100)}%`}</span>
-              </div>
-            }
-          />
         </div>
       );
     }
@@ -1196,11 +1155,7 @@ export function MainScreen({
             title={t("settings.human.title")}
             lines={[t("settings.human.line1"), t("settings.human.line2")]}
             control={
-              <div
-                className="ai-provider-tabs ai-provider-tabs--compact"
-                role="group"
-                aria-label={t("settings.human.title")}
-              >
+              <TabCardGroup label={t("settings.human.title")} columns={2}>
                 {(
                   [
                     ["humanTyping", "settings.humanTyping"],
@@ -1208,27 +1163,17 @@ export function MainScreen({
                     ["humanReading", "settings.humanReading"],
                     ["humanOrder", "settings.humanOrder"],
                   ] as const
-                ).map(([settingKey, keyPrefix]) => {
-                  const active = settings[settingKey];
-
-                  return (
-                    <button
-                      key={settingKey}
-                      type="button"
-                      role="switch"
-                      aria-checked={active}
-                      aria-label={t(`${keyPrefix}.title`)}
-                      className={`ai-provider-tab${active ? " ai-provider-tab--active" : ""}`}
-                      onClick={() => updateSetting(settingKey, !active)}
-                    >
-                      <span className="ai-provider-tab__icon" aria-hidden="true">
-                        <HumanizationIcon option={settingKey} />
-                      </span>
-                      <span className="ai-provider-tab__label">{t(`${keyPrefix}.title`)}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                ).map(([settingKey, keyPrefix]) => (
+                  <TabCard
+                    key={settingKey}
+                    icon={<HumanizationIcon option={settingKey} />}
+                    label={t(`${keyPrefix}.title`)}
+                    role="switch"
+                    active={settings[settingKey]}
+                    onClick={() => updateSetting(settingKey, !settings[settingKey])}
+                  />
+                ))}
+              </TabCardGroup>
             }
           />
         )}

@@ -1,163 +1,72 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import type { ReactNode } from "react";
 import { type TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
 import type { ColorSchemeSetting } from "../types";
+import { TabCard, TabCardGroup } from "./TabCard";
 
 interface ColorSchemeSelectProps {
   value: ColorSchemeSetting;
   onChange: (colorScheme: ColorSchemeSetting) => void;
 }
 
-const COLOR_SCHEME_OPTIONS: Array<{ value: ColorSchemeSetting; labelKey: TranslationKey }> = [
-  { value: "light", labelKey: "settings.theme.light" },
-  { value: "dark", labelKey: "settings.theme.dark" },
-  { value: "system", labelKey: "settings.theme.system" },
-];
-
-const CLOSE_ANIMATION_MS = 160;
-
-function getOptionIndex(value: ColorSchemeSetting) {
-  const index = COLOR_SCHEME_OPTIONS.findIndex((option) => option.value === value);
-  return index >= 0 ? index : 2;
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="4.4" />
+      <path
+        strokeLinecap="round"
+        d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"
+      />
+    </svg>
+  );
 }
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z"
+      />
+    </svg>
+  );
+}
+
+function SystemIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4.5" width="18" height="12.5" rx="1.6" />
+      <path strokeLinecap="round" d="M8.5 20.5h7M12 17v3.5" />
+    </svg>
+  );
+}
+
+const COLOR_SCHEME_OPTIONS: Array<{
+  value: ColorSchemeSetting;
+  labelKey: TranslationKey;
+  icon: ReactNode;
+}> = [
+  { value: "light", labelKey: "settings.theme.light", icon: <SunIcon /> },
+  { value: "dark", labelKey: "settings.theme.dark", icon: <MoonIcon /> },
+  { value: "system", labelKey: "settings.theme.system", icon: <SystemIcon /> },
+];
 
 export function ColorSchemeSelect({ value, onChange }: ColorSchemeSelectProps) {
   const { t } = useI18n();
-  const listboxId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const closeTimerRef = useRef<number | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(() => getOptionIndex(value));
-  const selectedOption = COLOR_SCHEME_OPTIONS[getOptionIndex(value)];
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current !== null) {
-        window.clearTimeout(closeTimerRef.current);
-      }
-    };
-  }, []);
-
-  function openListbox() {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-
-    setActiveIndex(getOptionIndex(value));
-    setIsClosing(false);
-    setIsOpen(true);
-  }
-
-  function closeListbox(focusTrigger = false) {
-    if (!isOpen) {
-      return;
-    }
-
-    setIsOpen(false);
-    setIsClosing(true);
-
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-    }
-
-    closeTimerRef.current = window.setTimeout(() => {
-      setIsClosing(false);
-      closeTimerRef.current = null;
-    }, CLOSE_ANIMATION_MS);
-
-    if (focusTrigger) {
-      window.requestAnimationFrame(() => triggerRef.current?.focus());
-    }
-  }
-
-  function selectOption(option: ColorSchemeSetting) {
-    onChange(option);
-    closeListbox();
-  }
-
-  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      openListbox();
-    }
-  }
-
-  function handleListboxKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeListbox(true);
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveIndex((index) => (index + 1) % COLOR_SCHEME_OPTIONS.length);
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveIndex(
-        (index) => (index - 1 + COLOR_SCHEME_OPTIONS.length) % COLOR_SCHEME_OPTIONS.length,
-      );
-      return;
-    }
-
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      selectOption(COLOR_SCHEME_OPTIONS[activeIndex].value);
-    }
-  }
 
   return (
-    <div className="theme-select">
-      <button
-        ref={triggerRef}
-        className="theme-trigger"
-        type="button"
-        aria-label={t("settings.theme.title")}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-controls={isOpen || isClosing ? listboxId : undefined}
-        onClick={() => (isOpen ? closeListbox() : openListbox())}
-        onKeyDown={handleTriggerKeyDown}
-      >
-        <span>{t(selectedOption.labelKey)}</span>
-      </button>
-      {(isOpen || isClosing) && (
-        <>
-          <div
-            className="theme-select-backdrop"
-            aria-hidden="true"
-            onClick={() => closeListbox()}
-          />
-          <div
-            id={listboxId}
-            className={`theme-listbox ${isOpen ? "theme-listbox--open" : "theme-listbox--closing"}`}
-            role="listbox"
-            tabIndex={-1}
-            aria-label={t("settings.theme.title")}
-            aria-activedescendant={`${listboxId}-${COLOR_SCHEME_OPTIONS[activeIndex].value}`}
-            onKeyDown={handleListboxKeyDown}
-          >
-            {COLOR_SCHEME_OPTIONS.map((option, index) => (
-              <div
-                key={option.value}
-                id={`${listboxId}-${option.value}`}
-                className={`theme-option ${index === activeIndex ? "theme-option--active" : ""}`}
-                role="option"
-                aria-selected={option.value === value}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => selectOption(option.value)}
-              >
-                <span>{t(option.labelKey)}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <TabCardGroup label={t("settings.theme.title")} columns={3}>
+      {COLOR_SCHEME_OPTIONS.map((option) => (
+        <TabCard
+          key={option.value}
+          icon={option.icon}
+          label={t(option.labelKey)}
+          role="radio"
+          active={option.value === value}
+          onClick={() => onChange(option.value)}
+        />
+      ))}
+    </TabCardGroup>
   );
 }

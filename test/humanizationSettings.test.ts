@@ -43,13 +43,13 @@ describe("humanization settings section", () => {
     });
 
     const tabs = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('.ai-provider-tab[role="switch"]'),
+      container.querySelectorAll<HTMLButtonElement>('.tab-card[role="switch"]'),
     );
     expect(tabs).toHaveLength(4);
 
     const labels = tabs.map((tab) => tab.textContent?.trim());
     expect(labels).toEqual(["Живая печать", "Скролл и фокус", "Время чтения", "Случайный порядок"]);
-    expect(tabs[0].querySelector(".ai-provider-tab__icon svg")).not.toBeNull();
+    expect(tabs[0].querySelector(".tab-card__icon svg")).not.toBeNull();
 
     expect(tabs[0].getAttribute("aria-checked")).toBe("true");
 
