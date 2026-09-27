@@ -48,12 +48,20 @@ export function AiProviderIcon({ provider }: { provider: AiSettings["provider"] 
           <path d="M6.5 6.5 11 17M17.5 6.5 13 17M7 5h10" />
         </>
       )}
-      {provider === "openai" && (
+      {provider === "anthropic" && (
         <>
           <path d="M12 3v18" />
           <path d="M3 12h18" />
           <path d="M5.6 5.6l12.8 12.8" />
           <path d="M18.4 5.6 5.6 18.4" />
+        </>
+      )}
+      {provider === "openai" && (
+        <>
+          <path d="M12 2.5 20.2 7.25v9.5L12 21.5l-8.2-4.75v-9.5L12 2.5z" />
+          <path d="M12 2.5v19" />
+          <path d="M3.8 7.25l16.4 9.5" />
+          <path d="M20.2 7.25 3.8 16.75" />
         </>
       )}
       {provider === "deepseek" && (
