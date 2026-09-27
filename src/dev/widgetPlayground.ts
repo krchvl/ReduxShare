@@ -1,0 +1,350 @@
+// Dev-only playground: живёт только под `npm run dev` на /dev.html.
+// Ставит мок chrome API до импорта content-скрипта, подкладывает Moodle-фикстуры
+// и мок-ответы с голосами, затем монтирует R-виджеты через test API quizAttempt.
+import multichoiceAttemptHtml from "../../test/fixtures/multichoice/attempt.html?raw";
+import matchAttemptHtml from "../../test/fixtures/match/attempt.html?raw";
+import shortanswerAttemptHtml from "../../test/fixtures/shortanswer/attempt.html?raw";
+import { APP_STORAGE_KEY } from "../shared/storageKeys";
+import { VOTE_ANSWER_MESSAGE } from "../shared/messages";
+import type { AnswerData, StoredStateLike, SubmissionItem } from "../model";
+
+interface QuizAttemptPlaygroundApi {
+  setStoredState: (state: StoredStateLike | undefined) => void;
+  setSourceAnswerData: (
+    questionId: string | null,
+    source: "reduxshare" | "external",
+    data: AnswerData,
+  ) => void;
+  mountAnswerWidgets: (accentColor: string) => void;
+}
+
+interface VoteTally {
+  up: number;
+  down: number;
+  mine: 1 | -1 | 0;
+}
+
+(window as unknown as { __REDUXSHARE_TEST_MODE__?: boolean }).__REDUXSHARE_TEST_MODE__ = true;
+
+const voteTallies = new Map<string, VoteTally>();
+
+function seedVoteTally(taskId: string, up: number, down: number, mine: 1 | -1 | 0) {
+  voteTallies.set(taskId, { up, down, mine });
+}
+
+function handleMockVote(payload: { taskId?: unknown; value?: unknown }) {
+  const taskId = typeof payload?.taskId === "string" ? payload.taskId : null;
+  const value = payload?.value === -1 ? -1 : 1;
+
+  if (!taskId) {
+    return { ok: false, error: "taskId missing" };
+  }
+
+  const tally = voteTallies.get(taskId) ?? { up: 0, down: 0, mine: 0 as 1 | -1 | 0 };
+  let { up, down, mine } = tally;
+
+  if (mine === 0) {
+    if (value === 1) {
+      up += 1;
+    } else {
+      down += 1;
+    }
+    mine = value;
+  } else if (mine === value) {
+    if (value === 1) {
+      up -= 1;
+    } else {
+      down -= 1;
+    }
+    mine = 0;
+  } else if (value === 1) {
+    up += 1;
+    down -= 1;
+    mine = value;
+  } else {
+    down += 1;
+    up -= 1;
+    mine = value;
+  }
+
+  voteTallies.set(taskId, { up, down, mine });
+
+  return { ok: true, votesUp: Math.max(up, 0), votesDown: Math.max(down, 0), myVote: mine };
+}
+
+function handleMockMessage(message: unknown): unknown {
+  const record = (message ?? {}) as { type?: string; payload?: Record<string, unknown> };
+
+  if (record.type === VOTE_ANSWER_MESSAGE) {
+    return handleMockVote(record.payload as { taskId: string; value: 1 | -1 });
+  }
+
+  return { ok: true };
+}
+
+function installChromeMock() {
+  const storageData = new Map<string, unknown>();
+  const storageListeners = new Set<(changes: unknown, areaName: string) => void>();
+
+  (window as unknown as { chrome: unknown }).chrome = {
+    runtime: {
+      id: "reduxshare-dev-playground",
+      lastError: null,
+      sendMessage: (message: unknown, callback?: (response: unknown) => void) => {
+        callback?.(handleMockMessage(message));
+      },
+      getURL: (path: string) => path,
+      onMessage: { addListener: () => undefined },
+      onInstalled: { addListener: () => undefined },
+      onStartup: { addListener: () => undefined },
+    },
+    storage: {
+      local: {
+        get: async (key: string) => ({ [key]: storageData.get(key) }),
+        set: async (items: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(items)) {
+            storageData.set(key, value);
+          }
+
+          for (const listener of storageListeners) {
+            listener(
+              { [APP_STORAGE_KEY]: { newValue: storageData.get(APP_STORAGE_KEY) } },
+              "local",
+            );
+          }
+        },
+        remove: async (key: string) => {
+          storageData.delete(key);
+        },
+      },
+      onChanged: {
+        addListener: (listener: (changes: unknown, areaName: string) => void) => {
+          storageListeners.add(listener);
+        },
+        removeListener: (listener: (changes: unknown, areaName: string) => void) => {
+          storageListeners.delete(listener);
+        },
+      },
+    },
+    alarms: {
+      get: () => undefined,
+      create: () => undefined,
+      clear: async () => true,
+      onAlarm: { addListener: () => undefined },
+    },
+    i18n: { getUILanguage: () => "ru" },
+  };
+}
+
+function buildStoredState(): StoredStateLike {
+  return {
+    settings: {
+      extensionEnabled: true,
+      stealthMode: false,
+      copyUnlock: false,
+      autoSelect: false,
+      language: "ru",
+      accentColor: "#9cb9f6",
+      colorScheme: "dark",
+    },
+    authSession: {
+      accessToken: "dev-token",
+      refreshToken: "dev-token",
+      expiresAt: null,
+      user: { id: "dev-user", email: "dev@localhost" },
+    },
+  } as StoredStateLike;
+}
+
+function multichoiceAnswerData(): AnswerData {
+  seedVoteTally("mc-47", 2, 3, 1);
+  seedVoteTally("mc-23", 4, 1, 0);
+
+  return {
+    anchors: [],
+    suggestions: [
+      {
+        correctness: 2,
+        confidence: 0.87,
+        label: "63 percent of the time.",
+      },
+    ],
+    submissions: [
+      {
+        correctness: 2,
+        count: 12,
+        label: "63 percent of the time.",
+        contributor: "maria",
+        addedAt: "2026-09-20T10:00:00.000Z",
+        updatedAt: "2026-09-25T10:00:00.000Z",
+      },
+      {
+        correctness: 1,
+        count: 4,
+        label: "47 percent of the time.",
+        taskId: "mc-47",
+        votesUp: 2,
+        votesDown: 3,
+        myVote: 1,
+      },
+      {
+        correctness: 1,
+        count: 2,
+        label: "23 percent of the time.",
+        taskId: "mc-23",
+        votesUp: 4,
+        votesDown: 1,
+        myVote: 0,
+      },
+    ],
+    slots: [],
+  };
+}
+
+function multichoiceExternalAnswerData(): AnswerData {
+  return {
+    anchors: [],
+    suggestions: [
+      { correctness: 2, confidence: 1, label: "between 10 and 20 percent of the time." },
+    ],
+    submissions: [],
+    slots: [],
+  };
+}
+
+function matchAnswerData(): AnswerData {
+  seedVoteTally("m-voltage", 6, 0, 0);
+  seedVoteTally("m-mass", 3, 3, 0);
+  seedVoteTally("m-force", 1, 0, -1);
+
+  const slots: Array<{
+    index: number;
+    hasExplicitIndex: boolean;
+    anchors: string[];
+    suggestions: never[];
+    submissions: SubmissionItem[];
+  }> = [
+    {
+      index: 1,
+      hasExplicitIndex: true,
+      anchors: ["Напряжение"],
+      suggestions: [],
+      submissions: [
+        {
+          correctness: 1,
+          count: 7,
+          label: "Вольт",
+          taskId: "m-voltage",
+          votesUp: 6,
+          votesDown: 0,
+          myVote: 0,
+        },
+      ],
+    },
+    {
+      index: 2,
+      hasExplicitIndex: true,
+      anchors: ["Масса"],
+      suggestions: [],
+      submissions: [
+        {
+          correctness: 1,
+          count: 5,
+          label: "Килограмм",
+          taskId: "m-mass",
+          votesUp: 3,
+          votesDown: 3,
+          myVote: 0,
+        },
+      ],
+    },
+    {
+      index: 3,
+      hasExplicitIndex: true,
+      anchors: ["сила"],
+      suggestions: [],
+      submissions: [
+        {
+          correctness: 1,
+          count: 4,
+          label: "ньютон",
+          taskId: "m-force",
+          votesUp: 1,
+          votesDown: 0,
+          myVote: -1,
+        },
+      ],
+    },
+  ];
+
+  return {
+    anchors: slots.flatMap((slot) => slot.anchors),
+    suggestions: [],
+    submissions: slots.flatMap((slot) => slot.submissions),
+    slots,
+  };
+}
+
+function shortanswerAnswerData(): AnswerData {
+  seedVoteTally("sa-lenin", 0, 2, 0);
+
+  return {
+    anchors: [],
+    suggestions: [
+      {
+        correctness: 2,
+        confidence: 0.95,
+        label: "Сталин",
+      },
+    ],
+    submissions: [
+      {
+        correctness: 2,
+        count: 9,
+        label: "Сталин",
+      },
+      {
+        correctness: 1,
+        count: 2,
+        label: "Ленин",
+        taskId: "sa-lenin",
+        votesUp: 0,
+        votesDown: 2,
+        myVote: 0,
+      },
+    ],
+    slots: [],
+  };
+}
+
+function injectFixtures() {
+  const host = document.getElementById("reduxshare-dev-questions");
+
+  if (host) {
+    host.innerHTML = [multichoiceAttemptHtml, matchAttemptHtml, shortanswerAttemptHtml].join("");
+  }
+}
+
+async function boot() {
+  installChromeMock();
+  injectFixtures();
+
+  await import("../content/quizAttempt");
+
+  const api = (
+    globalThis as unknown as { __reduxshareQuizAttemptTestApi?: QuizAttemptPlaygroundApi }
+  ).__reduxshareQuizAttemptTestApi;
+
+  if (!api) {
+    throw new Error("ReduxShare quizAttempt test API was not installed.");
+  }
+
+  api.setStoredState(buildStoredState());
+  api.setSourceAnswerData("1385", "reduxshare", multichoiceAnswerData());
+  api.setSourceAnswerData("1385", "external", multichoiceExternalAnswerData());
+  api.setSourceAnswerData("3699", "reduxshare", matchAnswerData());
+  api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
+  api.mountAnswerWidgets("#9cb9f6");
+}
+
+void boot();

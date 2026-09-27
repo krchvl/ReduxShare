@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ReduxShare — dev playground</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #101218;
+        font-family: Inter, Arial, sans-serif;
+        color: #e8eaf2;
+      }
+
+      .playground-header {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 28px 20px 8px;
+      }
+
+      .playground-header h1 {
+        margin: 0 0 8px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .playground-header p {
+        margin: 4px 0;
+        color: rgba(232, 234, 242, 0.66);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .playground-header kbd {
+        padding: 1px 5px;
+        border: 1px solid rgba(232, 234, 242, 0.25);
+        border-radius: 4px;
+        background: rgba(232, 234, 242, 0.08);
+        font-family: inherit;
+        font-size: 12px;
+      }
+
+      .playground-questions {
+      }
+    </style>
+  </head>
+  <body>
+    <header class="playground-header">
+      <h1>ReduxShare — dev playground</h1>
+      <p>
+        Страница живёт только в <code>npm run dev</code> и не попадает в сборку расширения.
+        Moodle-фрагменты подгружены из тестовых фикстур, ответы и голоса замоканы в памяти.
+      </p>
+      <p>
+        Наведи курсор на контрол ответа — появится R-виджет: вкладки «Внутренние / Внешние / ИИ»,
+        «Точный ответ», «Статистика» с кнопками 👍/👎. Горячая клавиша — <kbd>R</kbd>. Клик по
+        варианту применяет его к реальным контролам фикстуры.
+      </p>
+    </header>
+    <main id="reduxshare-dev-questions" class="playground-questions"></main>
+    <script type="module" src="/src/dev/widgetPlayground.ts"></script>
+  </body>
+</html>
