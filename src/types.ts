@@ -137,6 +137,9 @@ export interface UserProfile {
   moodleDomain: string | null;
   solvedTestsCount: number;
   solvedTasksCount: number;
+  importedQuestionsCount: number;
+  attemptCorrectCount: number;
+  attemptIncorrectCount: number;
 }
 
 export interface QuizQuestionSummary {

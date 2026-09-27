@@ -13,12 +13,14 @@ import {
   type AiSettings,
   type Settings,
   type UpdateState,
+  type UserProfile,
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
 import { AiProviderIcon } from "./AiProviderIcon";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
+import { StatsPanel } from "./StatsPanel";
 import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
@@ -50,13 +52,14 @@ interface MainScreenProps {
   settings: Settings;
   updateState: UpdateState;
   isCheckingUpdates: boolean;
+  userProfile?: UserProfile | null;
   onSettingsChange: (settings: Settings) => void;
   onCheckUpdates: () => void;
   onResetSettings: () => void;
   onLogout: () => void;
 }
 
-type SettingsTab = "main" | "ui" | "security" | "ai" | "extra";
+type SettingsTab = "main" | "stats" | "ui" | "security" | "ai" | "extra";
 
 interface TabConfig {
   key: SettingsTab;
@@ -95,6 +98,16 @@ function GearIcon() {
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <path d="M20.7 5.8h6.6l1.4 5.6c1.2.4 2.3.8 3.3 1.4l5-3 4.7 4.7-3 5c.6 1.1 1.1 2.2 1.4 3.4l5.6 1.3v6.6l-5.6 1.4a18 18 0 0 1-1.4 3.3l3 5-4.7 4.7-5-3c-1 .6-2.1 1.1-3.3 1.4l-1.4 5.6h-6.6l-1.4-5.6a18 18 0 0 1-3.3-1.4l-5 3-4.7-4.7 3-5a18 18 0 0 1-1.4-3.3l-5.6-1.4v-6.6l5.6-1.3c.4-1.2.8-2.3 1.4-3.4l-3-5L11 9.8l5 3c1.1-.6 2.2-1 3.3-1.4l1.4-5.6Z" />
       <circle cx="24" cy="27" r="7" />
+    </svg>
+  );
+}
+
+function ChartIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="10" y="25" width="7" height="15" rx="2.4" />
+      <rect x="20.5" y="12" width="7" height="28" rx="2.4" />
+      <rect x="31" y="19" width="7" height="21" rx="2.4" />
     </svg>
   );
 }
@@ -141,6 +154,7 @@ function DotsIcon() {
 }
 
 const SETTINGS_TABS: TabConfig[] = [
+  { key: "stats", label: "main.tabs.stats", icon: <ChartIcon /> },
   { key: "main", label: "main.tabs.basic", icon: <GearIcon /> },
   { key: "ui", label: "main.tabs.ui", icon: <PaletteIcon /> },
   { key: "security", label: "main.tabs.security", icon: <ShieldIcon /> },
@@ -336,6 +350,7 @@ export function MainScreen({
   settings,
   updateState,
   isCheckingUpdates,
+  userProfile,
   onSettingsChange,
   onCheckUpdates,
   onResetSettings,
@@ -667,6 +682,14 @@ export function MainScreen({
   }
 
   function renderActivePanel() {
+    if (activeTab === "stats") {
+      return (
+        <div className="settings-panel__rows">
+          <StatsPanel userProfile={userProfile} />
+        </div>
+      );
+    }
+
     if (activeTab === "ui") {
       return (
         <div className="settings-panel__rows">

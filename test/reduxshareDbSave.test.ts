@@ -331,6 +331,72 @@ describe("ReduxShare review DB save (PocketBase)", () => {
     );
   });
 
+  it("increments personal stats counters on the user record", async () => {
+    const { saveReduxShareReviewAnswers } = await importQuizTasks();
+    const users = pbMocks.collections.users;
+    users.getOne.mockResolvedValue({ id: "user-1", moodle_domain: "school.moodledemo.net" });
+    users.update.mockResolvedValue({ id: "user-1" });
+    const payload = calculatedSavePayload();
+    payload.questions[0].answers = [
+      {
+        label: "20.10",
+        answerKey: "20.10",
+        slotKey: "question",
+        slotIndex: null,
+        correctness: 2,
+        isCorrect: true,
+        wasSelected: true,
+      },
+    ];
+
+    await saveReduxShareReviewAnswers(authSession, payload);
+
+    expect(users.update).toHaveBeenCalledWith("user-1", {
+      "imported_questions_count+": 1,
+      "attempt_correct_count+": 1,
+    });
+  });
+
+  it("does not double-count personal stats when the attempt is re-imported unchanged", async () => {
+    const { saveReduxShareReviewAnswers } = await importQuizTasks();
+    const users = pbMocks.collections.users;
+    users.getOne.mockResolvedValue({ id: "user-1", moodle_domain: "school.moodledemo.net" });
+    users.update.mockResolvedValue({ id: "user-1" });
+    const imports = pbMocks.collections.reduxshare_review_imports;
+    const tasks = pbMocks.collections.reduxshare_tasks;
+    tasks.create.mockResolvedValue({ id: "task-new" });
+
+    const payload = calculatedSavePayload();
+    payload.questions[0].answers = [
+      {
+        label: "20.10",
+        answerKey: "20.10",
+        slotKey: "question",
+        slotIndex: null,
+        correctness: 0,
+        isCorrect: false,
+        wasSelected: true,
+      },
+    ];
+
+    await saveReduxShareReviewAnswers(authSession, payload);
+
+    const storedHashes = imports.update.mock.calls[0][1].imported_question_hashes;
+    imports.getFirstListItem.mockReset();
+    imports.getFirstListItem.mockResolvedValue({
+      id: "ri-1",
+      imported_question_hashes: storedHashes,
+    });
+    users.update.mockClear();
+
+    await saveReduxShareReviewAnswers(authSession, payload);
+
+    const statsCalls = users.update.mock.calls.filter(
+      (call) => "imported_questions_count+" in (call[1] as Record<string, unknown>),
+    );
+    expect(statsCalls).toHaveLength(0);
+  });
+
   it("keeps non-boolean mismatched-hash fallback rows as exact answers", async () => {
     const { fetchReduxShareTasks } = await importQuizTasks();
     pbMocks.collections.reduxshare_tasks.getFullList.mockResolvedValue([

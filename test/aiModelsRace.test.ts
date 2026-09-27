@@ -65,7 +65,9 @@ function renderMainScreen(settings: Settings = baseSettings) {
 }
 
 function clickProviderTab() {
-  const aiTab = container!.querySelector<HTMLButtonElement>(".settings-tab:nth-child(4)");
+  const aiTab = Array.from(container!.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
+    (tab) => tab.textContent === "AI" || tab.textContent === "ИИ",
+  );
   if (aiTab) {
     act(() => {
       aiTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));

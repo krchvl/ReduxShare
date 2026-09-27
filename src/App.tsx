@@ -319,6 +319,7 @@ export function App() {
                 settings={settings}
                 updateState={updateState}
                 isCheckingUpdates={isCheckingUpdates}
+                userProfile={userProfile}
                 onSettingsChange={setSettings}
                 onCheckUpdates={handleCheckUpdates}
                 onResetSettings={() => setSettings(DEFAULT_SETTINGS)}

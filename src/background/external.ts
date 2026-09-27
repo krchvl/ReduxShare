@@ -56,10 +56,17 @@ import {
   type GetUpdateStateMessage,
   type UpdateCheckResponse,
 } from "../lib/updates";
-import { recordUserQuizProgress } from "../lib/userProfiles";
+import {
+  fetchOwnUserProfile,
+  fetchUserLeaderboard,
+  recordUserQuizProgress,
+  type UserLeaderboard,
+} from "../lib/userProfiles";
 import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../shared/storageKeys";
 import {
   CHECK_UPDATE_MESSAGE,
+  FETCH_LEADERBOARD_MESSAGE,
+  FETCH_OWN_PROFILE_MESSAGE,
   FETCH_QUIZ_ANSWERS_MESSAGE,
   FETCH_QUIZ_PREVIEW_MESSAGE,
   GET_UPDATE_STATE_MESSAGE,
@@ -107,6 +114,26 @@ interface RecordQuizProgressMessage {
 interface SaveReviewAnswersMessage {
   type: typeof SAVE_REVIEW_ANSWERS_MESSAGE;
   payload: SaveReduxShareReviewPayload;
+}
+
+interface FetchOwnProfileMessage {
+  type: typeof FETCH_OWN_PROFILE_MESSAGE;
+}
+
+interface FetchOwnProfileResponse {
+  ok: boolean;
+  error?: string;
+  userProfile?: UserProfile;
+}
+
+interface FetchLeaderboardMessage {
+  type: typeof FETCH_LEADERBOARD_MESSAGE;
+}
+
+interface FetchLeaderboardResponse {
+  ok: boolean;
+  error?: string;
+  leaderboard?: UserLeaderboard;
 }
 
 interface VoteAnswerPayload {
@@ -213,6 +240,22 @@ function isSaveReviewAnswersMessage(message: unknown): message is SaveReviewAnsw
   const candidate = message as Partial<SaveReviewAnswersMessage>;
 
   return candidate.type === SAVE_REVIEW_ANSWERS_MESSAGE && typeof candidate.payload === "object";
+}
+
+function isFetchOwnProfileMessage(message: unknown): message is FetchOwnProfileMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  return (message as Partial<FetchOwnProfileMessage>).type === FETCH_OWN_PROFILE_MESSAGE;
+}
+
+function isFetchLeaderboardMessage(message: unknown): message is FetchLeaderboardMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  return (message as Partial<FetchLeaderboardMessage>).type === FETCH_LEADERBOARD_MESSAGE;
 }
 
 function isVoteAnswerMessage(message: unknown): message is VoteAnswerMessage {
@@ -530,6 +573,51 @@ async function handleVoteAnswer(payload: VoteAnswerPayload): Promise<AnswerVoteR
     votesUp: result.votesUp,
     votesDown: result.votesDown,
     myVote: result.myVote,
+  };
+}
+
+async function handleFetchOwnProfile(): Promise<FetchOwnProfileResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await fetchOwnUserProfile(authSession);
+  await saveStoredStatePatch({
+    authSession: result.authSession,
+    userProfile: result.userProfile,
+  });
+
+  return {
+    ok: true,
+    userProfile: result.userProfile,
+  };
+}
+
+async function handleFetchLeaderboard(): Promise<FetchLeaderboardResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await fetchUserLeaderboard(authSession);
+  await saveStoredStatePatch({ authSession: result.authSession });
+
+  return {
+    ok: true,
+    leaderboard: result.leaderboard,
   };
 }
 
@@ -1137,6 +1225,26 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.voteSaveFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchOwnProfileMessage(message)) {
+    void handleFetchOwnProfile()
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.profileLoadFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchLeaderboardMessage(message)) {
+    void handleFetchLeaderboard()
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.leaderboardLoadFailed");
       });
 
     return true;

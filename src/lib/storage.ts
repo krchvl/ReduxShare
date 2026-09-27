@@ -52,6 +52,18 @@ function mergeUserProfile(
       nextProfile.solvedTasksCount ?? 0,
       currentProfile.solvedTasksCount ?? 0,
     ),
+    importedQuestionsCount: Math.max(
+      nextProfile.importedQuestionsCount ?? 0,
+      currentProfile.importedQuestionsCount ?? 0,
+    ),
+    attemptCorrectCount: Math.max(
+      nextProfile.attemptCorrectCount ?? 0,
+      currentProfile.attemptCorrectCount ?? 0,
+    ),
+    attemptIncorrectCount: Math.max(
+      nextProfile.attemptIncorrectCount ?? 0,
+      currentProfile.attemptIncorrectCount ?? 0,
+    ),
   };
 }
 

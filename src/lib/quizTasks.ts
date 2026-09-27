@@ -1015,6 +1015,42 @@ function getQuestionImportKey(questionId: string, questionHash: string) {
   return [questionId, questionHash].join("\n");
 }
 
+export type ReviewQuestionOutcome = "correct" | "wrong" | "unknown" | "none";
+
+export function getReviewQuestionOutcome(answers: NormalizedReviewAnswer[]): ReviewQuestionOutcome {
+  let selectedWrong = false;
+  let selectedCorrect = false;
+  let selectedUnknown = false;
+
+  for (const answer of answers) {
+    if (!answer.wasSelected) {
+      continue;
+    }
+
+    if (answer.correctness <= 0) {
+      selectedWrong = true;
+    } else if (answer.correctness === 2) {
+      selectedCorrect = true;
+    } else {
+      selectedUnknown = true;
+    }
+  }
+
+  if (selectedWrong) {
+    return "wrong";
+  }
+
+  if (selectedCorrect) {
+    return "correct";
+  }
+
+  if (selectedUnknown) {
+    return "unknown";
+  }
+
+  return "none";
+}
+
 export function getReviewQuestionContentHash(question: NormalizedReviewQuestion) {
   const fingerprint = question.answers
     .map((answer) =>
@@ -1185,6 +1221,9 @@ export async function saveReduxShareReviewAnswers(
 
         let savedEntries = 0;
         let hashesChanged = false;
+        let importedQuestions = 0;
+        let correctQuestions = 0;
+        let wrongQuestions = 0;
 
         for (const question of questions) {
           const importKey = getQuestionImportKey(question.questionId, question.questionHash);
@@ -1228,6 +1267,16 @@ export async function saveReduxShareReviewAnswers(
           if (importedQuestionHashes[importKey] === contentHash) {
             continue;
           }
+
+          const outcome = getReviewQuestionOutcome(question.answers);
+
+          if (outcome === "correct") {
+            correctQuestions += 1;
+          } else if (outcome === "wrong") {
+            wrongQuestions += 1;
+          }
+
+          importedQuestions += 1;
 
           for (const answer of question.answers) {
             const correctDelta = answer.correctness === 2 ? 1 : 0;
@@ -1338,6 +1387,27 @@ export async function saveReduxShareReviewAnswers(
           await pb.collection(REVIEW_IMPORTS_COLLECTION).update(reviewImportId, {
             imported_question_hashes: importedQuestionHashes,
           });
+        }
+
+        // Счётчики персональной статистики применяются последними: после записи
+        // хэшей повторный сохранённый импорт дедуплицируется и не задваивает
+        // общие счётчики задач, поэтому ретрай здесь безопасен.
+        const userStatsPatch: Record<string, unknown> = {};
+
+        if (importedQuestions > 0) {
+          userStatsPatch["imported_questions_count+"] = importedQuestions;
+        }
+
+        if (correctQuestions > 0) {
+          userStatsPatch["attempt_correct_count+"] = correctQuestions;
+        }
+
+        if (wrongQuestions > 0) {
+          userStatsPatch["attempt_incorrect_count+"] = wrongQuestions;
+        }
+
+        if (Object.keys(userStatsPatch).length > 0) {
+          await pb.collection(USERS_COLLECTION).update(userId, userStatsPatch);
         }
 
         return savedEntries;
