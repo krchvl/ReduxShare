@@ -44,6 +44,19 @@ export function unknownSubmission(label: string, count = 1): SubmissionItem {
   };
 }
 
+export function votedSubmission(
+  label: string,
+  votes: { taskId: string; votesUp?: number; votesDown?: number; myVote?: 1 | -1 | 0 },
+): SubmissionItem {
+  return {
+    ...unknownSubmission(label),
+    taskId: votes.taskId,
+    votesUp: votes.votesUp ?? 0,
+    votesDown: votes.votesDown ?? 0,
+    myVote: votes.myVote ?? 0,
+  };
+}
+
 export function slottedUnknownSubmission(
   label: string,
   slotIndex: number,

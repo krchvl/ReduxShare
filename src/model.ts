@@ -171,7 +171,22 @@ export interface AnswerVariantCounts {
   submissions: number;
 }
 
-export interface SuggestionItem {
+export interface AnswerVoteMeta {
+  taskId?: string | null;
+  votesUp?: number;
+  votesDown?: number;
+  myVote?: 1 | -1 | 0;
+}
+
+export interface AnswerVoteResponse {
+  ok: boolean;
+  error?: string;
+  votesUp?: number;
+  votesDown?: number;
+  myVote?: 1 | -1 | 0;
+}
+
+export interface SuggestionItem extends AnswerVoteMeta {
   correctness: number;
   confidence: number;
   count?: number;
@@ -183,7 +198,7 @@ export interface SuggestionItem {
   updatedAt?: string | null;
 }
 
-export interface SubmissionItem {
+export interface SubmissionItem extends AnswerVoteMeta {
   correctness: number;
   count: number;
   label: string;

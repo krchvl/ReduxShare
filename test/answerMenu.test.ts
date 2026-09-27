@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
-import { exactAnswerData, sourceAnswerData, unknownAnswerData } from "./helpers/sourceData";
+import {
+  exactAnswerData,
+  sourceAnswerData,
+  unknownAnswerData,
+  unknownSubmission,
+  votedSubmission,
+} from "./helpers/sourceData";
+import type { SubmissionItem } from "../src/model";
+
+const idleAiState = {
+  status: "idle",
+  answer: null,
+  confidence: null,
+  actions: [],
+  error: null,
+} as const;
 
 function renderMenu(markup: string) {
   const host = document.createElement("div");
@@ -332,18 +347,144 @@ describe("R-menu source rendering", () => {
           reduxshare: exactAnswerData("student.png"),
         }),
         true,
-        {
-          status: "idle",
-          answer: null,
-          confidence: null,
-          actions: [],
-          error: null,
-        },
+        idleAiState,
         false,
       ),
     );
 
     expect(root.querySelector('[data-menu-tab="ai"]')).toBeNull();
     expect(root.querySelector('[data-ai-action="send"]')).toBeNull();
+  });
+});
+
+describe("R-menu vote rendering", () => {
+  function renderStatsRoot(submissions: SubmissionItem[]) {
+    return getQuizAttemptTestApi().then((api) =>
+      renderMenu(
+        api.getAnswerMenuMarkup(
+          sourceAnswerData({
+            reduxshare: {
+              anchors: [],
+              suggestions: [],
+              submissions,
+              slots: [],
+            },
+          }),
+          true,
+          idleAiState,
+          true,
+        ),
+      ),
+    );
+  }
+
+  it("renders vote buttons with counts and the own-vote highlight", async () => {
+    const root = await renderStatsRoot([
+      votedSubmission("Vercel", { taskId: "task-1", votesUp: 3, votesDown: 1, myVote: 1 }),
+      votedSubmission("Netlify", { taskId: "task-2", votesUp: 0, votesDown: 2, myVote: 0 }),
+    ]);
+
+    const stats = root.querySelector('[data-answer-menu="reduxshare-stats"]');
+    const clusters = stats!.querySelectorAll(".flyout-votes");
+    expect(clusters).toHaveLength(2);
+
+    const upButton = stats!.querySelector<HTMLButtonElement>('[data-vote-action="up"]');
+    expect(upButton?.dataset.voteTaskId).toBe("task-1");
+    expect(upButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(upButton?.className).toContain("flyout-vote-btn--active");
+    expect(upButton?.querySelector(".flyout-vote-count")?.textContent).toBe("3");
+
+    const downButton = stats!.querySelector<HTMLButtonElement>('[data-vote-action="down"]');
+    expect(downButton?.dataset.voteTaskId).toBe("task-1");
+    expect(downButton?.getAttribute("aria-pressed")).toBe("false");
+    expect(downButton?.className).not.toContain("flyout-vote-btn--active");
+    expect(downButton?.querySelector(".flyout-vote-count")?.textContent).toBe("1");
+  });
+
+  it("omits vote buttons for rows without a server task id", async () => {
+    const root = await renderStatsRoot([
+      votedSubmission("Vercel", { taskId: "task-1", votesUp: 1, votesDown: 0 }),
+      unknownSubmission("Netlify", 2),
+    ]);
+
+    const rows = root.querySelectorAll('[data-answer-menu="reduxshare-stats"] .flyout-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.querySelector(".flyout-votes")).not.toBeNull();
+    expect(rows[1]!.querySelector(".flyout-votes")).toBeNull();
+  });
+
+  it("omits vote buttons for verified answers even when vote data exists", async () => {
+    const root = await renderStatsRoot([
+      {
+        correctness: 2,
+        count: 9,
+        label: "Vercel",
+        taskId: "task-1",
+        votesUp: 3,
+        votesDown: 0,
+        myVote: 0,
+      },
+      {
+        correctness: 0,
+        count: 4,
+        label: "Netlify",
+        taskId: "task-2",
+        votesUp: 1,
+        votesDown: 5,
+        myVote: 0,
+      },
+      votedSubmission("GitHub Pages", { taskId: "task-3", votesUp: 1, votesDown: 0 }),
+    ]);
+
+    const rows = root.querySelectorAll('[data-answer-menu="reduxshare-stats"] .flyout-row');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]!.querySelector(".flyout-votes")).toBeNull();
+    expect(rows[0]!.getAttribute("data-meta-votes")).toBeNull();
+    expect(rows[0]!.querySelector(".flyout-label")?.className).not.toContain(
+      "flyout-label--dubious",
+    );
+    expect(rows[1]!.querySelector(".flyout-votes")).toBeNull();
+    expect(rows[1]!.getAttribute("data-meta-votes")).toBeNull();
+    expect(rows[1]!.querySelector(".flyout-label")?.className).not.toContain(
+      "flyout-label--dubious",
+    );
+    expect(rows[2]!.querySelector(".flyout-votes")).not.toBeNull();
+  });
+
+  it("marks downvoted variants as dubious in statistics", async () => {
+    const root = await renderStatsRoot([
+      votedSubmission("Vercel", { taskId: "task-1", votesUp: 1, votesDown: 4 }),
+      votedSubmission("Netlify", { taskId: "task-2", votesUp: 4, votesDown: 4 }),
+    ]);
+
+    const labels = Array.from(
+      root.querySelectorAll('[data-answer-menu="reduxshare-stats"] .flyout-label'),
+    );
+    const vercel = labels.find((node) => node.textContent?.trim() === "Vercel");
+    const netlify = labels.find((node) => node.textContent?.trim() === "Netlify");
+
+    expect(vercel?.className).toContain("flyout-label--dubious");
+    expect(netlify?.className).not.toContain("flyout-label--dubious");
+  });
+
+  it("shows the votes line in the hovercard", async () => {
+    const { attachAnswerHovercards } = await import("../src/ui/answerMenu");
+    const root = await renderStatsRoot([
+      votedSubmission("Vercel", { taskId: "task-1", votesUp: 3, votesDown: 1 }),
+    ]);
+
+    attachAnswerHovercards(root);
+    const option = root.querySelector<HTMLElement>(
+      '[data-answer-menu="reduxshare-stats"] [data-answer-label="Vercel"]',
+    );
+    expect(option).toBeInstanceOf(HTMLElement);
+    expect(option?.getAttribute("data-meta-votes")).toBe("3/1");
+
+    option!.dispatchEvent(
+      new MouseEvent("mouseenter", { bubbles: false, clientX: 100, clientY: 100 }),
+    );
+    const card = root.querySelector<HTMLElement>(".flyout-hovercard");
+    expect(card?.hidden).toBe(false);
+    expect(card?.textContent).toContain("Голоса: 3 за · 1 против");
   });
 });

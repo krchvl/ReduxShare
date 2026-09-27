@@ -18,6 +18,7 @@ vi.mock("../src/lib/auth", () => ({
 vi.mock("../src/lib/pocketbase", () => ({
   USERS_COLLECTION: "users",
   TASKS_COLLECTION: "reduxshare_tasks",
+  TASK_VOTES_COLLECTION: "reduxshare_task_votes",
   REVIEW_IMPORTS_COLLECTION: "reduxshare_review_imports",
   isNotFoundError: (error: { isNotFound?: boolean } | null | undefined) =>
     error?.isNotFound === true,
@@ -25,7 +26,8 @@ vi.mock("../src/lib/pocketbase", () => ({
     error?.isValidation === true,
   toI18nError: (
     error: unknown,
-    messageKey: "errors.reduxAnswersFetchFailed" | "errors.reduxReviewSaveFailed",
+    messageKey:
+      "errors.reduxAnswersFetchFailed" | "errors.reduxReviewSaveFailed" | "errors.voteSaveFailed",
   ) => {
     if (error instanceof I18nError) {
       return error;
@@ -165,6 +167,13 @@ describe("ReduxShare review DB save (PocketBase)", () => {
       }),
       reduxshare_tasks: mockCollection({
         getFullList: vi.fn().mockResolvedValue([]),
+      }),
+      reduxshare_task_votes: mockCollection({
+        getFullList: vi.fn().mockResolvedValue([]),
+        getFirstListItem: vi.fn().mockRejectedValue(notFoundError()),
+        create: vi.fn().mockResolvedValue({ id: "vote-1" }),
+        update: vi.fn().mockResolvedValue({ id: "vote-1" }),
+        delete: vi.fn().mockResolvedValue(undefined),
       }),
     };
   });
@@ -365,6 +374,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "task-1",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
         ],
         submissions: [
@@ -375,6 +388,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "task-1",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
         ],
       },
@@ -426,6 +443,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "task-1",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
         ],
       },
@@ -471,6 +492,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "t1",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
           {
             label: "B",
@@ -479,6 +504,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "t2",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
         ],
         submissions: [
@@ -489,6 +518,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "t1",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
           {
             label: "B",
@@ -497,6 +530,10 @@ describe("ReduxShare review DB save (PocketBase)", () => {
             contributor: "maria",
             addedAt: "2026-09-01T10:00:00.000Z",
             updatedAt: "2026-09-02T10:00:00.000Z",
+            taskId: "t2",
+            votesUp: 0,
+            votesDown: 0,
+            myVote: 0,
           },
         ],
       },

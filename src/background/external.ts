@@ -17,6 +17,7 @@ import {
   fetchReduxShareQuizPreviewTasks,
   fetchReduxShareTasks,
   saveReduxShareReviewAnswers,
+  voteTaskAnswer,
   type QuizPreviewTaskResult,
   type SaveReduxShareReviewPayload,
 } from "../lib/quizTasks";
@@ -65,11 +66,12 @@ import {
   PRELOAD_QUIZ_QUESTIONS_MESSAGE,
   RECORD_QUIZ_PROGRESS_MESSAGE,
   SAVE_REVIEW_ANSWERS_MESSAGE,
+  VOTE_ANSWER_MESSAGE,
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
 import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
-import type { AnswerData, QuizPreviewRequestPayload } from "../model";
+import type { AnswerData, AnswerVoteResponse, QuizPreviewRequestPayload } from "../model";
 import { createEmptyAnswerData, getAnswerData } from "../data/answerData";
 import {
   normalizeAiSettings,
@@ -105,6 +107,16 @@ interface RecordQuizProgressMessage {
 interface SaveReviewAnswersMessage {
   type: typeof SAVE_REVIEW_ANSWERS_MESSAGE;
   payload: SaveReduxShareReviewPayload;
+}
+
+interface VoteAnswerPayload {
+  taskId: string;
+  value: 1 | -1;
+}
+
+interface VoteAnswerMessage {
+  type: typeof VOTE_ANSWER_MESSAGE;
+  payload: VoteAnswerPayload;
 }
 
 interface FetchQuizPreviewMessage {
@@ -201,6 +213,23 @@ function isSaveReviewAnswersMessage(message: unknown): message is SaveReviewAnsw
   const candidate = message as Partial<SaveReviewAnswersMessage>;
 
   return candidate.type === SAVE_REVIEW_ANSWERS_MESSAGE && typeof candidate.payload === "object";
+}
+
+function isVoteAnswerMessage(message: unknown): message is VoteAnswerMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<VoteAnswerMessage>;
+
+  return (
+    candidate.type === VOTE_ANSWER_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null &&
+    typeof candidate.payload.taskId === "string" &&
+    candidate.payload.taskId.length > 0 &&
+    (candidate.payload.value === 1 || candidate.payload.value === -1)
+  );
 }
 
 function isFetchQuizPreviewMessage(message: unknown): message is FetchQuizPreviewMessage {
@@ -478,6 +507,29 @@ async function handleFetchQuizAnswers(
     ok: true,
     reduxshareResults: reduxshareResponse.results,
     externalResults,
+  };
+}
+
+async function handleVoteAnswer(payload: VoteAnswerPayload): Promise<AnswerVoteResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await voteTaskAnswer(authSession, payload);
+  await saveStoredStatePatch({ authSession: result.authSession });
+
+  return {
+    ok: true,
+    votesUp: result.votesUp,
+    votesDown: result.votesDown,
+    myVote: result.myVote,
   };
 }
 
@@ -1075,6 +1127,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
           questionCount: message.payload.questions.length,
         });
         sendErrorResponse(error, sendResponse);
+      });
+
+    return true;
+  }
+
+  if (isVoteAnswerMessage(message)) {
+    void handleVoteAnswer(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.voteSaveFailed");
       });
 
     return true;

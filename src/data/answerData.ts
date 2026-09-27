@@ -2,6 +2,7 @@ import {
   type AnswerData,
   type AnswerSlotData,
   type AnswerVariantCounts,
+  type AnswerVoteMeta,
   type QuizVariantResult,
   type SourceAnswerData,
   type SubmissionItem,
@@ -164,6 +165,32 @@ function getMetaFields(record: Record<string, unknown>) {
   return meta;
 }
 
+function getVoteMeta(record: Record<string, unknown>): AnswerVoteMeta {
+  const meta: AnswerVoteMeta = {};
+
+  if (typeof record.taskId === "string" && record.taskId) {
+    meta.taskId = record.taskId;
+  }
+
+  if (typeof record.votesUp === "number" && Number.isFinite(record.votesUp)) {
+    meta.votesUp = Math.max(Math.round(record.votesUp), 0);
+  }
+
+  if (typeof record.votesDown === "number" && Number.isFinite(record.votesDown)) {
+    meta.votesDown = Math.max(Math.round(record.votesDown), 0);
+  }
+
+  if (record.myVote === 1 || record.myVote === -1 || record.myVote === 0) {
+    meta.myVote = record.myVote;
+  }
+
+  return meta;
+}
+
+export function isDownvotedAnswerItem(item: { votesUp?: number; votesDown?: number }) {
+  return (item.votesDown ?? 0) > (item.votesUp ?? 0);
+}
+
 function parseSuggestionItem(value: unknown): SuggestionItem | null {
   const record = getRecord(value);
 
@@ -177,6 +204,7 @@ function parseSuggestionItem(value: unknown): SuggestionItem | null {
     count: typeof record.count === "number" ? record.count : undefined,
     label: getStringField(record, ["label", "data", "answer", "text", "value", "name"]),
     ...getMetaFields(record),
+    ...getVoteMeta(record),
   };
 }
 
@@ -192,6 +220,7 @@ function parseSubmissionItem(value: unknown): SubmissionItem | null {
     count: typeof record.count === "number" ? record.count : 0,
     label: getStringField(record, ["label", "data", "answer", "text", "value", "name"]),
     ...getMetaFields(record),
+    ...getVoteMeta(record),
   };
 }
 
@@ -219,10 +248,12 @@ export function getAnswerData(result: QuizVariantResult): AnswerData {
           continue;
         }
 
-        if (suggestion.correctness === 2) {
+        // Вариант с перевесом 👎 сомнителен: в «Точный ответ» не попадает
+        // (и не автоподставляется), в статистике остаётся через серверные submissions.
+        if (suggestion.correctness === 2 && !isDownvotedAnswerItem(suggestion)) {
           data.suggestions.push(suggestion);
           slot.suggestions.push(suggestion);
-        } else {
+        } else if (suggestion.correctness !== 2) {
           const submission: SubmissionItem = {
             correctness: suggestion.correctness,
             count: 1,

@@ -10,6 +10,7 @@ import {
   type AiAnswerState,
   type AnswerEntry,
   type AnswerVariantCounts,
+  type AnswerVoteResponse,
   type QuizAnswersResponse,
   type QuizAttemptContext,
   type QuizQuestionSummary,
@@ -19,7 +20,7 @@ import {
 } from "../model";
 import { APP_STORAGE_KEY, QUIZ_CONTEXT_STORAGE_KEY } from "../shared/storageKeys";
 import { patchStoredState } from "../lib/storage";
-import { FETCH_QUIZ_ANSWERS_MESSAGE } from "../shared/messages";
+import { FETCH_QUIZ_ANSWERS_MESSAGE, VOTE_ANSWER_MESSAGE } from "../shared/messages";
 import {
   hotkeyMatchesEvent,
   isEditableHotkeyTarget,
@@ -1081,6 +1082,132 @@ function openAnswerMenuPortal(
     window.setTimeout(() => closePortal(), 120);
   });
 
+  const applyVoteStateToRow = (
+    row: Element,
+    votesUp: number,
+    votesDown: number,
+    myVote: 1 | -1 | 0,
+  ) => {
+    const votesCluster = row.querySelector<HTMLElement>(".flyout-votes");
+
+    if (!votesCluster) {
+      return;
+    }
+
+    row.setAttribute("data-meta-votes", `${votesUp}/${votesDown}`);
+
+    const applyButton = (button: HTMLButtonElement | null, count: number, active: boolean) => {
+      if (!button) {
+        return;
+      }
+
+      const countEl = button.querySelector<HTMLElement>(".flyout-vote-count");
+
+      if (countEl) {
+        countEl.textContent = String(count);
+      }
+
+      button.classList.toggle("flyout-vote-btn--active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    };
+
+    applyButton(
+      votesCluster.querySelector<HTMLButtonElement>('[data-vote-action="up"]'),
+      votesUp,
+      myVote === 1,
+    );
+    applyButton(
+      votesCluster.querySelector<HTMLButtonElement>('[data-vote-action="down"]'),
+      votesDown,
+      myVote === -1,
+    );
+
+    const label = row.querySelector<HTMLElement>(".flyout-label");
+
+    if (label) {
+      label.classList.toggle("flyout-label--dubious", votesDown > votesUp);
+    }
+  };
+
+  const readRowVoteState = (
+    row: Element,
+  ): { votesUp: number; votesDown: number; myVote: 1 | -1 | 0 } => {
+    const [rawUp, rawDown] = (row.getAttribute("data-meta-votes") ?? "0/0").split("/");
+    const upButton = row.querySelector<HTMLButtonElement>('[data-vote-action="up"]');
+    const downButton = row.querySelector<HTMLButtonElement>('[data-vote-action="down"]');
+    const myVote = upButton?.classList.contains("flyout-vote-btn--active")
+      ? 1
+      : downButton?.classList.contains("flyout-vote-btn--active")
+        ? -1
+        : 0;
+
+    return {
+      votesUp: Number.parseInt(rawUp, 10) || 0,
+      votesDown: Number.parseInt(rawDown, 10) || 0,
+      myVote,
+    };
+  };
+
+  const handleVoteButtonClick = (button: HTMLButtonElement) => {
+    const taskId = button.dataset.voteTaskId;
+    const action = button.dataset.voteAction;
+    const row = button.closest(".flyout-row");
+
+    if (!taskId || (action !== "up" && action !== "down") || !row) {
+      return;
+    }
+
+    if (button.dataset.votePending === "true") {
+      return;
+    }
+
+    const previous = readRowVoteState(row);
+    const desiredValue: 1 | -1 = action === "up" ? 1 : -1;
+    const nextMyVote: 1 | -1 | 0 = previous.myVote === desiredValue ? 0 : desiredValue;
+    const nextVotesUp =
+      previous.votesUp - (previous.myVote === 1 ? 1 : 0) + (nextMyVote === 1 ? 1 : 0);
+    const nextVotesDown =
+      previous.votesDown - (previous.myVote === -1 ? 1 : 0) + (nextMyVote === -1 ? 1 : 0);
+
+    applyVoteStateToRow(row, nextVotesUp, nextVotesDown, nextMyVote);
+    button.dataset.votePending = "true";
+
+    void requestVoteAnswer(taskId, desiredValue)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(response.error ?? "vote failed");
+        }
+
+        applyVoteStateToRow(
+          row,
+          response.votesUp ?? nextVotesUp,
+          response.votesDown ?? nextVotesDown,
+          response.myVote ?? nextMyVote,
+        );
+      })
+      .catch(() => {
+        applyVoteStateToRow(row, previous.votesUp, previous.votesDown, previous.myVote);
+      })
+      .finally(() => {
+        delete button.dataset.votePending;
+      });
+  };
+
+  shadowRoot.addEventListener("click", (event) => {
+    const target = event.target;
+    const button =
+      target instanceof Element ? target.closest<HTMLButtonElement>("[data-vote-action]") : null;
+
+    if (!button) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    handleVoteButtonClick(button);
+  });
+
   shadowRoot.addEventListener("keydown", (event) => {
     if (!(event instanceof KeyboardEvent)) {
       return;
@@ -1121,6 +1248,14 @@ function openAnswerMenuPortal(
     option.style.cursor = "pointer";
 
     option.addEventListener("click", (event: MouseEvent) => {
+      const clickTarget = event.target;
+
+      // Клик по кнопке голосования обрабатывается делегированным слушателем
+      // на shadowRoot — вариант ответа не применяется и меню не закрывается.
+      if (clickTarget instanceof Element && clickTarget.closest("[data-vote-action]")) {
+        return;
+      }
+
       event.stopPropagation();
 
       const questionNode = findQuestionNodeForTrigger(trigger);
@@ -2022,6 +2157,33 @@ function requestQuizAnswers(context: QuizAttemptContext): Promise<QuizAnswersRes
           },
         },
         (response: QuizAnswersResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
+
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(
+            response ?? {
+              ok: false,
+              error: "Background script did not return a response.",
+            },
+          );
+        },
+      );
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+function requestVoteAnswer(taskId: string, value: 1 | -1): Promise<AnswerVoteResponse> {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(
+        { type: VOTE_ANSWER_MESSAGE, payload: { taskId, value } },
+        (response: AnswerVoteResponse | undefined) => {
           const runtimeError = chrome.runtime.lastError;
 
           if (runtimeError) {

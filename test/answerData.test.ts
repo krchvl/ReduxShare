@@ -76,3 +76,70 @@ describe("source answer data parsing", () => {
     expect(data.submissions).toMatchObject([{ label: "false", correctness: 1, count: 1 }]);
   });
 });
+
+describe("vote metadata parsing", () => {
+  it("keeps vote fields on submissions and suggestions", () => {
+    const data = getAnswerData(
+      variantResult([
+        {
+          anchor: { index: 1, label: "question" },
+          suggestions: [
+            { label: "A", correctness: 2, confidence: 1, taskId: "t1", votesUp: 2, votesDown: 0 },
+          ],
+          submissions: [
+            {
+              label: "B",
+              correctness: 1,
+              count: 2,
+              taskId: "t2",
+              votesUp: 1,
+              votesDown: 3,
+              myVote: -1,
+            },
+          ],
+        },
+      ]),
+    );
+
+    expect(data.suggestions[0]).toMatchObject({ taskId: "t1", votesUp: 2, votesDown: 0 });
+    expect(data.suggestions[0].myVote).toBeUndefined();
+    expect(data.submissions[0]).toMatchObject({
+      taskId: "t2",
+      votesUp: 1,
+      votesDown: 3,
+      myVote: -1,
+    });
+  });
+
+  it("drops downvoted exact suggestions from exact answers", () => {
+    const data = getAnswerData(
+      variantResult([
+        {
+          anchor: { index: 1, label: "question" },
+          suggestions: [
+            { label: "A", correctness: 2, confidence: 1, taskId: "t1", votesUp: 1, votesDown: 4 },
+            { label: "B", correctness: 2, confidence: 1, taskId: "t2", votesUp: 4, votesDown: 1 },
+            { label: "C", correctness: 2, confidence: 1, taskId: "t3", votesUp: 2, votesDown: 2 },
+          ],
+        },
+      ]),
+    );
+
+    expect(data.suggestions.map((suggestion) => suggestion.label)).toEqual(["B", "C"]);
+    expect(data.submissions).toHaveLength(0);
+  });
+
+  it("keeps suggestions without vote data (external providers) in exact answers", () => {
+    const data = getAnswerData(
+      variantResult([
+        {
+          anchor: { index: 1, label: "question" },
+          suggestions: [{ label: "A", correctness: 2, confidence: 1 }],
+        },
+      ]),
+    );
+
+    expect(data.suggestions).toHaveLength(1);
+    expect(data.suggestions[0].taskId).toBeUndefined();
+  });
+});

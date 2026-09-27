@@ -9,6 +9,7 @@ import {
 } from "../model";
 import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
 import { getBooleanSuggestionValue } from "../shared/answerParsing";
+import { isDownvotedAnswerItem } from "../data/answerData";
 
 let currentT: TranslateFn = getContentTranslator(undefined);
 
@@ -51,6 +52,10 @@ function getFlyoutActionAttributes(item: { label: string; actionSlotIndex?: numb
 
   return attributes.join(" ");
 }
+
+const VOTE_UP_ICON_MARKUP = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10.5v9.5H4.5A1.5 1.5 0 0 1 3 18.5V12a1.5 1.5 0 0 1 1.5-1.5H7Zm0 0 3.9-6.8a1.7 1.7 0 0 1 3.1 1.2L13.4 8.8h5.3a2 2 0 0 1 2 2.3l-.9 5.9a2.4 2.4 0 0 1-2.4 2H7" /></svg>`;
+
+const VOTE_DOWN_ICON_MARKUP = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 13.5V4h2.5A1.5 1.5 0 0 1 21 5.5V12a1.5 1.5 0 0 1-1.5 1.5H17Zm0 0-3.9 6.8a1.7 1.7 0 0 1-3.1-1.2l.6-4.3H5.3a2 2 0 0 1-2-2.3l.9-5.9a2.4 2.4 0 0 1 2.4-2H17" /></svg>`;
 
 function formatAnswerMetaDate(value: string | null | undefined) {
   if (!value) {
@@ -194,15 +199,41 @@ function renderSubmissionFlyout(submissions: SubmissionItem[]): string {
   return submissions
     .map((s) => {
       const wrongClass = s.correctness <= 0 ? " flyout-label--wrong" : "";
+      // Голосовать можно только за непроверенные варианты: нет данных о верности/неверности.
+      const canVote = Boolean(s.taskId) && s.correctness === 1;
+      const dubiousClass = canVote && isDownvotedAnswerItem(s) ? " flyout-label--dubious" : "";
       return `
-      <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}${getAnswerMetaDataAttributes(s)}>
+      <div class="flyout-option flyout-row" ${getFlyoutActionAttributes(s)}${getAnswerMetaDataAttributes(s)}${getAnswerVoteDataAttributes(s)}>
         <div class="flyout-label-block">
-          <span class="flyout-label${wrongClass}">${escapeHtml(s.displayLabel ?? s.label)}</span>
+          <span class="flyout-label${wrongClass}${dubiousClass}">${escapeHtml(s.displayLabel ?? s.label)}</span>
         </div>
-        <span class="flyout-pct" style="color:${correctnessColor(s.correctness)}">${s.count}</span>
+        <span class="flyout-pct" style="color:${correctnessColor(s.correctness)}">${s.count}</span>${renderVoteCluster(s)}
       </div>`;
     })
     .join("");
+}
+
+function getAnswerVoteDataAttributes(item: SubmissionItem) {
+  if (!item.taskId || item.correctness !== 1) {
+    return "";
+  }
+
+  return ` data-meta-votes="${item.votesUp ?? 0}/${item.votesDown ?? 0}"`;
+}
+
+function renderVoteCluster(item: SubmissionItem): string {
+  if (!item.taskId || item.correctness !== 1) {
+    return "";
+  }
+
+  const upActive = item.myVote === 1;
+  const downActive = item.myVote === -1;
+
+  return `
+      <div class="flyout-votes" role="group">
+        <button type="button" class="flyout-vote-btn${upActive ? " flyout-vote-btn--active" : ""}" data-vote-action="up" data-vote-task-id="${escapeHtml(item.taskId)}" title="${escapeHtml(currentT("quiz.menu.voteUp"))}" aria-pressed="${upActive ? "true" : "false"}" tabindex="-1">${VOTE_UP_ICON_MARKUP}<span class="flyout-vote-count">${item.votesUp ?? 0}</span></button>
+        <button type="button" class="flyout-vote-btn${downActive ? " flyout-vote-btn--active" : ""}" data-vote-action="down" data-vote-task-id="${escapeHtml(item.taskId)}" title="${escapeHtml(currentT("quiz.menu.voteDown"))}" aria-pressed="${downActive ? "true" : "false"}" tabindex="-1">${VOTE_DOWN_ICON_MARKUP}<span class="flyout-vote-count">${item.votesDown ?? 0}</span></button>
+      </div>`;
 }
 
 const HOVERCARD_WIDTH = 230;
@@ -234,8 +265,9 @@ export function attachAnswerHovercards(shadowRoot: ShadowRoot) {
     const user = anchor.dataset.metaUser ?? "";
     const added = anchor.dataset.metaAdded ?? "";
     const updated = anchor.dataset.metaUpdated ?? "";
+    const votes = anchor.dataset.metaVotes ?? "";
 
-    if (!user && !added && !updated) {
+    if (!user && !added && !updated && !votes) {
       return;
     }
 
@@ -251,6 +283,18 @@ export function attachAnswerHovercards(shadowRoot: ShadowRoot) {
 
     if (updated && updated !== added) {
       lines.push(currentT("quiz.menu.updatedAt", { date: updated }));
+    }
+
+    if (votes) {
+      const [rawUp, rawDown] = votes.split("/");
+      const up = Number.parseInt(rawUp ?? "", 10);
+      const down = Number.parseInt(rawDown ?? "", 10);
+      lines.push(
+        currentT("quiz.menu.votesLine", {
+          up: Number.isFinite(up) ? up : 0,
+          down: Number.isFinite(down) ? down : 0,
+        }),
+      );
     }
 
     const label = anchor.dataset.answerLabel ?? "";
@@ -308,6 +352,10 @@ function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {
       label: suggestion.label,
       displayLabel: suggestion.displayLabel,
       actionSlotIndex: suggestion.actionSlotIndex,
+      taskId: suggestion.taskId,
+      votesUp: suggestion.votesUp,
+      votesDown: suggestion.votesDown,
+      myVote: suggestion.myVote,
     }));
 }
 
@@ -1214,6 +1262,65 @@ export function getAnswerMenuMarkup(
         line-height: 1;
       }
 
+      .flyout-votes {
+        display: flex;
+        flex-shrink: 0;
+        gap: 2px;
+        align-items: center;
+      }
+
+      .flyout-vote-btn {
+        all: unset;
+        display: flex;
+        flex-shrink: 0;
+        gap: 2px;
+        align-items: center;
+        box-sizing: border-box;
+        padding: 2px 3px;
+        border-radius: 3px;
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+      }
+
+      .flyout-vote-btn svg {
+        width: 11px;
+        height: 11px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .flyout-vote-btn:hover {
+        background: rgba(255, 255, 255, 0.09);
+        color: #ffffff;
+      }
+
+      .flyout-vote-btn--active {
+        color: var(--reduxshare-accent);
+      }
+
+      .flyout-vote-btn--active:hover {
+        background: transparent;
+        color: var(--reduxshare-accent);
+      }
+
+      .flyout-vote-count {
+        font-family: Inter, Arial, sans-serif;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1;
+      }
+
+      .flyout-label--dubious {
+        color: #fbbf24;
+      }
+
+      .flyout-label--wrong.flyout-label--dubious {
+        text-decoration-color: #fbbf24;
+      }
+
       .ai-answer-option {
         align-items: flex-start;
         cursor: pointer;
@@ -1430,6 +1537,23 @@ export function getAnswerMenuMarkup(
 
       :host([data-theme="light"]) .flyout-hovercard__line {
         color: rgba(20, 25, 40, 0.66);
+      }
+
+      :host([data-theme="light"]) .flyout-vote-btn {
+        color: rgba(20, 25, 40, 0.45);
+      }
+
+      :host([data-theme="light"]) .flyout-vote-btn:hover {
+        background: rgba(20, 25, 40, 0.08);
+        color: #14171d;
+      }
+
+      :host([data-theme="light"]) .flyout-label--dubious {
+        color: #b45309;
+      }
+
+      :host([data-theme="light"]) .flyout-label--wrong.flyout-label--dubious {
+        text-decoration-color: #b45309;
       }
 
       @media (max-width: 640px) {

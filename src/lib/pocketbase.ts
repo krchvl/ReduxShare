@@ -5,6 +5,7 @@ import { ensurePocketBaseSession, restorePocketBaseSession } from "./auth";
 
 export const USERS_COLLECTION = "users";
 export const TASKS_COLLECTION = "reduxshare_tasks";
+export const TASK_VOTES_COLLECTION = "reduxshare_task_votes";
 export const REVIEW_IMPORTS_COLLECTION = "reduxshare_review_imports";
 
 export function getPocketBaseUrl() {

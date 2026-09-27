@@ -7,6 +7,7 @@ import { ensurePocketBaseSession } from "./auth";
 import {
   REVIEW_IMPORTS_COLLECTION,
   TASKS_COLLECTION,
+  TASK_VOTES_COLLECTION,
   USERS_COLLECTION,
   isNotFoundError,
   isValidationError,
@@ -57,12 +58,21 @@ interface TaskRecord {
   selected_correct_count: number | null;
   selected_incorrect_count: number | null;
   selected_unknown_count: number | null;
+  votes_up?: number | null;
+  votes_down?: number | null;
   created: string;
   updated: string;
   expand?: {
     first_contributor?: { username?: unknown } | null;
     last_contributor?: { username?: unknown } | null;
   } | null;
+}
+
+interface TaskVoteRecord {
+  id: string;
+  task: string;
+  user: string;
+  value: number;
 }
 
 interface ReviewImportRecord {
@@ -111,6 +121,18 @@ export interface SaveReduxShareReviewResult {
   authSession: AuthSession;
   imported: boolean;
   savedCount: number;
+}
+
+export interface VoteTaskAnswerPayload {
+  taskId: string;
+  value: 1 | -1;
+}
+
+export interface VoteTaskAnswerResult {
+  authSession: AuthSession;
+  votesUp: number;
+  votesDown: number;
+  myVote: 1 | -1 | 0;
 }
 
 type ReduxShareTaskDataRow = {
@@ -281,6 +303,10 @@ interface AggregatedSlot {
     contributor: string | null;
     addedAt: string | null;
     updatedAt: string | null;
+    taskId: string;
+    votesUp: number;
+    votesDown: number;
+    myVote: number;
   }>;
   submissions: Array<{
     correctness: number;
@@ -289,6 +315,10 @@ interface AggregatedSlot {
     contributor: string | null;
     addedAt: string | null;
     updatedAt: string | null;
+    taskId: string;
+    votesUp: number;
+    votesDown: number;
+    myVote: number;
   }>;
   slotAnswerCount: number;
 }
@@ -311,7 +341,19 @@ function getRowMeta(row: TaskRecord) {
   };
 }
 
-function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
+function getRowVotes(row: TaskRecord, votesByTaskId: Map<string, 1 | -1>) {
+  return {
+    taskId: row.id,
+    votesUp: Math.max(row.votes_up ?? 0, 0),
+    votesDown: Math.max(row.votes_down ?? 0, 0),
+    myVote: votesByTaskId.get(row.id) ?? 0,
+  };
+}
+
+function aggregateSlotRows(
+  rows: TaskRecord[],
+  votesByTaskId: Map<string, 1 | -1>,
+): AggregatedSlot[] {
   const bySlot = new Map<string, TaskRecord[]>();
 
   for (const row of rows) {
@@ -339,6 +381,7 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
               : 0,
           label: row.answer_label,
           ...getRowMeta(row),
+          ...getRowVotes(row, votesByTaskId),
         };
       })
       .sort((a, b) =>
@@ -346,14 +389,31 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
           ? b.verifiedTotal - a.verifiedTotal
           : a.label.localeCompare(b.label),
       )
-      .map(({ correctness, confidence, label, contributor, addedAt, updatedAt }) => ({
-        correctness,
-        confidence,
-        label,
-        contributor,
-        addedAt,
-        updatedAt,
-      }));
+      .map(
+        ({
+          correctness,
+          confidence,
+          label,
+          contributor,
+          addedAt,
+          updatedAt,
+          taskId,
+          votesUp,
+          votesDown,
+          myVote,
+        }) => ({
+          correctness,
+          confidence,
+          label,
+          contributor,
+          addedAt,
+          updatedAt,
+          taskId,
+          votesUp,
+          votesDown,
+          myVote,
+        }),
+      );
     const submissions = slotRows
       .filter((row) => getObservedTotal(row) > 0)
       .map((row) => ({
@@ -366,6 +426,7 @@ function aggregateSlotRows(rows: TaskRecord[]): AggregatedSlot[] {
         count: getObservedTotal(row),
         label: row.answer_label,
         ...getRowMeta(row),
+        ...getRowVotes(row, votesByTaskId),
       }))
       .sort((a, b) => (a.count !== b.count ? b.count - a.count : a.label.localeCompare(b.label)));
 
@@ -411,6 +472,65 @@ function buildQuestionData(slots: AggregatedSlot[]) {
   }));
 }
 
+const VOTES_QUERY_CHUNK = 80;
+
+// Строка проверена сообществом: есть импортированные данные о верности или неверности.
+// Голосовать можно только за непроверенные варианты.
+function isTaskRowVerified(
+  row: Pick<TaskRecord, "correct_count" | "selected_correct_count" | "selected_incorrect_count">,
+) {
+  return (
+    (row.correct_count ?? 0) + (row.selected_correct_count ?? 0) > 0 ||
+    (row.selected_incorrect_count ?? 0) > 0
+  );
+}
+
+async function findOwnTaskVote(
+  pb: PocketBase,
+  userId: string,
+  taskId: string,
+): Promise<TaskVoteRecord | null> {
+  try {
+    return await pb
+      .collection(TASK_VOTES_COLLECTION)
+      .getFirstListItem<TaskVoteRecord>(
+        pb.filter("task = {:task} && user = {:user}", { task: taskId, user: userId }),
+      );
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchMyVotes(
+  pb: PocketBase,
+  userId: string,
+  taskIds: string[],
+): Promise<Map<string, 1 | -1>> {
+  const votes = new Map<string, 1 | -1>();
+
+  for (let offset = 0; offset < taskIds.length; offset += VOTES_QUERY_CHUNK) {
+    const chunk = taskIds.slice(offset, offset + VOTES_QUERY_CHUNK);
+    const terms = chunk.map((_, index) => `task = {:task${index}}`);
+    const params = Object.fromEntries(chunk.map((taskId, index) => [`task${index}`, taskId]));
+    const voteRows = await pb.collection(TASK_VOTES_COLLECTION).getFullList<TaskVoteRecord>({
+      filter: pb.filter(`user = {:user} && (${terms.join(" || ")})`, {
+        user: userId,
+        ...params,
+      }),
+    });
+
+    for (const voteRow of voteRows) {
+      votes.set(voteRow.task, voteRow.value === -1 ? -1 : 1);
+    }
+  }
+
+  return votes;
+}
+
 export async function fetchReduxShareTasks(
   authSession: AuthSession,
   payload: FetchReduxShareTasksPayload,
@@ -432,12 +552,13 @@ export async function fetchReduxShareTasks(
   }
 
   try {
-    const { authSession: nextAuthSession, result: rowsByQuestionId } =
-      await withPocketBaseSessionRetry(authSession, async (pb) => {
+    const { authSession: nextAuthSession, result: rowsByQuestionIdAndVotes } =
+      await withPocketBaseSessionRetry(authSession, async (pb, session) => {
         const uniqueQuestionIds = [
           ...new Set(payload.questions.map((question) => question.questionId)),
         ].filter((questionId): questionId is string => Boolean(questionId));
         const grouped = new Map<string, TaskRecord[]>();
+        let allRows: TaskRecord[] = [];
 
         if (uniqueQuestionIds.length > 0) {
           const questionIdTerms = uniqueQuestionIds.map(
@@ -460,6 +581,8 @@ export async function fetchReduxShareTasks(
             expand: "first_contributor,last_contributor",
           });
 
+          allRows = rows;
+
           for (const row of rows) {
             const group = grouped.get(row.question_id) ?? [];
             group.push(row);
@@ -467,8 +590,17 @@ export async function fetchReduxShareTasks(
           }
         }
 
-        return grouped;
+        const votesByTaskId = await fetchMyVotes(
+          pb,
+          session.user.id,
+          allRows.map((row) => row.id),
+        );
+
+        return { grouped, votesByTaskId };
       });
+
+    const rowsByQuestionId = rowsByQuestionIdAndVotes.grouped;
+    const votesByTaskId = rowsByQuestionIdAndVotes.votesByTaskId;
 
     return {
       authSession: nextAuthSession,
@@ -487,7 +619,7 @@ export async function fetchReduxShareTasks(
           };
         }
 
-        const slots = aggregateSlotRows(bestRows);
+        const slots = aggregateSlotRows(bestRows, votesByTaskId);
         const data = buildQuestionData(slots);
         const rowHash = maxText(bestRows.map((row) => row.question_hash));
         const hasHashMismatch =
@@ -510,6 +642,138 @@ export async function fetchReduxShareTasks(
     };
   } catch (error) {
     throw toI18nError(error, "errors.reduxAnswersFetchFailed");
+  }
+}
+
+export async function voteTaskAnswer(
+  authSession: AuthSession,
+  payload: VoteTaskAnswerPayload,
+): Promise<VoteTaskAnswerResult> {
+  try {
+    const { authSession: nextAuthSession, result } = await withPocketBaseSessionRetry(
+      authSession,
+      async (pb, session) => {
+        let task: Pick<
+          TaskRecord,
+          "correct_count" | "selected_correct_count" | "selected_incorrect_count"
+        >;
+
+        try {
+          task = await pb.collection(TASKS_COLLECTION).getOne<TaskRecord>(payload.taskId, {
+            fields: "id,correct_count,selected_correct_count,selected_incorrect_count",
+          });
+        } catch (error) {
+          if (isNotFoundError(error)) {
+            throw new I18nError("errors.voteTaskMissing");
+          }
+
+          throw error;
+        }
+
+        if (isTaskRowVerified(task)) {
+          throw new I18nError("errors.voteUnverifiableOnly");
+        }
+
+        const existingVote = await findOwnTaskVote(pb, session.user.id, payload.taskId);
+        let upDelta = 0;
+        let downDelta = 0;
+        let myVote: 1 | -1 | 0;
+
+        if (!existingVote) {
+          try {
+            await pb.collection(TASK_VOTES_COLLECTION).create({
+              task: payload.taskId,
+              user: session.user.id,
+              value: payload.value,
+            });
+
+            if (payload.value === 1) {
+              upDelta += 1;
+            } else {
+              downDelta += 1;
+            }
+          } catch (error) {
+            if (!isValidationError(error)) {
+              throw error;
+            }
+
+            // Гонка на уникальном индексе: голос уже создан параллельным запросом
+            // и его счётчик применён победителем — доводим запись до желаемого значения.
+            const winner = await findOwnTaskVote(pb, session.user.id, payload.taskId);
+
+            if (!winner) {
+              throw error;
+            }
+
+            if ((winner.value === -1 ? -1 : 1) !== payload.value) {
+              await pb.collection(TASK_VOTES_COLLECTION).update(winner.id, {
+                value: payload.value,
+              });
+
+              if (payload.value === 1) {
+                upDelta += 1;
+                downDelta -= 1;
+              } else {
+                downDelta += 1;
+                upDelta -= 1;
+              }
+            }
+          }
+
+          myVote = payload.value;
+        } else if ((existingVote.value === -1 ? -1 : 1) === payload.value) {
+          await pb.collection(TASK_VOTES_COLLECTION).delete(existingVote.id);
+
+          if (payload.value === 1) {
+            upDelta -= 1;
+          } else {
+            downDelta -= 1;
+          }
+
+          myVote = 0;
+        } else {
+          await pb.collection(TASK_VOTES_COLLECTION).update(existingVote.id, {
+            value: payload.value,
+          });
+
+          if (payload.value === 1) {
+            upDelta += 1;
+            downDelta -= 1;
+          } else {
+            downDelta += 1;
+            upDelta -= 1;
+          }
+
+          myVote = payload.value;
+        }
+
+        if (upDelta !== 0 || downDelta !== 0) {
+          await pb.collection(TASKS_COLLECTION).update<TaskRecord>(payload.taskId, {
+            "votes_up+": upDelta,
+            "votes_down+": downDelta,
+          });
+        }
+
+        const finalTask = await pb.collection(TASKS_COLLECTION).getOne<TaskRecord>(payload.taskId, {
+          fields: "id,votes_up,votes_down",
+        });
+        const votesUp = Math.max(finalTask.votes_up ?? 0, 0);
+        const votesDown = Math.max(finalTask.votes_down ?? 0, 0);
+
+        if (votesUp !== (finalTask.votes_up ?? 0) || votesDown !== (finalTask.votes_down ?? 0)) {
+          await pb.collection(TASKS_COLLECTION).update<TaskRecord>(payload.taskId, {
+            votes_up: votesUp,
+            votes_down: votesDown,
+          });
+        }
+
+        return { votesUp, votesDown, myVote };
+      },
+    );
+
+    return { authSession: nextAuthSession, ...result };
+  } catch (error) {
+    throw toI18nError(error, "errors.voteSaveFailed");
   }
 }
 
@@ -572,7 +836,8 @@ export async function fetchReduxShareQuizPreviewTasks(
         continue;
       }
 
-      const slots = aggregateSlotRows(bestRows);
+      // Превью-панель не голосует: карта голосов не запрашивается.
+      const slots = aggregateSlotRows(bestRows, new Map());
       const data = buildQuestionData(slots);
 
       results.push({

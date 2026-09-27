@@ -12,6 +12,7 @@ import {
   sourceAnswerData,
   slottedAnswerData,
   slottedExactSuggestion,
+  votedSubmission,
 } from "./helpers/sourceData";
 
 function opaqueHashSlot(index: number, hash: string, suggestionLabel: string): AnswerSlotData {
@@ -1527,5 +1528,143 @@ describe("human-like auto-select scheduling", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("R-menu vote interactions", () => {
+  it("votes from the statistics flyout without applying the answer or closing the menu", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockImplementation(
+      (_message: unknown, callback?: (response: unknown) => void) => {
+        callback?.({ ok: true, votesUp: 4, votesDown: 0, myVote: 1 });
+      },
+    );
+
+    mountChoiceWidget(
+      api,
+      "q125:1_choice1",
+      sourceAnswerData({
+        reduxshare: {
+          anchors: [],
+          suggestions: [],
+          submissions: [votedSubmission("false", { taskId: "task-9", votesUp: 3, votesDown: 0 })],
+          slots: [],
+        },
+      }),
+    );
+
+    const root = getPortalRoot();
+    const row = root.querySelector<HTMLElement>(
+      '[data-answer-menu="reduxshare-stats"] [data-answer-label="false"]',
+    );
+    expect(row).toBeInstanceOf(HTMLElement);
+    const upButton = row!.querySelector<HTMLButtonElement>('[data-vote-action="up"]');
+    expect(upButton).toBeInstanceOf(HTMLButtonElement);
+
+    upButton!.click();
+
+    await vi.waitFor(() => {
+      expect(upButton!.getAttribute("aria-pressed")).toBe("true");
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      { type: "REDUXSHARE_VOTE_ANSWER", payload: { taskId: "task-9", value: 1 } },
+      expect.any(Function),
+    );
+    expect(row!.querySelector('[data-vote-action="up"] .flyout-vote-count')?.textContent).toBe("4");
+    expect(row!.getAttribute("data-meta-votes")).toBe("4/0");
+    expect(document.querySelector('[data-reduxshare-answer-menu-portal="true"]')).not.toBeNull();
+    expect(getInput("q125:1_choice1").checked).toBe(false);
+  });
+
+  it("rolls the vote row back when the background rejects the vote", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockImplementation(
+      (_message: unknown, callback?: (response: unknown) => void) => {
+        callback?.({ ok: false, error: "vote rejected" });
+      },
+    );
+
+    mountChoiceWidget(
+      api,
+      "q125:1_choice1",
+      sourceAnswerData({
+        reduxshare: {
+          anchors: [],
+          suggestions: [],
+          submissions: [votedSubmission("false", { taskId: "task-9", votesUp: 3, votesDown: 0 })],
+          slots: [],
+        },
+      }),
+    );
+
+    const root = getPortalRoot();
+    const row = root.querySelector<HTMLElement>(
+      '[data-answer-menu="reduxshare-stats"] [data-answer-label="false"]',
+    );
+    const upButton = row!.querySelector<HTMLButtonElement>('[data-vote-action="up"]');
+
+    upButton!.click();
+
+    await vi.waitFor(() => {
+      expect(row!.getAttribute("data-meta-votes")).toBe("3/0");
+    });
+
+    expect(upButton!.getAttribute("aria-pressed")).toBe("false");
+    expect(row!.querySelector('[data-vote-action="up"] .flyout-vote-count')?.textContent).toBe("3");
+    expect(document.querySelector('[data-reduxshare-answer-menu-portal="true"]')).not.toBeNull();
+  });
+
+  it("switches to the opposite vote and back off within one open menu", async () => {
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("multichoice", "attempt");
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const responses = [
+      { ok: true, votesUp: 0, votesDown: 1, myVote: -1 },
+      { ok: true, votesUp: 0, votesDown: 0, myVote: 0 },
+    ];
+    sendMessageMock.mockImplementation(
+      (_message: unknown, callback?: (response: unknown) => void) => {
+        callback?.(responses.shift() ?? { ok: true, votesUp: 0, votesDown: 0, myVote: 0 });
+      },
+    );
+
+    mountChoiceWidget(
+      api,
+      "q125:1_choice1",
+      sourceAnswerData({
+        reduxshare: {
+          anchors: [],
+          suggestions: [],
+          submissions: [votedSubmission("false", { taskId: "task-9", votesUp: 1, votesDown: 0 })],
+          slots: [],
+        },
+      }),
+    );
+
+    const root = getPortalRoot();
+    const row = root.querySelector<HTMLElement>(
+      '[data-answer-menu="reduxshare-stats"] [data-answer-label="false"]',
+    )!;
+    const downButton = row.querySelector<HTMLButtonElement>('[data-vote-action="down"]')!;
+
+    downButton.click();
+
+    await vi.waitFor(() => {
+      expect(downButton.getAttribute("aria-pressed")).toBe("true");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    downButton.click();
+
+    await vi.waitFor(() => {
+      expect(downButton.getAttribute("aria-pressed")).toBe("false");
+    });
+    expect(row.getAttribute("data-meta-votes")).toBe("0/0");
+    expect(document.querySelector('[data-reduxshare-answer-menu-portal="true"]')).not.toBeNull();
   });
 });

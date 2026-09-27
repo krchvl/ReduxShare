@@ -157,6 +157,9 @@
   "quiz.menu.aiLoading": "Идёт запрос...",
   "quiz.menu.aiQuestionMissing": "Не удалось прочитать вопрос",
   "quiz.menu.empty": "Нет ответов",
+  "quiz.menu.voteUp": "Ответ правильный",
+  "quiz.menu.voteDown": "Ответ неверный",
+  "quiz.menu.votesLine": "Голоса: {up} за · {down} против",
   "quiz.ordering.position": "Позиция {position}",
 
   "errors.generic": "Не удалось выполнить действие.",
@@ -183,5 +186,8 @@
   "errors.externalRequest": "Не удалось выполнить запрос external.",
   "errors.authRequired": "Войдите в аккаунт через popup.",
   "errors.moodleIdsMissing": "Moodle courseId или contextInstanceId не найден.",
-  "errors.questionIdMissing": "Question qid не найден."
+  "errors.questionIdMissing": "Question qid не найден.",
+  "errors.voteTaskMissing": "Вариант ответа не найден.",
+  "errors.voteUnverifiableOnly": "Голосовать можно только за непроверенные ответы.",
+  "errors.voteSaveFailed": "Не удалось сохранить голос: {message}"
 }

@@ -157,6 +157,9 @@
   "quiz.menu.aiLoading": "Request in progress...",
   "quiz.menu.aiQuestionMissing": "Could not read the question",
   "quiz.menu.empty": "No answers",
+  "quiz.menu.voteUp": "Answer is correct",
+  "quiz.menu.voteDown": "Answer is wrong",
+  "quiz.menu.votesLine": "Votes: {up} for · {down} against",
   "quiz.ordering.position": "Position {position}",
 
   "errors.generic": "Could not complete the action.",
@@ -183,5 +186,8 @@
   "errors.externalRequest": "Could not complete the external request.",
   "errors.authRequired": "Sign in through the popup first.",
   "errors.moodleIdsMissing": "Moodle courseId or contextInstanceId was not found.",
-  "errors.questionIdMissing": "Question qid was not found."
+  "errors.questionIdMissing": "Question qid was not found.",
+  "errors.voteTaskMissing": "Answer variant was not found.",
+  "errors.voteUnverifiableOnly": "Only unverified answers can be voted on.",
+  "errors.voteSaveFailed": "Could not save the vote: {message}"
 }
