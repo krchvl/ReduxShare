@@ -10,6 +10,7 @@ import {
 import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
 import { getBooleanSuggestionValue } from "../shared/answerParsing";
 import { isDownvotedAnswerItem } from "../data/answerData";
+import { getCheckIconMarkup, getSourceTabIconMarkup } from "./icons";
 
 let currentT: TranslateFn = getContentTranslator(undefined);
 
@@ -359,10 +360,6 @@ function getStatsSubmissionItems(sourceData: AnswerData): SubmissionItem[] {
     }));
 }
 
-function getExactAnswerIconMarkup() {
-  return `<svg viewBox="0 0 48 48"><path d="M7 24.5 18.3 35.8 41 13.2" /></svg>`;
-}
-
 function getStatsAnswerIconMarkup() {
   return `
     <svg viewBox="0 0 48 48">
@@ -372,36 +369,6 @@ function getStatsAnswerIconMarkup() {
       <path d="M7 42v-7.2c0-5 4.1-9.1 9.1-9.1h.7" />
       <path d="M44 42v-7.2c0-5-4.1-9.1-9.1-9.1h-.7" />
       <path d="M16.5 44v-5.3c0-5 4.1-9.1 9.1-9.1s9.1 4.1 9.1 9.1V44" />
-    </svg>
-  `;
-}
-
-function getSourceTabIconMarkup(kind: "internal" | "external" | "ai") {
-  if (kind === "internal") {
-    return `
-      <svg viewBox="0 0 48 48">
-        <path d="M10 14c0-4.4 6.3-8 14-8s14 3.6 14 8-6.3 8-14 8-14-3.6-14-8Z" />
-        <path d="M10 14v10c0 4.4 6.3 8 14 8s14-3.6 14-8V14" />
-        <path d="M10 24v10c0 4.4 6.3 8 14 8s14-3.6 14-8V24" />
-      </svg>
-    `;
-  }
-
-  if (kind === "external") {
-    return `
-      <svg viewBox="0 0 48 48">
-        <circle cx="24" cy="24" r="18" />
-        <path d="M6 24h36" />
-        <path d="M24 6c5 5.2 7.5 11.2 7.5 18S29 36.8 24 42" />
-        <path d="M24 6c-5 5.2-7.5 11.2-7.5 18S19 36.8 24 42" />
-      </svg>
-    `;
-  }
-
-  return `
-    <svg viewBox="0 0 48 48">
-      <path d="M24 7 27 17.5 38 21 27 24.5 24 35 21 24.5 10 21 21 17.5 24 7Z" />
-      <path d="M36 31 37.2 35 41 36.2 37.2 37.4 36 41 34.8 37.4 31 36.2 34.8 35 36 31Z" />
     </svg>
   `;
 }
@@ -575,7 +542,7 @@ function renderSourceMenuPanel(
     <div class="menu-panel" data-menu-panel="${panelKey}" data-active="${isActive ? "true" : "false"}">
       ${renderAnswerMenuItem(
         currentT("quiz.menu.exactAnswer"),
-        getExactAnswerIconMarkup(),
+        getCheckIconMarkup(),
         renderSuggestionFlyout(exactSuggestions),
         `${sourcePrefix}-exact`,
       )}

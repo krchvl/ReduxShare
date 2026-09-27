@@ -125,12 +125,14 @@ describe("quiz preview backend contract", () => {
     showQuizPreviewQuestions(response!.questions as never, false);
 
     expect(getQuizPreviewPanelState().visible).toBe(true);
-    const modal = document.getElementById("reduxshare-quiz-preview-modal");
-    expect(modal?.querySelector(".reduxshare-preview-condition")?.textContent).toBe(
+    const shadow = document
+      .getElementById("reduxshare-quiz-preview-modal")
+      ?.shadowRoot?.querySelector(".rpx-body");
+    expect(shadow?.querySelector(".reduxshare-preview-condition")?.textContent).toBe(
       "Социальные сети полезны для общества",
     );
     expect(
-      modal?.querySelector(".reduxshare-preview-answer--exact .reduxshare-preview-answer-label")
+      shadow?.querySelector(".reduxshare-preview-answer--exact .reduxshare-preview-answer-label")
         ?.textContent,
     ).toBe("Верно");
   });

@@ -46,11 +46,13 @@ const VIEW_PAGE_HTML = `
   </div>
 `;
 
-function getPreviewModal(): HTMLDivElement {
+function getPreviewModal(): ShadowRoot {
   const root = document.getElementById("reduxshare-quiz-preview-modal");
   expect(root).toBeInstanceOf(HTMLDivElement);
-  expect(root!.querySelector(".modal-dialog")).toBeTruthy();
-  return root as HTMLDivElement;
+  const shadow = root!.shadowRoot;
+  expect(shadow).not.toBeNull();
+  expect(shadow!.querySelector(".rpx-dialog")).toBeTruthy();
+  return shadow!;
 }
 
 describe("isQuizViewUrl", () => {
@@ -222,21 +224,21 @@ describe("quiz preview panel", () => {
   it("shows the quiz name in the title and truncates long names with an ellipsis", () => {
     setQuizPreviewPanelQuizTitle("Итоговый тест по математике");
     beginQuizPreviewLoading();
-    expect(getPreviewModal().querySelector(".modal-title")?.textContent).toContain(
+    expect(getPreviewModal().querySelector(".rpx-title")?.textContent).toContain(
       "Итоговый тест по математике",
     );
 
     const longName = "Очень длинное название квиза про интегралы, пределы и ряды Фурье в действии";
     setQuizPreviewPanelQuizTitle(longName);
     beginQuizPreviewLoading();
-    const title = getPreviewModal().querySelector(".modal-title")?.textContent ?? "";
+    const title = getPreviewModal().querySelector(".rpx-title")?.textContent ?? "";
 
     expect(title).toContain("Очень длинное название квиза про интегралы, пределы и ряды Фурье…");
     expect(title).not.toContain("в действии");
 
     setQuizPreviewPanelQuizTitle(null);
     beginQuizPreviewLoading();
-    expect(getPreviewModal().querySelector(".modal-title")?.textContent).toContain("Вопросы квиза");
+    expect(getPreviewModal().querySelector(".rpx-title")?.textContent).toContain("Вопросы квиза");
   });
 
   it("shows the guest hint when authentication is required", () => {
@@ -274,6 +276,25 @@ describe("quiz preview panel", () => {
     beginQuizPreviewLoading();
     expect(document.getElementById("reduxshare-quiz-preview-modal")).toBeNull();
   });
+
+  it("applies the extension accent and color scheme to the panel host", () => {
+    setCurrentStoredState(
+      storedState({
+        settings: {
+          extensionEnabled: true,
+          language: "ru",
+          accentColor: "#ff6b6f",
+          colorScheme: "light",
+        },
+      }),
+    );
+    showQuizPreviewQuestions([], false);
+
+    const host = document.getElementById("reduxshare-quiz-preview-modal")!;
+    expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#ff6b6f");
+    expect(host.style.getPropertyValue("--reduxshare-accent-rgb")).toBe("255, 107, 111");
+    expect(host.dataset.theme).toBe("light");
+  });
 });
 
 describe("quiz preview message request", () => {
@@ -305,8 +326,10 @@ describe("quiz preview message request", () => {
     await initializeQuizPreviewFeatures();
 
     const previewButton = document.getElementById("reduxshare-quiz-preview-button");
-    expect(previewButton).toBeInstanceOf(HTMLButtonElement);
-    expect(previewButton!.textContent).toBe("Показать вопросы");
+    expect(previewButton).toBeInstanceOf(HTMLElement);
+    expect(previewButton!.shadowRoot?.querySelector(".rpx-trigger-label")?.textContent).toBe(
+      "Показать вопросы",
+    );
     expect(
       previewButton!
         .closest(".singlebutton")!

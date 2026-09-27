@@ -15,6 +15,7 @@ import {
   getQuizPreviewPanelState,
   hideQuizPreviewPanel,
   isQuizPreviewPanelVisible,
+  refreshQuizPreviewPanelTheme,
   resetQuizPreviewPanelState,
   setQuizPreviewPanelQuizTitle,
   setQuizPreviewRefreshHandler,
@@ -24,6 +25,7 @@ import {
   showQuizPreviewQuestions,
   updateQuizPreviewScanProgress,
 } from "../ui/quizPreviewPanel";
+import { applyContentColorSchemeToHost, getAccentColor, getRgbCssValue } from "../logic/theme";
 import {
   normalizeQuizIdScanRange,
   QUIZ_ID_SCAN_DEFAULT_FROM,
@@ -46,6 +48,82 @@ import { getContentTranslator } from "../i18n/contentI18n";
 const QUIZ_PREVIEW_BUTTON_ID = "reduxshare-quiz-preview-button";
 
 const QUIZ_START_FORM_SELECTOR = 'form[action*="mod/quiz/startattempt.php"]';
+
+const QUIZ_PREVIEW_BUTTON_MARKUP = `
+  <style>
+    :host {
+      all: initial;
+      display: inline-block;
+      vertical-align: middle;
+      --reduxshare-accent-soft: color-mix(in srgb, var(--reduxshare-accent) 70%, #ffffff);
+    }
+
+    :host([data-theme="light"]) {
+      --reduxshare-accent-soft: color-mix(in srgb, var(--reduxshare-accent) 62%, #16213c);
+    }
+
+    .rpx-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border: 1px solid rgba(var(--reduxshare-accent-rgb), 0.45);
+      border-radius: 999px;
+      background: rgba(var(--reduxshare-accent-rgb), 0.14);
+      color: var(--reduxshare-accent-soft);
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition:
+        background-color 140ms ease,
+        border-color 140ms ease,
+        box-shadow 160ms ease,
+        transform 120ms ease;
+    }
+
+    .rpx-trigger:hover {
+      background: rgba(var(--reduxshare-accent-rgb), 0.22);
+      box-shadow: 0 8px 22px rgba(var(--reduxshare-accent-rgb), 0.28);
+      transform: translateY(-1px);
+    }
+
+    .rpx-trigger:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    .rpx-trigger:focus-visible {
+      outline: 2px solid var(--reduxshare-accent);
+      outline-offset: 2px;
+    }
+
+    .rpx-trigger svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 3.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: none;
+    }
+  </style>
+  <button type="button" class="rpx-trigger">
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M4 24c5.2-8.4 11.9-12.6 20-12.6S38.8 15.6 44 24c-5.2 8.4-11.9 12.6-20 12.6S9.2 32.4 4 24Z" />
+      <circle cx="24" cy="24" r="7" />
+    </svg>
+    <span class="rpx-trigger-label"></span>
+  </button>
+`;
 
 let quizPreviewHotkey = DEFAULT_HOTKEY;
 let quizPreviewHotkeyCode = DEFAULT_HOTKEY_CODE;
@@ -278,11 +356,18 @@ function requestQuizPreview(payload: QuizPreviewRequestPayload): Promise<QuizPre
 }
 
 function findQuizTitleFromPage() {
-  const heading = document.querySelector<HTMLElement>(
-    ".page-header-headings h1, #region-main h1, #region-main h2, h1",
-  );
+  // Порядок приоритета важен: querySelector с union-селектором вернул бы первый
+  // h1 в порядке документа, а не самый специфичный.
+  for (const selector of [".page-header-headings h1", "#region-main h1", "#region-main h2", "h1"]) {
+    const heading = document.querySelector<HTMLElement>(selector);
+    const title = heading?.textContent?.trim();
 
-  return heading?.textContent?.trim() || null;
+    if (title) {
+      return title;
+    }
+  }
+
+  return null;
 }
 
 async function openQuizPreview(forceRefresh = false) {
@@ -418,17 +503,35 @@ function syncQuizPreviewHotkey(storedState: StoredStateLike | undefined) {
   document.addEventListener("keydown", handleQuizPreviewHotkey, true);
 }
 
-function updateQuizPreviewButton(button: HTMLButtonElement) {
-  const label = getContentTranslator(currentStoredState?.settings?.language)("quiz.preview.button");
+function applyQuizPreviewButtonTheme(button: HTMLElement) {
+  const accentColor = getAccentColor(currentStoredState?.settings);
 
-  if (button.textContent !== label) {
-    button.textContent = label;
+  button.style.setProperty("--reduxshare-accent", accentColor);
+  button.style.setProperty("--reduxshare-accent-rgb", getRgbCssValue(accentColor));
+  applyContentColorSchemeToHost(button);
+}
+
+function updateQuizPreviewButton(button: HTMLElement) {
+  const label = getContentTranslator(currentStoredState?.settings?.language)("quiz.preview.button");
+  const shadow = button.shadowRoot ?? button.attachShadow({ mode: "open" });
+
+  if (shadow.childElementCount === 0) {
+    shadow.innerHTML = QUIZ_PREVIEW_BUTTON_MARKUP;
+  }
+
+  applyQuizPreviewButtonTheme(button);
+
+  const trigger = shadow.querySelector<HTMLButtonElement>(".rpx-trigger");
+  const labelNode = shadow.querySelector<HTMLElement>(".rpx-trigger-label");
+
+  if (labelNode && labelNode.textContent !== label) {
+    labelNode.textContent = label;
   }
 
   const title = `${label} (${quizPreviewHotkey})`;
 
-  if (button.title !== title) {
-    button.title = title;
+  if (trigger && trigger.title !== title) {
+    trigger.title = title;
   }
 
   const hidden = !canUseQuizFeatures(currentStoredState);
@@ -441,7 +544,7 @@ function updateQuizPreviewButton(button: HTMLButtonElement) {
 function ensureQuizPreviewButton(): boolean {
   const existingButton = document.getElementById(QUIZ_PREVIEW_BUTTON_ID);
 
-  if (existingButton instanceof HTMLButtonElement) {
+  if (existingButton instanceof HTMLElement) {
     updateQuizPreviewButton(existingButton);
     return true;
   }
@@ -452,10 +555,8 @@ function ensureQuizPreviewButton(): boolean {
     return false;
   }
 
-  const createdButton = document.createElement("button");
+  const createdButton = document.createElement("span");
   createdButton.id = QUIZ_PREVIEW_BUTTON_ID;
-  createdButton.type = "button";
-  createdButton.className = "btn btn-secondary";
   createdButton.addEventListener("click", () => {
     void toggleQuizPreview();
   });
@@ -528,6 +629,7 @@ export function syncQuizPreviewFeatures(storedState: StoredStateLike | undefined
     hideQuizPreviewPanel();
   }
 
+  refreshQuizPreviewPanelTheme();
   ensureQuizPreviewButton();
 }
 

@@ -1,12 +1,13 @@
 // Dev-only playground: живёт только под `npm run dev` на /dev.html.
 // Ставит мок chrome API до импорта content-скрипта, подкладывает Moodle-фикстуры
-// и мок-ответы с голосами, затем монтирует R-виджеты через test API quizAttempt.
+// и мок-ответы с голосами, затем монтирует R-виджеты через test API quizAttempt
+// и панель предпросмотра через initializeQuizPreviewFeatures (вью-фикстура ниже).
 import multichoiceAttemptHtml from "../../test/fixtures/multichoice/attempt.html?raw";
 import matchAttemptHtml from "../../test/fixtures/match/attempt.html?raw";
 import shortanswerAttemptHtml from "../../test/fixtures/shortanswer/attempt.html?raw";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
-import { VOTE_ANSWER_MESSAGE } from "../shared/messages";
-import type { AnswerData, StoredStateLike, SubmissionItem } from "../model";
+import { FETCH_QUIZ_PREVIEW_MESSAGE, VOTE_ANSWER_MESSAGE } from "../shared/messages";
+import type { AnswerData, QuizPreviewQuestion, StoredStateLike, SubmissionItem } from "../model";
 
 interface QuizAttemptPlaygroundApi {
   setStoredState: (state: StoredStateLike | undefined) => void;
@@ -77,6 +78,10 @@ function handleMockMessage(message: unknown): unknown {
 
   if (record.type === VOTE_ANSWER_MESSAGE) {
     return handleMockVote(record.payload as { taskId: string; value: 1 | -1 });
+  }
+
+  if (record.type === FETCH_QUIZ_PREVIEW_MESSAGE) {
+    return { ok: true, authRequired: false, questions: buildQuizPreviewQuestions() };
   }
 
   return { ok: true };
@@ -317,6 +322,76 @@ function shortanswerAnswerData(): AnswerData {
   };
 }
 
+function emptyAnswerData(): AnswerData {
+  return { anchors: [], suggestions: [], submissions: [], slots: [] };
+}
+
+function buildQuizPreviewQuestions(): QuizPreviewQuestion[] {
+  return [
+    {
+      questionId: "1385",
+      questionType: "multichoice",
+      questionHash: "hash-1385",
+      questionText: "Какой процент времени проект занимает в действительности?",
+      answerOptions: [
+        "63 percent of the time.",
+        "47 percent of the time.",
+        "23 percent of the time.",
+      ],
+      reduxshare: multichoiceAnswerData(),
+      external: multichoiceExternalAnswerData(),
+    },
+    {
+      questionId: "3699",
+      questionType: "match",
+      questionHash: "hash-3699",
+      questionText: "Сопоставьте физические величины и их единицы измерения.",
+      answerOptions: ["Вольт", "Килограмм", "ньютон"],
+      reduxshare: matchAnswerData(),
+      external: emptyAnswerData(),
+    },
+    {
+      questionId: "2011",
+      questionType: "shortanswer",
+      questionHash: null,
+      questionText: null,
+      answerOptions: [],
+      reduxshare: shortanswerAnswerData(),
+      external: emptyAnswerData(),
+    },
+  ];
+}
+
+const VIEW_PAGE_FIXTURE = `
+  <section class="dev-view-page">
+    <div class="page-header-headings"><h1>Итоговый тест по математике</h1></div>
+    <div class="dev-course-nav"><a href="/course/view.php?id=66">Курс физики</a></div>
+    <div class="tertiary-navigation">
+      <div class="d-flex">
+        <div class="navitem">
+          <div class="singlebutton quizstartbuttondiv">
+            <form method="post" action="/mod/quiz/startattempt.php">
+              <input type="hidden" name="cmid" value="789" />
+              <button type="submit" class="btn btn-primary">Начать попытку</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+`;
+
+function injectViewPageFixture() {
+  const host = document.createElement("section");
+  host.id = "reduxshare-dev-view-page";
+  host.innerHTML = VIEW_PAGE_FIXTURE;
+  document.body.append(host);
+
+  const moodleConfigScript = document.createElement("script");
+  moodleConfigScript.textContent = 'M.cfg = {"courseId":66,"contextInstanceId":789};';
+  document.body.append(moodleConfigScript);
+}
+
 function injectFixtures() {
   const host = document.getElementById("reduxshare-dev-questions");
 
@@ -328,6 +403,9 @@ function injectFixtures() {
 async function boot() {
   installChromeMock();
   injectFixtures();
+  injectViewPageFixture();
+
+  await chrome.storage.local.set({ [APP_STORAGE_KEY]: buildStoredState() });
 
   await import("../content/quizAttempt");
 
@@ -345,6 +423,9 @@ async function boot() {
   api.setSourceAnswerData("3699", "reduxshare", matchAnswerData());
   api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
   api.mountAnswerWidgets("#9cb9f6");
+
+  const { initializeQuizPreviewFeatures } = await import("../content/quizPreview");
+  await initializeQuizPreviewFeatures();
 }
 
 void boot();
