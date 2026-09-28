@@ -69,6 +69,10 @@ type QuizAttemptTestApi = {
     questionNode: Element,
     answerData: SourceAnswerData["reduxshare"],
   ) => boolean;
+  applyAllExactAnswersNow: (state: StoredStateLike | undefined) => {
+    applied: number;
+    total: number;
+  };
   mountAnswerWidgets: (accentColor: string) => void;
   createAnswerWidgetHost: (
     accentColor: string,

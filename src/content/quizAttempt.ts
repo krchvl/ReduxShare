@@ -79,6 +79,7 @@ import { getQuestionId } from "../dom/questionIdentity";
 import { setTextAnswerValue } from "./quizAttempt/textControls";
 import {
   autoSelectExactAnswers,
+  applyAllExactAnswersNow,
   autoSelectGapSelectAnswers,
   autoSelectQuestionAnswers,
   cancelAllAutoSelectSchedules,
@@ -261,6 +262,7 @@ declare global {
         buildAiAnswerRequestPayload: typeof buildAiAnswerRequestPayload;
         applyAiAnswerForQuestion: typeof applyAiAnswerForQuestion;
         autoSelectQuestionAnswers: typeof autoSelectQuestionAnswers;
+        applyAllExactAnswersNow: typeof applyAllExactAnswersNow;
         mountAnswerWidgets: typeof mountAnswerWidgets;
         createAnswerWidgetHost: typeof createAnswerWidgetHost;
         getAnswerMenuMarkup: typeof getAnswerMenuMarkup;
@@ -2535,6 +2537,7 @@ function installQuizAttemptTestApi() {
     buildAiAnswerRequestPayload,
     applyAiAnswerForQuestion,
     autoSelectQuestionAnswers,
+    applyAllExactAnswersNow,
     mountAnswerWidgets,
     createAnswerWidgetHost,
     getAnswerMenuMarkup,

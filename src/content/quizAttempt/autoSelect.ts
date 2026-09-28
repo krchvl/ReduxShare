@@ -746,24 +746,41 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
     return;
   }
 
-  const changedQuestionIds: string[] = [];
+  applyAllExactAnswersNow(storedState);
+}
+
+export type ApplyAllExactAnswersResult = {
+  applied: number;
+  total: number;
+};
+
+export function applyAllExactAnswersNow(
+  storedState: StoredStateLike | undefined,
+): ApplyAllExactAnswersResult {
+  cancelAllAutoSelectSchedules();
+
   const allowReduxShareSource = isLoggedInToExtension(storedState);
+  const changedQuestionIds: string[] = [];
+  let total = 0;
 
   for (const { questionId, questionNode } of getAnswerEntries()) {
     if (!questionNode) {
       continue;
     }
 
-    if (
-      autoSelectQuestionAnswers(
-        questionNode,
-        getPreferredAutoSelectAnswerDataForQuestion(
-          questionNode,
-          getAnswerDataForQuestion(questionId),
-          allowReduxShareSource,
-        ),
-      )
-    ) {
+    const answerData = getPreferredAutoSelectAnswerDataForQuestion(
+      questionNode,
+      getAnswerDataForQuestion(questionId),
+      allowReduxShareSource,
+    );
+
+    if (!hasExactAutoSelectData(answerData)) {
+      continue;
+    }
+
+    total += 1;
+
+    if (autoSelectQuestionAnswers(questionNode, answerData)) {
       if (questionNode instanceof HTMLElement) {
         questionNode.dataset.reduxshareAutoSelected = "true";
       }
@@ -776,6 +793,8 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
     logReduxShareInfo("ReduxShare: auto-selected exact answers", changedQuestionIds.length);
     void reportSolvedQuestions(changedQuestionIds);
   }
+
+  return { applied: changedQuestionIds.length, total };
 }
 
 function getPreferredAutoSelectAnswerData(

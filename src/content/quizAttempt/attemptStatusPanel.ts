@@ -32,6 +32,7 @@ import {
   getDdimageOrTextSelectedLabelForDrop,
 } from "./ddimageortext";
 import { getChoiceAnswerInputs, getTextAnswerInputs } from "./answerControls";
+import { applyAllExactAnswersNow, type ApplyAllExactAnswersResult } from "./autoSelect";
 import {
   currentQuizAttemptContext,
   currentStoredState,
@@ -45,10 +46,13 @@ import { patchStoredState } from "../../lib/storage";
 const ATTEMPT_STATUS_PANEL_ID = "reduxshare-attempt-status-panel";
 const ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY = "reduxshareAttemptStatusPanelCollapsed";
 const ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY = "reduxshareAttemptStatusPanelPosition";
+const SOLVE_ALL_RESULT_VISIBLE_MS = 2500;
 
 let attemptStatusPanelClockId: number | null = null;
 let attemptStatusPanelCollapsed = false;
 let attemptStatusPanelTrayOpen = false;
+let attemptStatusPanelSolveAllResult: string | null = null;
+let attemptStatusPanelSolveAllResultTimeoutId: number | null = null;
 
 let attemptStatusPanelClosedInSession = false;
 let attemptStatusPanelInteractionListenerInstalled = false;
@@ -75,6 +79,7 @@ let attemptStatusPanelDragState: {
 export function resetAttemptStatusPanelState() {
   attemptStatusPanelCollapsed = false;
   attemptStatusPanelTrayOpen = false;
+  clearAttemptStatusPanelSolveAllResult();
   attemptStatusPanelClosedInSession = false;
   removeAttemptStatusPanel();
 }
@@ -1261,7 +1266,8 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           transform: scale(0.95);
         }
 
-        .tray-action[aria-pressed="true"] {
+        .tray-action[aria-pressed="true"],
+        .tray-action[data-result="true"] {
           border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
           background: rgba(var(--reduxshare-panel-accent-rgb), 0.2);
           color: var(--reduxshare-panel-accent);
@@ -1527,7 +1533,8 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           color: rgba(20, 25, 40, 0.45);
         }
 
-        :host([data-theme="light"]) .tray-action[aria-pressed="true"] {
+        :host([data-theme="light"]) .tray-action[aria-pressed="true"],
+        :host([data-theme="light"]) .tray-action[data-result="true"] {
           border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.5);
           background: rgba(var(--reduxshare-panel-accent-rgb), 0.16);
         }
@@ -1581,6 +1588,11 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="9" y="9" width="12" height="12" rx="2.5" />
               <path d="M5 15h-.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5" />
+            </svg>
+          </button>
+          <button class="tray-action" type="button" data-tray-action="solveAll">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4.5 12.75 9.75 18 19.5 6.75" />
             </svg>
           </button>
         </div>
@@ -1676,11 +1688,14 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
       ?.addEventListener("click", (event) => {
         const target = event.target instanceof Element ? event.target : null;
 
-        if (!target?.closest('[data-tray-action="copyUnlock"]')) {
+        if (target?.closest('[data-tray-action="copyUnlock"]')) {
+          void setCopyUnlockSetting(currentStoredState?.settings?.copyUnlock !== true);
           return;
         }
 
-        void setCopyUnlockSetting(currentStoredState?.settings?.copyUnlock !== true);
+        if (target?.closest('[data-tray-action="solveAll"]')) {
+          runSolveAllTrayAction();
+        }
       });
   }
 
@@ -1879,6 +1894,18 @@ export function renderAttemptStatusPanel() {
     copyUnlockAction.setAttribute("aria-pressed", copyUnlockEnabled ? "true" : "false");
     copyUnlockAction.setAttribute("aria-label", currentT("quiz.panel.copyUnlockTitle"));
     copyUnlockAction.setAttribute("title", currentT("quiz.panel.copyUnlockTitle"));
+  }
+
+  const solveAllAction = shadowRoot.querySelector<HTMLButtonElement>(
+    '[data-tray-action="solveAll"]',
+  );
+
+  if (solveAllAction) {
+    const solveAllLabel = attemptStatusPanelSolveAllResult ?? currentT("quiz.panel.solveAllTitle");
+
+    solveAllAction.setAttribute("aria-label", solveAllLabel);
+    solveAllAction.setAttribute("title", solveAllLabel);
+    solveAllAction.toggleAttribute("data-result", attemptStatusPanelSolveAllResult !== null);
   }
 
   if (userLabel) {
@@ -2111,6 +2138,34 @@ export function setAttemptStatusPanelTrayOpen(open: boolean) {
 
   attemptStatusPanelTrayOpen = open;
   renderAttemptStatusPanel();
+}
+
+function clearAttemptStatusPanelSolveAllResult() {
+  if (attemptStatusPanelSolveAllResultTimeoutId !== null) {
+    window.clearTimeout(attemptStatusPanelSolveAllResultTimeoutId);
+    attemptStatusPanelSolveAllResultTimeoutId = null;
+  }
+
+  attemptStatusPanelSolveAllResult = null;
+}
+
+function showAttemptStatusPanelSolveAllResult(result: ApplyAllExactAnswersResult) {
+  clearAttemptStatusPanelSolveAllResult();
+  attemptStatusPanelSolveAllResult = currentT("quiz.panel.solveAllResult", {
+    applied: result.applied,
+    total: result.total,
+  });
+  renderAttemptStatusPanel();
+
+  attemptStatusPanelSolveAllResultTimeoutId = window.setTimeout(() => {
+    attemptStatusPanelSolveAllResultTimeoutId = null;
+    attemptStatusPanelSolveAllResult = null;
+    renderAttemptStatusPanel();
+  }, SOLVE_ALL_RESULT_VISIBLE_MS);
+}
+
+function runSolveAllTrayAction() {
+  showAttemptStatusPanelSolveAllResult(applyAllExactAnswersNow(currentStoredState));
 }
 
 export async function setCopyUnlockSetting(enabled: boolean) {
