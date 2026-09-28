@@ -2,6 +2,7 @@ import type {
   AiAnswerState,
   AnswerData,
   AnswerVariantCounts,
+  EssayExampleEntry,
   SourceAnswerData,
   StoredStateLike,
 } from "../../src/model";
@@ -89,6 +90,7 @@ type QuizAttemptTestApi = {
     aiToolsEnabled?: boolean,
     externalOnly?: boolean,
     aiExplanationState?: AiAnswerState,
+    essayMenu?: { examples: EssayExampleEntry[]; canSave: boolean },
   ) => string;
   createEmptySourceAnswerData: () => SourceAnswerData;
   createEmptyVariantCounts: () => AnswerVariantCounts;

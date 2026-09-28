@@ -17,6 +17,7 @@ const QUESTION_TYPES = [
   "ddmarker",
   "ddimageortext",
   "ordering",
+  "essay",
 ] as const;
 
 const CASES = ["review-open", "review-hidden", "attempt"] as const;
