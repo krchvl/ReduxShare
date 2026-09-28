@@ -5,5 +5,6 @@ export const QUIZ_REVIEW_PENDING_STORAGE_KEY = "reduxshareQuizReviewPending";
 export const QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY = "reduxshareQuizReviewSaveDiagnostics";
 
 export const PENDING_REVIEW_SAVES_STORAGE_KEY = "reduxsharePendingReviewSaves";
+export const SELECTION_SAVES_STORAGE_KEY = "reduxshareSelectionSaves";
 export const UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY = "reduxshareUpdateNoticeDismissedCheck";
 export const UPDATE_NOTICE_POSITION_STORAGE_KEY = "reduxshareUpdateNoticePosition";

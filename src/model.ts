@@ -308,6 +308,11 @@ export interface ReviewQuestionPayload {
 
   answerOptions?: string[];
   answers: ReviewAnswerPayload[];
+  preCountedAnswers?: Array<{
+    answerKey: string;
+    slotKey: string;
+    verdict: "correct" | "incorrect" | "unknown";
+  }>;
 }
 
 export interface SaveReviewAnswersResponse {

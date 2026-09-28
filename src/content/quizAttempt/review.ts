@@ -82,6 +82,11 @@ import {
 } from "../../logic/runtime";
 import { canUseQuizFeatures } from "../../logic/settings";
 import { setCurrentStoredState } from "../../state";
+import {
+  clearSelectionSavesForAttempt,
+  loadSelectionSavesForAttempt,
+  type TrackedAttemptSelections,
+} from "./selectionSave";
 
 export function buildReviewAnswersForQuestion(questionNode: Element, questionType: string | null) {
   if (questionType === "multichoice" || questionType === "multichoiceset") {
@@ -281,7 +286,10 @@ function buildReviewMultichoiceBooleanAnswers(questionNode: Element): ReviewAnsw
   });
 }
 
-export function buildReviewSaveRequestPayload(storedState: StoredStateLike | undefined) {
+export function buildReviewSaveRequestPayload(
+  storedState: StoredStateLike | undefined,
+  trackedAttempt?: TrackedAttemptSelections | null,
+) {
   const moodleConfig = getReviewSaveMoodleConfig(storedState);
   const identity = getQuizReviewUrlIdentity(window.location.href);
   const questions = collectReviewQuestionsForSave();
@@ -290,7 +298,7 @@ export function buildReviewSaveRequestPayload(storedState: StoredStateLike | und
     return null;
   }
 
-  return {
+  const payload = {
     domain: window.location.hostname,
     courseId: moodleConfig.courseId,
     quizId: moodleConfig.contextInstanceId,
@@ -298,6 +306,31 @@ export function buildReviewSaveRequestPayload(storedState: StoredStateLike | und
     pageUrl: window.location.href,
     questions,
   };
+
+  if (trackedAttempt) {
+    attachPreCountedSelections(payload, trackedAttempt);
+  }
+
+  return payload;
+}
+
+function attachPreCountedSelections(
+  payload: NonNullable<ReturnType<typeof buildReviewSaveRequestPayload>>,
+  trackedAttempt: TrackedAttemptSelections,
+) {
+  for (const question of payload.questions) {
+    const tracked = trackedAttempt.questions[question.questionId ?? ""];
+
+    if (!tracked || tracked.length === 0) {
+      continue;
+    }
+
+    question.preCountedAnswers = tracked.map((entry) => ({
+      answerKey: entry.answerKey,
+      slotKey: entry.slotKey,
+      verdict: entry.verdict,
+    }));
+  }
 }
 
 async function clearQuizReviewPendingMarker(attemptKey: string) {
@@ -401,7 +434,7 @@ export function collectReviewQuestionOptions(questionNode: Element): string[] {
   return options.slice(0, REVIEW_OPTION_MAX_COUNT);
 }
 
-function createReviewAnswerKey(label: string) {
+export function createReviewAnswerKey(label: string) {
   return normalizeAnswerLabel(stripMoodleAnswerPrefix(label));
 }
 
@@ -1011,7 +1044,7 @@ function getReviewQuestionStateText(questionNode: Element) {
   return normalizeAnswerLabel(questionNode.querySelector(".state")?.textContent ?? "");
 }
 
-function getReviewSelectedObservations(questionNode: Element) {
+export function getReviewSelectedObservations(questionNode: Element) {
   if (questionNode.classList.contains("multianswer")) {
     return getReviewMultianswerSelectedObservations(questionNode);
   }
@@ -1192,7 +1225,8 @@ export async function initializeQuizReviewSave() {
   }
 
   const identity = getQuizReviewUrlIdentity(window.location.href);
-  const savePayload = buildReviewSaveRequestPayload(storedState);
+  const trackedAttempt = await loadSelectionSavesForAttempt(identity.attemptKey);
+  const savePayload = buildReviewSaveRequestPayload(storedState, trackedAttempt);
 
   if (!savePayload) {
     await saveQuizReviewSaveDiagnostics("content-no-payload", {
@@ -1239,6 +1273,7 @@ export async function initializeQuizReviewSave() {
       attemptKey: savePayload.attemptKey,
     });
     await clearQuizReviewPendingMarker(identity.attemptKey);
+    await clearSelectionSavesForAttempt(identity.attemptKey);
     logReduxShareInfo(
       "ReduxShare: review answers processed",
       response.imported ? (response.savedCount ?? 0) : 0,

@@ -59,7 +59,27 @@ type QuizAttemptTestApi = {
     questionText: string;
     answerLabels: string[];
   }>;
-  buildReviewSaveRequestPayload: (state: StoredStateLike | undefined) => unknown;
+  buildReviewSaveRequestPayload: (
+    state: StoredStateLike | undefined,
+    trackedAttempt?: {
+      updatedAt: string;
+      questions: Record<
+        string,
+        Array<{
+          answerKey: string;
+          slotKey: string;
+          slotIndex: number | null;
+          label: string;
+          verdict: "correct" | "incorrect" | "unknown";
+        }>
+      >;
+    } | null,
+  ) => unknown;
+  flushQuestionSelections: (questionNode: Element) => Promise<void>;
+  resolveSelectionVerdict: (
+    answerData: SourceAnswerData | null | undefined,
+    observation: { label: string; slotKey: string; slotIndex: number | null },
+  ) => "correct" | "incorrect" | "unknown";
   setSourceAnswerData: (
     questionId: string | null,
     source: keyof SourceAnswerData,

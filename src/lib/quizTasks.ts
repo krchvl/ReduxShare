@@ -102,6 +102,14 @@ export interface ReviewAnswerPayload {
   wasSelected: boolean;
 }
 
+export type SelectionVerdict = "correct" | "incorrect" | "unknown";
+
+export interface PreCountedSelection {
+  answerKey: string;
+  slotKey: string;
+  verdict: SelectionVerdict;
+}
+
 export interface ReviewQuestionPayload {
   questionId: string | null;
   questionType: string | null;
@@ -109,6 +117,7 @@ export interface ReviewQuestionPayload {
   questionText?: string | null;
   answerOptions?: string[];
   answers: ReviewAnswerPayload[];
+  preCountedAnswers?: PreCountedSelection[];
 }
 
 export interface SaveReduxShareReviewPayload {
@@ -123,6 +132,37 @@ export interface SaveReduxShareReviewPayload {
 export interface SaveReduxShareReviewResult {
   authSession: AuthSession;
   imported: boolean;
+  savedCount: number;
+}
+
+export interface UserAnswerSelectionAnswer {
+  label: string;
+  answerKey: string;
+  slotKey: string;
+  slotIndex: number | null;
+  verdict: SelectionVerdict;
+}
+
+export interface UserAnswerSelectionQuestion {
+  questionId: string | null;
+  questionType: string | null;
+  questionHash: string | null;
+  questionText?: string | null;
+  answerOptions?: string[];
+  answers: UserAnswerSelectionAnswer[];
+}
+
+export interface SaveUserAnswerPayload {
+  domain: string;
+  courseId: number | null;
+  quizId: number | null;
+  attemptKey: string;
+  pageUrl: string;
+  question: UserAnswerSelectionQuestion;
+}
+
+export interface SaveUserAnswerResult {
+  authSession: AuthSession;
   savedCount: number;
 }
 
@@ -892,6 +932,49 @@ interface NormalizedReviewQuestion {
   questionText: string | null;
   answerOptions: string[];
   answers: NormalizedReviewAnswer[];
+  preCountedAnswers: NormalizedPreCountedSelection[];
+}
+
+interface NormalizedPreCountedSelection {
+  key: string;
+  slotKey: string;
+  verdict: SelectionVerdict;
+}
+
+function normalizeSelectionVerdict(value: unknown): SelectionVerdict | null {
+  return value === "correct" || value === "incorrect" || value === "unknown" ? value : null;
+}
+
+function normalizePreCountedAnswers(
+  value: PreCountedSelection[] | undefined,
+): NormalizedPreCountedSelection[] {
+  const normalized: NormalizedPreCountedSelection[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of Array.isArray(value) ? value : []) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const verdict = normalizeSelectionVerdict(entry.verdict);
+    const answerKey = collapseWhitespace(entry.answerKey ?? "");
+    const slotKey = (entry.slotKey ?? "").trim() || "question";
+
+    if (!verdict || !answerKey) {
+      continue;
+    }
+
+    const mapKey = `${slotKey}|${answerKey}`;
+
+    if (seen.has(mapKey)) {
+      continue;
+    }
+
+    seen.add(mapKey);
+    normalized.push({ key: answerKey, slotKey, verdict });
+  }
+
+  return normalized;
 }
 
 const ANSWER_OPTIONS_MAX_COUNT = 200;
@@ -997,6 +1080,7 @@ function normalizeReviewQuestions(questions: ReviewQuestionPayload[]): Normalize
       questionText,
       answerOptions,
       answers,
+      preCountedAnswers: normalizePreCountedAnswers(question.preCountedAnswers),
     });
   }
 
@@ -1054,7 +1138,7 @@ export function getReviewQuestionOutcome(answers: NormalizedReviewAnswer[]): Rev
   return "none";
 }
 
-export function getReviewQuestionContentHash(question: NormalizedReviewQuestion) {
+function getReviewQuestionContentHash(question: NormalizedReviewQuestion) {
   const fingerprint = question.answers
     .map((answer) =>
       [
@@ -1070,6 +1154,41 @@ export function getReviewQuestionContentHash(question: NormalizedReviewQuestion)
     .join("\n\n");
 
   return fnv1aHex(`${question.questionId}\n${question.questionHash}\n${fingerprint}`);
+}
+
+// Выбор, учтённый при установке ответа (pre-counted), переносится на вердикт
+// review: старый тик снимается (клампится по текущему значению строки), новый
+// ставится. Один выбор пользователя = один итоговый тик в verified-счётчике.
+function getSelectionTransitionDeltas(
+  previous: SelectionVerdict,
+  current: SelectionVerdict | null,
+  existing: TaskRecord | null | undefined,
+) {
+  const hasCounter = (value: number | null | undefined) => (value ?? 0) > 0;
+
+  return {
+    selectedCorrectDelta:
+      (current === "correct" ? 1 : 0) -
+      (previous === "correct" && hasCounter(existing?.selected_correct_count) ? 1 : 0),
+    selectedIncorrectDelta:
+      (current === "incorrect" ? 1 : 0) -
+      (previous === "incorrect" && hasCounter(existing?.selected_incorrect_count) ? 1 : 0),
+    selectedUnknownDelta:
+      (current === "unknown" ? 1 : 0) -
+      (previous === "unknown" && hasCounter(existing?.selected_unknown_count) ? 1 : 0),
+  };
+}
+
+function getReviewSelectionVerdict(answer: NormalizedReviewAnswer): SelectionVerdict | null {
+  if (!answer.wasSelected) {
+    return null;
+  }
+
+  if (answer.correctness === 2) {
+    return "correct";
+  }
+
+  return answer.correctness <= 0 ? "incorrect" : "unknown";
 }
 
 function getTaskIdentityKey(entry: {
@@ -1281,11 +1400,12 @@ export async function saveReduxShareReviewAnswers(
 
           importedQuestions += 1;
 
+          const trackedSelections = new Map(
+            question.preCountedAnswers.map((entry) => [`${entry.slotKey}|${entry.key}`, entry]),
+          );
+
           for (const answer of question.answers) {
             const correctDelta = answer.correctness === 2 ? 1 : 0;
-            const selectedCorrectDelta = answer.correctness === 2 && answer.wasSelected ? 1 : 0;
-            const selectedIncorrectDelta = answer.correctness <= 0 && answer.wasSelected ? 1 : 0;
-            const selectedUnknownDelta = answer.correctness === 1 && answer.wasSelected ? 1 : 0;
             const identityKey = getTaskIdentityKey({
               moodleDomain: payload.domain,
               courseId,
@@ -1296,6 +1416,20 @@ export async function saveReduxShareReviewAnswers(
               answerKey: answer.key,
             });
             const existing = tasksByIdentity.get(identityKey);
+            const tracked = trackedSelections.get(`${answer.slotKey}|${answer.key}`) ?? null;
+            const { selectedCorrectDelta, selectedIncorrectDelta, selectedUnknownDelta } = tracked
+              ? getSelectionTransitionDeltas(
+                  tracked.verdict,
+                  getReviewSelectionVerdict(answer),
+                  existing,
+                )
+              : {
+                  selectedCorrectDelta: answer.correctness === 2 && answer.wasSelected ? 1 : 0,
+                  selectedIncorrectDelta: answer.correctness <= 0 && answer.wasSelected ? 1 : 0,
+                  selectedUnknownDelta: answer.correctness === 1 && answer.wasSelected ? 1 : 0,
+                };
+
+            trackedSelections.delete(`${answer.slotKey}|${answer.key}`);
 
             if (existing) {
               const patch: Record<string, unknown> = {
@@ -1382,6 +1516,48 @@ export async function saveReduxShareReviewAnswers(
             savedEntries += 1;
           }
 
+          for (const tracked of trackedSelections.values()) {
+            const identityKey = getTaskIdentityKey({
+              moodleDomain: payload.domain,
+              courseId,
+              quizId,
+              questionId: question.questionId,
+              questionHash: question.questionHash,
+              slotKey: tracked.slotKey,
+              answerKey: tracked.key,
+            });
+            const existing = tasksByIdentity.get(identityKey);
+
+            if (!existing) {
+              continue;
+            }
+
+            const deltas = getSelectionTransitionDeltas(tracked.verdict, null, existing);
+            const patch: Record<string, unknown> = {};
+
+            if (deltas.selectedCorrectDelta !== 0) {
+              patch["selected_correct_count+"] = deltas.selectedCorrectDelta;
+            }
+
+            if (deltas.selectedIncorrectDelta !== 0) {
+              patch["selected_incorrect_count+"] = deltas.selectedIncorrectDelta;
+            }
+
+            if (deltas.selectedUnknownDelta !== 0) {
+              patch["selected_unknown_count+"] = deltas.selectedUnknownDelta;
+            }
+
+            if (Object.keys(patch).length === 0) {
+              continue;
+            }
+
+            const updated = await pb
+              .collection(TASKS_COLLECTION)
+              .update<TaskRecord>(existing.id, patch);
+            tasksByIdentity.set(identityKey, updated);
+            savedEntries += 1;
+          }
+
           importedQuestionHashes[importKey] = contentHash;
           hashesChanged = true;
         }
@@ -1420,6 +1596,205 @@ export async function saveReduxShareReviewAnswers(
     return {
       authSession: nextAuthSession,
       imported: savedCount > 0,
+      savedCount,
+    };
+  } catch (error) {
+    throw toI18nError(error, "errors.reduxReviewSaveFailed");
+  }
+}
+
+interface NormalizedUserAnswerSelection {
+  questionId: string;
+  questionType: string | null;
+  questionHash: string;
+  questionText: string | null;
+  answerOptions: string[];
+  answers: Array<NormalizedReviewAnswer & { verdict: SelectionVerdict }>;
+}
+
+function normalizeUserAnswerSelectionQuestion(
+  question: UserAnswerSelectionQuestion | undefined,
+): NormalizedUserAnswerSelection | null {
+  if (!question || typeof question !== "object") {
+    return null;
+  }
+
+  const questionId = (question.questionId ?? "").trim();
+  const questionHash = (question.questionHash ?? "").trim();
+
+  if (!questionId || !questionHash) {
+    return null;
+  }
+
+  const answers: NormalizedUserAnswerSelection["answers"] = [];
+
+  for (const answer of question.answers ?? []) {
+    const label = collapseWhitespace(answer.label ?? "");
+    const verdict = normalizeSelectionVerdict(answer.verdict);
+
+    if (!label || !verdict) {
+      continue;
+    }
+
+    const rawKey = collapseWhitespace(answer.answerKey ?? "");
+    const slotKey = (answer.slotKey ?? "").trim() || "question";
+    const rawSlotIndex = String(answer.slotIndex ?? "").trim();
+
+    answers.push({
+      label,
+      key: rawKey || label.toLowerCase(),
+      slotKey,
+      slotIndex: /^\d+$/.test(rawSlotIndex) ? Number.parseInt(rawSlotIndex, 10) : null,
+      correctness: verdict === "correct" ? 2 : verdict === "incorrect" ? 0 : 1,
+      isCorrect: verdict === "correct",
+      wasSelected: true,
+      verdict,
+    });
+  }
+
+  if (answers.length === 0) {
+    return null;
+  }
+
+  return {
+    questionId,
+    questionType: (question.questionType ?? "").trim() || null,
+    questionHash,
+    questionText: collapseWhitespace(question.questionText ?? "") || null,
+    answerOptions: mergeAnswerOptionLabels([], question.answerOptions ?? []),
+    answers,
+  };
+}
+
+// Мгновенное сохранение выбора пользователя на attempt.php: только счётчики
+// selected_* по вердикту. Без review_imports, user stats и correct_count —
+// верификация остаётся за review-импортом после сдачи попытки.
+export async function saveUserAnswerSelection(
+  authSession: AuthSession,
+  payload: SaveUserAnswerPayload,
+): Promise<SaveUserAnswerResult> {
+  if (payload.courseId === null || payload.quizId === null) {
+    return {
+      authSession: await ensurePocketBaseSession(authSession),
+      savedCount: 0,
+    };
+  }
+
+  const courseId = payload.courseId;
+  const quizId = payload.quizId;
+  const question = normalizeUserAnswerSelectionQuestion(payload.question);
+
+  if (!question) {
+    return {
+      authSession: await ensurePocketBaseSession(authSession),
+      savedCount: 0,
+    };
+  }
+
+  try {
+    const { authSession: nextAuthSession, result: savedCount } = await withPocketBaseSessionRetry(
+      authSession,
+      async (pb, session) => {
+        const userId = session.user.id;
+        let savedEntries = 0;
+
+        for (const answer of question.answers) {
+          const counterField =
+            answer.verdict === "correct"
+              ? "selected_correct_count"
+              : answer.verdict === "incorrect"
+                ? "selected_incorrect_count"
+                : "selected_unknown_count";
+          const filter = pb.filter(
+            "moodle_domain = {:domain} && course_id = {:course} && quiz_id = {:quiz} && question_id = {:qid} && question_hash = {:hash} && slot_key = {:slot} && answer_key = {:akey}",
+            {
+              domain: payload.domain,
+              course: courseId,
+              quiz: quizId,
+              qid: question.questionId,
+              hash: question.questionHash,
+              slot: answer.slotKey,
+              akey: answer.key,
+            },
+          );
+
+          let existing: TaskRecord | null = null;
+
+          try {
+            existing = await pb.collection(TASKS_COLLECTION).getFirstListItem<TaskRecord>(filter);
+          } catch (error) {
+            if (!isNotFoundError(error)) {
+              throw error;
+            }
+          }
+
+          if (existing) {
+            const patch: Record<string, unknown> = {
+              answer_label: answer.label,
+              [`${counterField}+`]: 1,
+              last_contributor: userId,
+            };
+
+            if (question.questionType) {
+              patch.question_type = question.questionType;
+            }
+
+            if (question.questionText && !existing.question_text) {
+              patch.question_text = question.questionText;
+            }
+
+            if (answer.slotIndex !== null) {
+              patch.slot_index = answer.slotIndex;
+            }
+
+            await pb.collection(TASKS_COLLECTION).update<TaskRecord>(existing.id, patch);
+          } else {
+            try {
+              await pb.collection(TASKS_COLLECTION).create<TaskRecord>({
+                moodle_domain: payload.domain,
+                course_id: courseId,
+                quiz_id: quizId,
+                question_id: question.questionId,
+                question_hash: question.questionHash,
+                question_type: question.questionType ?? "",
+                question_text: question.questionText ?? "",
+                answer_options: serializeTaskAnswerOptions(question.answerOptions),
+                slot_key: answer.slotKey,
+                slot_index: answer.slotIndex,
+                answer_key: answer.key,
+                answer_label: answer.label,
+                correct_count: 0,
+                selected_correct_count: answer.verdict === "correct" ? 1 : 0,
+                selected_incorrect_count: answer.verdict === "incorrect" ? 1 : 0,
+                selected_unknown_count: answer.verdict === "unknown" ? 1 : 0,
+                first_contributor: userId,
+                last_contributor: userId,
+              });
+            } catch (error) {
+              if (!isValidationError(error)) {
+                throw error;
+              }
+
+              const winner = await pb
+                .collection(TASKS_COLLECTION)
+                .getFirstListItem<TaskRecord>(filter);
+              await pb.collection(TASKS_COLLECTION).update<TaskRecord>(winner.id, {
+                answer_label: answer.label,
+                [`${counterField}+`]: 1,
+                last_contributor: userId,
+              });
+            }
+          }
+
+          savedEntries += 1;
+        }
+
+        return savedEntries;
+      },
+    );
+
+    return {
+      authSession: nextAuthSession,
       savedCount,
     };
   } catch (error) {

@@ -108,6 +108,11 @@ import {
   selectAnswerByLabel,
   shuffleScheduleOrder,
 } from "./quizAttempt/autoSelect";
+import {
+  ensureUserAnswerSelectionListener,
+  flushQuestionSelections,
+  resolveSelectionVerdict,
+} from "./quizAttempt/selectionSave";
 import { typeTextHumanLike } from "./quizAttempt/textControls";
 import {
   applyQuizAnswerResults,
@@ -298,6 +303,8 @@ declare global {
         cancelAutoSelectSchedule: typeof cancelAutoSelectSchedule;
         createEmptySourceAnswerData: typeof createEmptySourceAnswerData;
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
+        flushQuestionSelections: typeof flushQuestionSelections;
+        resolveSelectionVerdict: typeof resolveSelectionVerdict;
       }
     | undefined;
 }
@@ -2799,6 +2806,7 @@ async function bootstrapQuizPageDetection() {
 
   if (isQuizAttemptUrl(window.location)) {
     ensureAutoSelectCancelListener();
+    ensureUserAnswerSelectionListener();
     await initializeQuizAttemptFeatures();
     renderUpdateNotice();
     return;
@@ -2891,6 +2899,8 @@ function installQuizAttemptTestApi() {
     cancelAutoSelectSchedule,
     createEmptySourceAnswerData,
     createEmptyVariantCounts,
+    flushQuestionSelections,
+    resolveSelectionVerdict,
     estimateQuestionReadingSeconds,
     getQuestionBehaviour,
     isStepPerActionBehaviour,

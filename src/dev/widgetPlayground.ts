@@ -12,6 +12,7 @@ import {
   FETCH_QUIZ_PREVIEW_MESSAGE,
   GENERATE_AI_ANSWER_MESSAGE,
   SAVE_ESSAY_EXAMPLE_MESSAGE,
+  SAVE_USER_ANSWER_MESSAGE,
   VOTE_ANSWER_MESSAGE,
   VOTE_ESSAY_EXAMPLE_MESSAGE,
 } from "../shared/messages";
@@ -218,6 +219,13 @@ function handleMockMessage(message: unknown): unknown {
         body?: unknown;
       },
     );
+  }
+
+  if (record.type === SAVE_USER_ANSWER_MESSAGE) {
+    const answers = (record.payload as { question?: { answers?: unknown[] } } | undefined)?.question
+      ?.answers;
+
+    return { ok: true, imported: false, savedCount: Array.isArray(answers) ? answers.length : 0 };
   }
 
   if (record.type === VOTE_ESSAY_EXAMPLE_MESSAGE) {

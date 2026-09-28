@@ -17,9 +17,11 @@ import {
   fetchReduxShareQuizPreviewTasks,
   fetchReduxShareTasks,
   saveReduxShareReviewAnswers,
+  saveUserAnswerSelection,
   voteTaskAnswer,
   type QuizPreviewTaskResult,
   type SaveReduxShareReviewPayload,
+  type SaveUserAnswerPayload,
 } from "../lib/quizTasks";
 import {
   fetchEssayExamples,
@@ -34,6 +36,7 @@ import {
   flushPendingReviewSavesWithStoredState,
   handleSharedAlarmForPendingSaves,
   queuePendingReviewSave,
+  queuePendingSelectionSave,
   schedulePendingFlushAlarm,
   updatePendingFlushAlarmAfterFlush,
   type PendingSaveFlushDeps,
@@ -86,6 +89,7 @@ import {
   RECORD_QUIZ_PROGRESS_MESSAGE,
   SAVE_ESSAY_EXAMPLE_MESSAGE,
   SAVE_REVIEW_ANSWERS_MESSAGE,
+  SAVE_USER_ANSWER_MESSAGE,
   VOTE_ANSWER_MESSAGE,
   VOTE_ESSAY_EXAMPLE_MESSAGE,
 } from "../shared/messages";
@@ -136,6 +140,11 @@ interface RecordQuizProgressMessage {
 interface SaveReviewAnswersMessage {
   type: typeof SAVE_REVIEW_ANSWERS_MESSAGE;
   payload: SaveReduxShareReviewPayload;
+}
+
+interface SaveUserAnswerMessage {
+  type: typeof SAVE_USER_ANSWER_MESSAGE;
+  payload: SaveUserAnswerPayload;
 }
 
 interface FetchOwnProfileMessage {
@@ -287,6 +296,16 @@ function isSaveReviewAnswersMessage(message: unknown): message is SaveReviewAnsw
   const candidate = message as Partial<SaveReviewAnswersMessage>;
 
   return candidate.type === SAVE_REVIEW_ANSWERS_MESSAGE && typeof candidate.payload === "object";
+}
+
+function isSaveUserAnswerMessage(message: unknown): message is SaveUserAnswerMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<SaveUserAnswerMessage>;
+
+  return candidate.type === SAVE_USER_ANSWER_MESSAGE && typeof candidate.payload === "object";
 }
 
 function isFetchOwnProfileMessage(message: unknown): message is FetchOwnProfileMessage {
@@ -1209,6 +1228,68 @@ async function handleSaveReviewAnswers(
   }
 }
 
+async function handleSaveUserAnswer(
+  payload: SaveUserAnswerPayload,
+): Promise<SaveReviewAnswersResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const question = payload.question;
+  const details = {
+    courseId: payload.courseId,
+    quizId: payload.quizId,
+    attemptKey: payload.attemptKey,
+    questionId: question?.questionId ?? null,
+    answerCount: question?.answers?.length ?? 0,
+  };
+
+  if (!authSession) {
+    const queueSize = await queuePendingSelectionSave(payload);
+    await saveReviewSaveDiagnostics("background-selection-save-queued-auth-required", {
+      ...details,
+      queueSize,
+    });
+    return {
+      ok: true,
+      imported: false,
+      savedCount: 0,
+      queued: true,
+    };
+  }
+
+  const flushResult = await flushPendingReviewSaves(authSession, pendingSaveFlushDeps);
+
+  try {
+    const result = await saveUserAnswerSelection(flushResult.authSession, payload);
+    await saveStoredStatePatch({ authSession: result.authSession });
+    await saveReviewSaveDiagnostics("background-selection-save-result", {
+      ...details,
+      savedCount: result.savedCount,
+      flushedPendingCount: flushResult.flushedCount,
+      remainingPendingCount: flushResult.remainingCount,
+    });
+
+    return {
+      ok: true,
+      imported: false,
+      savedCount: result.savedCount,
+    };
+  } catch (error) {
+    const queueSize = await queuePendingSelectionSave(payload);
+    await saveReviewSaveDiagnostics("background-selection-save-queued-retry", {
+      ...details,
+      queueSize,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      ok: true,
+      imported: false,
+      savedCount: 0,
+      queued: true,
+    };
+  }
+}
+
 async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> {
   const storedState = await loadStoredState();
   const t = getTranslator(storedState.settings?.language);
@@ -1408,6 +1489,23 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
           quizId: message.payload.quizId,
           attemptKey: message.payload.attemptKey,
           questionCount: message.payload.questions.length,
+        });
+        sendErrorResponse(error, sendResponse);
+      });
+
+    return true;
+  }
+
+  if (isSaveUserAnswerMessage(message)) {
+    void handleSaveUserAnswer(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        void saveReviewSaveDiagnostics("background-selection-save-error", {
+          error: error instanceof Error ? error.message : String(error),
+          courseId: message.payload.courseId,
+          quizId: message.payload.quizId,
+          attemptKey: message.payload.attemptKey,
+          questionId: message.payload.question?.questionId ?? null,
         });
         sendErrorResponse(error, sendResponse);
       });

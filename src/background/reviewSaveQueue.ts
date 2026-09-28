@@ -1,9 +1,14 @@
 import type { AuthSession } from "../types";
-import { saveReduxShareReviewAnswers, type SaveReduxShareReviewPayload } from "../lib/quizTasks";
+import {
+  saveReduxShareReviewAnswers,
+  saveUserAnswerSelection,
+  type SaveReduxShareReviewPayload,
+  type SaveUserAnswerPayload,
+} from "../lib/quizTasks";
 import { PENDING_REVIEW_SAVES_STORAGE_KEY } from "../shared/storageKeys";
 import { UPDATE_ALARM_NAME, UPDATE_CHECK_INTERVAL_MS } from "../lib/updates";
 
-export const MAX_PENDING_REVIEW_SAVES = 25;
+export const MAX_PENDING_REVIEW_SAVES = 200;
 
 const PENDING_FLUSH_ALARM_PERIOD_MINUTES = 1;
 
@@ -11,10 +16,15 @@ const PENDING_FLUSH_QUEUE_EMPTY_GRACE_MINUTES = 30;
 
 export const PENDING_FLUSH_ALARM_STRETCH_KEY = "reduxsharePendingFlushAlarmStretch";
 
+export type PendingSaveKind = "review" | "selection";
+
+export type PendingSavePayload = SaveReduxShareReviewPayload | SaveUserAnswerPayload;
+
 export interface PendingReviewSave {
   id: string;
   queuedAt: string;
-  payload: SaveReduxShareReviewPayload;
+  kind?: PendingSaveKind;
+  payload: PendingSavePayload;
 }
 
 export interface PendingSaveFlushDeps {
@@ -35,13 +45,29 @@ function getStoredAuthSession(state: { authSession?: AuthSession | null } | null
   return state?.authSession?.user?.id ? state.authSession : null;
 }
 
-export function getPendingReviewSaveId(payload: SaveReduxShareReviewPayload) {
+function getPendingSaveBaseId(payload: PendingSavePayload) {
   return [
     payload.domain,
     payload.courseId ?? "unknown-course",
     payload.quizId ?? "unknown-quiz",
     payload.attemptKey,
   ].join("|");
+}
+
+export function getPendingReviewSaveId(payload: SaveReduxShareReviewPayload) {
+  return getPendingSaveBaseId(payload);
+}
+
+export function getPendingSelectionSaveId(payload: SaveUserAnswerPayload) {
+  const questionId = payload.question?.questionId ?? "unknown-question";
+
+  return `${getPendingSaveBaseId(payload)}|sel:${questionId}`;
+}
+
+function getPendingSaveId(payload: PendingSavePayload, kind: PendingSaveKind) {
+  return kind === "selection"
+    ? getPendingSelectionSaveId(payload as SaveUserAnswerPayload)
+    : getPendingReviewSaveId(payload as SaveReduxShareReviewPayload);
 }
 
 export async function loadPendingReviewSaves(): Promise<PendingReviewSave[]> {
@@ -72,11 +98,22 @@ export async function savePendingReviewSaves(queue: PendingReviewSave[]) {
   });
 }
 
-export async function queuePendingReviewSave(payload: SaveReduxShareReviewPayload) {
+export async function queuePendingReviewSave(
+  payload: SaveReduxShareReviewPayload,
+): Promise<number> {
+  return queuePendingSave(payload, "review");
+}
+
+export async function queuePendingSelectionSave(payload: SaveUserAnswerPayload): Promise<number> {
+  return queuePendingSave(payload, "selection");
+}
+
+async function queuePendingSave(payload: PendingSavePayload, kind: PendingSaveKind) {
   const queue = await loadPendingReviewSaves();
   const nextEntry: PendingReviewSave = {
-    id: getPendingReviewSaveId(payload),
+    id: getPendingSaveId(payload, kind),
     queuedAt: new Date().toISOString(),
+    kind,
     payload,
   };
   const dedupedQueue = queue.filter((entry) => entry.id !== nextEntry.id);
@@ -113,7 +150,16 @@ export async function flushPendingReviewSaves(
 
     for (const entry of queue) {
       try {
-        const result = await saveReduxShareReviewAnswers(latestAuthSession, entry.payload);
+        const result =
+          entry.kind === "selection"
+            ? await saveUserAnswerSelection(
+                latestAuthSession,
+                entry.payload as SaveUserAnswerPayload,
+              )
+            : await saveReduxShareReviewAnswers(
+                latestAuthSession,
+                entry.payload as SaveReduxShareReviewPayload,
+              );
         latestAuthSession = result.authSession;
         flushedCount += 1;
       } catch (error) {
