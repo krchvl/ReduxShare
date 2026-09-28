@@ -2902,6 +2902,7 @@ function resetQuizAttemptTestState() {
         apiKey: "test-api-key",
         connectionVerified: true,
         verifiedAt: null,
+        accessMode: "custom",
       },
     },
     authSession: {

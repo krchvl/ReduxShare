@@ -64,6 +64,8 @@ export const AI_MODEL_OPTIONS_BY_PROVIDER: Record<BuiltInAiProvider, readonly Ai
   deepseek: [],
 };
 
+export type AiAccessModeSetting = "official" | "custom";
+
 export interface AiSettings {
   provider: AiProvider;
   model: string;
@@ -72,6 +74,7 @@ export interface AiSettings {
   verifiedAt: string | null;
   customEndpoint?: string;
   customModelName?: string;
+  accessMode: AiAccessModeSetting;
 }
 
 export interface ServerConfig {
@@ -204,6 +207,7 @@ export const DEFAULT_SETTINGS: Settings = {
     apiKey: "",
     connectionVerified: false,
     verifiedAt: null,
+    accessMode: "custom",
   },
 };
 
@@ -304,6 +308,9 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
     settings?.connectionVerified && apiKey && verifiedAt && hasConnectionTarget,
   );
 
+  const accessMode: AiAccessModeSetting =
+    settings?.accessMode === "official" ? "official" : "custom";
+
   return {
     provider,
     model,
@@ -312,6 +319,7 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
     verifiedAt: connectionVerified ? verifiedAt : null,
     customEndpoint,
     customModelName,
+    accessMode,
   };
 }
 
