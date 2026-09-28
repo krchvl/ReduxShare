@@ -68,9 +68,9 @@ const QUIZ_PREVIEW_BUTTON_MARKUP = `
       align-items: center;
       gap: 8px;
       padding: 9px 16px;
-      border: 1px solid rgba(var(--reduxshare-accent-rgb), 0.45);
+      border: 1px solid rgba(var(--reduxshare-accent-rgb), 0.6);
       border-radius: 999px;
-      background: rgba(var(--reduxshare-accent-rgb), 0.14);
+      background: rgba(var(--reduxshare-accent-rgb), 0.26);
       color: var(--reduxshare-accent-soft);
       font-family:
         Inter,
@@ -92,7 +92,7 @@ const QUIZ_PREVIEW_BUTTON_MARKUP = `
     }
 
     .rpx-trigger:hover {
-      background: rgba(var(--reduxshare-accent-rgb), 0.22);
+      background: rgba(var(--reduxshare-accent-rgb), 0.34);
       box-shadow: 0 8px 22px rgba(var(--reduxshare-accent-rgb), 0.28);
       transform: translateY(-1px);
     }

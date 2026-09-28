@@ -1250,10 +1250,10 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           width: 32px;
           height: 32px;
           place-items: center;
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.16);
           border-radius: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(246, 247, 251, 0.45);
+          background: rgba(255, 255, 255, 0.12);
+          color: rgba(246, 247, 251, 0.85);
           cursor: pointer;
           transition:
             background-color 140ms ease,
@@ -1657,9 +1657,9 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         :host([data-theme="light"]) .tray-action {
-          border-color: rgba(15, 20, 35, 0.12);
-          background: rgba(15, 20, 35, 0.04);
-          color: rgba(20, 25, 40, 0.45);
+          border-color: rgba(15, 20, 35, 0.16);
+          background: rgba(15, 20, 35, 0.08);
+          color: rgba(20, 25, 40, 0.78);
         }
 
         :host([data-theme="light"]) .tray-action[aria-pressed="true"],
