@@ -573,9 +573,9 @@ const AUTO_PASS_START_BUTTON_MARKUP = `
       align-items: center;
       gap: 8px;
       padding: 9px 16px;
-      border: 1px solid rgba(var(--reduxshare-accent-rgb), 0.45);
+      border: 1px solid rgba(var(--reduxshare-accent-rgb), 0.6);
       border-radius: 999px;
-      background: rgba(var(--reduxshare-accent-rgb), 0.14);
+      background: rgba(var(--reduxshare-accent-rgb), 0.26);
       color: var(--reduxshare-accent-soft);
       font-family:
         Inter,
@@ -623,11 +623,11 @@ const AUTO_PASS_START_BUTTON_MARKUP = `
     }
 
     .apx-trigger svg {
-      width: 14px;
-      height: 14px;
+      width: 15px;
+      height: 15px;
       fill: none;
       stroke: currentColor;
-      stroke-width: 2.6;
+      stroke-width: 3.4;
       stroke-linecap: round;
       stroke-linejoin: round;
       flex: none;
