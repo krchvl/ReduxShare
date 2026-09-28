@@ -1,6 +1,10 @@
 import PocketBase, { BaseAuthStore, ClientResponseError, type AuthModel } from "pocketbase";
 import { I18nError, type TranslationKey } from "../i18n";
 import type { AuthSession } from "../types";
+import { APP_STORAGE_KEY } from "../shared/storageKeys";
+import { loadStoredState } from "./storage";
+import { getEnvPocketBaseUrl } from "./envConfig";
+import { normalizeSettings, type StoredState } from "../types";
 import { ensurePocketBaseSession, restorePocketBaseSession } from "./auth";
 
 export const USERS_COLLECTION = "users";
@@ -10,10 +14,21 @@ export const REVIEW_IMPORTS_COLLECTION = "reduxshare_review_imports";
 export const ESSAY_EXAMPLES_COLLECTION = "reduxshare_essay_examples";
 export const ESSAY_VOTES_COLLECTION = "reduxshare_essay_votes";
 
+// Активный сервер переопределяется из настроек в каждом контексте, который
+// строит PB-клиенты (background-воркер и popup). До инициализации используется env-URL.
+let activeServerUrlOverride: string | null = null;
+
+export function setActivePocketBaseUrl(url: string | null): void {
+  const trimmed = url?.trim().replace(/\/+$/, "");
+  activeServerUrlOverride = trimmed || null;
+}
+
+export function getActivePocketBaseUrl(): string | null {
+  return activeServerUrlOverride ?? getEnvPocketBaseUrl();
+}
+
 export function getPocketBaseUrl() {
-  const rawUrl = (import.meta.env.VITE_POCKETBASE_URL as string | undefined)
-    ?.trim()
-    .replace(/\/+$/, "");
+  const rawUrl = getActivePocketBaseUrl();
 
   if (!rawUrl) {
     throw new I18nError("errors.pocketbaseMissingConfig");
@@ -33,6 +48,33 @@ export function tryGetPocketBaseUrl(): string | null {
 export function getPocketBaseLabel() {
   const rawLabel = (import.meta.env.VITE_POCKETBASE_LABEL as string | undefined)?.trim();
   return rawLabel || "Основной [DE #1]";
+}
+
+function resolveActiveServerUrlFromSettings(storedState: Partial<StoredState> | undefined) {
+  const settings = normalizeSettings(storedState?.settings);
+  const active =
+    settings.servers.find((server) => server.id === settings.activeServerId) ?? settings.servers[0];
+  return active?.url ?? null;
+}
+
+// Синхронизирует активный сервер PB с chrome.storage: разовое чтение + живая
+// подписка на изменения настроек. Вызывается при старте background и popup.
+export async function initActivePocketBaseServerSync(): Promise<void> {
+  const storedState = await loadStoredState();
+  setActivePocketBaseUrl(resolveActiveServerUrlFromSettings(storedState));
+
+  if (typeof chrome?.storage?.onChanged?.addListener !== "function") {
+    return;
+  }
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes[APP_STORAGE_KEY]) {
+      return;
+    }
+
+    const nextState = changes[APP_STORAGE_KEY].newValue as Partial<StoredState> | undefined;
+    setActivePocketBaseUrl(resolveActiveServerUrlFromSettings(nextState));
+  });
 }
 
 export type PingStatus = "good" | "warn" | "bad" | "offline";

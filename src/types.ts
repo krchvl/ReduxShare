@@ -4,6 +4,7 @@ import {
   normalizeHotkeyCode,
   normalizeHotkeyValue,
 } from "./lib/hotkeys";
+import { BUILTIN_SERVER_ID, getBuiltinServerConfig } from "./lib/envConfig";
 
 export type ViewName = "login" | "register" | "main";
 
@@ -73,6 +74,13 @@ export interface AiSettings {
   customModelName?: string;
 }
 
+export interface ServerConfig {
+  id: string;
+  url: string;
+  label: string;
+  builtIn?: boolean;
+}
+
 export interface Settings {
   extensionEnabled: boolean;
   stealthMode: boolean;
@@ -92,6 +100,8 @@ export interface Settings {
   colorScheme: ColorSchemeSetting;
   popupOpacity: number;
   pageOverlayOpacity: number;
+  servers: ServerConfig[];
+  activeServerId: string;
   ai: AiSettings;
 }
 
@@ -186,6 +196,8 @@ export const DEFAULT_SETTINGS: Settings = {
   colorScheme: "system",
   popupOpacity: 1,
   pageOverlayOpacity: 1,
+  servers: normalizeServerConfigs(undefined),
+  activeServerId: BUILTIN_SERVER_ID,
   ai: {
     provider: "google",
     model: "",
@@ -323,9 +335,88 @@ export function normalizeAutoSelectAvgSeconds(value: unknown) {
   );
 }
 
+function isValidServerUrl(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getServerOrigin(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeServerConfigs(rawServers: unknown): ServerConfig[] {
+  const servers: ServerConfig[] = [];
+  const seenOrigins = new Set<string>();
+
+  const push = (server: ServerConfig) => {
+    if (!isValidServerUrl(server.url)) {
+      return;
+    }
+
+    const origin = getServerOrigin(server.url);
+
+    if (!origin || seenOrigins.has(origin)) {
+      return;
+    }
+
+    seenOrigins.add(origin);
+    servers.push({ ...server, url: server.url.replace(/\/+$/, "") });
+  };
+
+  const builtin = getBuiltinServerConfig();
+
+  if (builtin) {
+    push(builtin);
+  }
+
+  if (Array.isArray(rawServers)) {
+    for (const raw of rawServers) {
+      if (!raw || typeof raw !== "object") {
+        continue;
+      }
+
+      const candidate = raw as Partial<ServerConfig>;
+
+      if (typeof candidate.id !== "string" || candidate.id === BUILTIN_SERVER_ID) {
+        continue;
+      }
+
+      if (typeof candidate.label !== "string" || !candidate.label.trim()) {
+        continue;
+      }
+
+      push({ id: candidate.id, url: candidate.url ?? "", label: candidate.label.trim() });
+    }
+  }
+
+  return servers;
+}
+
+export function resolveActiveServerId(rawId: unknown, servers: ServerConfig[]): string {
+  if (typeof rawId === "string" && servers.some((server) => server.id === rawId)) {
+    return rawId;
+  }
+
+  return servers[0]?.id ?? BUILTIN_SERVER_ID;
+}
+
 export function normalizeSettings(
   settings: (Partial<Settings> & Partial<LegacyStoredSettings>) | undefined,
 ): Settings {
+  const servers = normalizeServerConfigs(settings?.servers);
+
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
     stealthMode: settings?.stealthMode ?? DEFAULT_SETTINGS.stealthMode,
@@ -348,6 +439,8 @@ export function normalizeSettings(
       : DEFAULT_SETTINGS.colorScheme,
     popupOpacity: settings?.popupOpacity ?? DEFAULT_SETTINGS.popupOpacity,
     pageOverlayOpacity: settings?.pageOverlayOpacity ?? DEFAULT_SETTINGS.pageOverlayOpacity,
+    servers,
+    activeServerId: resolveActiveServerId(settings?.activeServerId, servers),
     ai: normalizeAiSettings(settings?.ai),
   };
 }

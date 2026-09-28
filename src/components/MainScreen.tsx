@@ -20,6 +20,8 @@ import { AiProviderIcon } from "./AiProviderIcon";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
+import { CustomSelect } from "./CustomSelect";
+import { ServerPicker } from "./ServerPicker";
 import { StatsPanel } from "./StatsPanel";
 import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
@@ -31,12 +33,6 @@ import {
   refreshBroadPermissionCache,
   requestBroadHostPermission,
 } from "../lib/optionalPermissions";
-import {
-  getPocketBaseLabel,
-  measurePocketBasePing,
-  pingStatusForLatency,
-  tryGetPocketBaseUrl,
-} from "../lib/pocketbase";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import {
   AUTO_SELECT_SLIDER_POSITION_MAX,
@@ -172,69 +168,6 @@ function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
       </div>
       <div className="settings-row__control">{control}</div>
     </section>
-  );
-}
-
-function ServerPicker() {
-  const { t } = useI18n();
-  const pocketBaseUrl = tryGetPocketBaseUrl();
-  const [latencyMs, setLatencyMs] = useState<number | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (!pocketBaseUrl) {
-      return;
-    }
-
-    let cancelled = false;
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch status reset for the new URL
-    setLatencyMs(undefined);
-
-    void measurePocketBasePing(pocketBaseUrl).then((latency) => {
-      if (!cancelled) {
-        setLatencyMs(latency);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pocketBaseUrl]);
-
-  if (!pocketBaseUrl) {
-    return <span className="server-picker__missing">{t("settings.server.missing")}</span>;
-  }
-
-  const status = latencyMs === undefined ? null : pingStatusForLatency(latencyMs);
-  const statusColor =
-    status === "good"
-      ? "#4ade80"
-      : status === "warn"
-        ? "#ffd166"
-        : status === "bad"
-          ? "#f87171"
-          : "#8a8f9e";
-  const pingText =
-    latencyMs === undefined
-      ? "…"
-      : latencyMs === null
-        ? t("settings.server.offline")
-        : `${latencyMs} ${t("settings.server.ms")}`;
-
-  return (
-    <div className="server-picker">
-      <select
-        className="ai-select server-picker__select"
-        defaultValue="primary"
-        aria-label={t("settings.server.title")}
-      >
-        <option value="primary">{getPocketBaseLabel()}</option>
-      </select>
-      <span className="server-picker__ping">
-        <span className="server-picker__dot" style={{ backgroundColor: statusColor }} />
-        <span>{pingText}</span>
-      </span>
-    </div>
   );
 }
 
@@ -897,25 +830,23 @@ export function MainScreen({
                   </label>
                 </>
               ) : (
-                <label className="ai-field">
+                <div className="ai-field">
                   <span>{t("settings.ai.model")}</span>
-                  <select
-                    className="ai-select"
+                  <CustomSelect
                     value={aiDraft.model}
-                    onChange={(event) => updateAiDraft({ model: event.target.value })}
-                  >
-                    {aiModelOptions.length === 0 && (
-                      <option value="" disabled>
-                        {t("settings.ai.modelEmpty")}
-                      </option>
-                    )}
-                    {aiModelOptions.map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={
+                      aiModelOptions.length === 0
+                        ? [{ value: "", label: t("settings.ai.modelEmpty"), disabled: true }]
+                        : aiModelOptions.map((model) => ({
+                            value: model.value,
+                            label: model.label,
+                          }))
+                    }
+                    onChange={(model) => updateAiDraft({ model })}
+                    ariaLabel={t("settings.ai.model")}
+                    listLabel={t("settings.ai.model")}
+                  />
+                </div>
               )}
               <label className="ai-field ai-field--key">
                 <span>{t("settings.ai.apiKey")}</span>
@@ -1026,7 +957,13 @@ export function MainScreen({
           <SettingPanelRow
             title={t("settings.server.title")}
             lines={[t("settings.server.line1"), t("settings.server.line2")]}
-            control={<ServerPicker />}
+            control={
+              <ServerPicker
+                settings={settings}
+                onSettingsChange={onSettingsChange}
+                onLogout={onLogout}
+              />
+            }
           />
           <SettingPanelRow
             title={t("updates.title")}

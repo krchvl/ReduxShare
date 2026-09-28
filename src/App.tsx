@@ -5,6 +5,7 @@ import { Shell } from "./components/Shell";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
 import { loginWithPocketBase, logoutFromPocketBase, registerWithPocketBase } from "./lib/auth";
+import { setActivePocketBaseUrl } from "./lib/pocketbase";
 import { loadStoredState, saveStoredState } from "./lib/storage";
 import { getActiveTabHostname } from "./lib/tabs";
 import { normalizeUpdateState, requestUpdateCheck } from "./lib/updates";
@@ -138,6 +139,14 @@ export function App() {
 
     void saveStoredState({ settings, authSession, userProfile });
   }, [authSession, hydrated, settings, userProfile]);
+
+  // Активный сервер для PB-клиентов, создаваемых в popup (login/register/logout).
+  useEffect(() => {
+    const activeServer =
+      settings.servers.find((server) => server.id === settings.activeServerId) ??
+      settings.servers[0];
+    setActivePocketBaseUrl(activeServer?.url ?? null);
+  }, [settings.servers, settings.activeServerId]);
 
   useEffect(() => {
     if (!hydrated) {

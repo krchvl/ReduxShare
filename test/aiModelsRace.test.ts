@@ -148,8 +148,10 @@ describe("MainScreen AI model auto-fetch", () => {
 
     const statusText = container!.querySelector(".ai-status")?.textContent ?? "";
     expect(statusText).not.toContain("Stale model");
-    expect(container!.querySelector('option[value="stale-model"]')).toBeNull();
-    expect(container!.querySelector<HTMLInputElement>("select")?.value).not.toBe("stale-model");
+    const modelTriggerLabel =
+      container!.querySelector(".ai-field .cselect__trigger .cselect__label")?.textContent ?? "";
+    expect(modelTriggerLabel).not.toBe("Stale model");
+    expect(document.querySelector(".cselect__listbox")).toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(200);

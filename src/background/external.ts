@@ -91,6 +91,7 @@ import {
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
+import { initActivePocketBaseServerSync } from "../lib/pocketbase";
 import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
 import type {
   AnswerData,
@@ -1536,6 +1537,8 @@ if (chrome.alarms?.onAlarm) {
 
 ensureUpdateAlarm();
 void checkForUpdates({ force: false, reason: "startup" });
+
+void initActivePocketBaseServerSync();
 
 runPendingSaveFlush(flushPendingReviewSavesWithStoredState(pendingSaveFlushDeps), "sw-start");
 
