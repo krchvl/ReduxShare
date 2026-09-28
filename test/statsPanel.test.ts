@@ -5,14 +5,18 @@ import { MainScreen } from "../src/components/MainScreen";
 import { I18nProvider } from "../src/i18n/react";
 import { DEFAULT_SETTINGS, DEFAULT_UPDATE_STATE, type UserProfile } from "../src/types";
 
-const { requestOwnUserProfile, requestUserLeaderboard } = vi.hoisted(() => ({
-  requestOwnUserProfile: vi.fn(),
-  requestUserLeaderboard: vi.fn(),
-}));
+const { requestOwnUserProfile, requestUserLeaderboard, requestUserAttemptHistory } = vi.hoisted(
+  () => ({
+    requestOwnUserProfile: vi.fn(),
+    requestUserLeaderboard: vi.fn(),
+    requestUserAttemptHistory: vi.fn(),
+  }),
+);
 
 vi.mock("../src/lib/userProfiles", () => ({
   requestOwnUserProfile,
   requestUserLeaderboard,
+  requestUserAttemptHistory,
 }));
 
 const profile: UserProfile = {
@@ -47,6 +51,30 @@ const leaderboard = {
   myRank: 2,
   totalContributors: 9,
   totalAnswerRows: 1234,
+};
+
+const attemptHistory = {
+  entries: [
+    {
+      id: "attempt-2",
+      domain: "moodle.example.com",
+      courseId: 3,
+      quizId: 77,
+      pageUrl: "https://moodle.example.com/mod/quiz/review.php?attempt=22&cmid=77",
+      importedQuestionsCount: 8,
+      updatedAt: "2026-09-28 10:00:00.000",
+    },
+    {
+      id: "attempt-1",
+      domain: "moodle.example.com",
+      courseId: 3,
+      quizId: null,
+      pageUrl: "",
+      importedQuestionsCount: 12,
+      updatedAt: "2026-09-27 09:30:00.000",
+    },
+  ],
+  total: 2,
 };
 
 let root: Root | null = null;
@@ -103,6 +131,8 @@ beforeEach(() => {
   requestOwnUserProfile.mockResolvedValue({ ok: true, userProfile: profile });
   requestUserLeaderboard.mockReset();
   requestUserLeaderboard.mockResolvedValue({ ok: true, leaderboard });
+  requestUserAttemptHistory.mockReset();
+  requestUserAttemptHistory.mockResolvedValue({ ok: true, history: attemptHistory });
 });
 
 afterEach(() => {
@@ -238,5 +268,55 @@ describe("MainScreen stats tab", () => {
     );
     expect(container.querySelector(".stats-leaderboard__grid")).toBeNull();
     expect(container.querySelector(".stats-leaderboard__rank")).toBeNull();
+  });
+
+  it("renders the attempt history rows below the leaderboard", async () => {
+    renderMainScreen();
+
+    act(() => {
+      clickStatsTab();
+    });
+    await act(async () => {});
+
+    const head = container.querySelector(".stats-history__head");
+    expect(head?.querySelector("h2")?.textContent).toBe("История попыток");
+    expect(head?.querySelector(".stats-history__total")?.textContent).toBe("Попыток: 2");
+
+    const rows = Array.from(
+      container.querySelectorAll<HTMLElement>(".stats-history__row:not(.stats-history__row--head)"),
+    );
+    expect(rows).toHaveLength(2);
+
+    const link = rows[0]?.querySelector<HTMLAnchorElement>(".stats-history__quiz a");
+    expect(link?.textContent).toBe("Тест #77");
+    expect(link?.getAttribute("href")).toBe(attemptHistory.entries[0]?.pageUrl);
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(rows[0]?.querySelector(".stats-history__count")?.textContent).toBe("8");
+    expect(rows[0]?.querySelector(".stats-history__date")?.textContent).not.toBe("—");
+    expect(rows[0]?.querySelector(".stats-history__domain")?.textContent).toBe(
+      "moodle.example.com",
+    );
+
+    expect(rows[1]?.querySelector(".stats-history__quiz a")).toBeNull();
+    expect(rows[1]?.querySelector(".stats-history__quiz")?.textContent).toBe("—");
+  });
+
+  it("renders the empty attempt history state without the grid", async () => {
+    requestUserAttemptHistory.mockResolvedValue({
+      ok: true,
+      history: { entries: [], total: 0 },
+    });
+    renderMainScreen();
+
+    act(() => {
+      clickStatsTab();
+    });
+    await act(async () => {});
+
+    expect(container.querySelector(".stats-history__empty")?.textContent).toBe(
+      "Пока нет импортированных попыток — история заполнится после импорта ответов со страниц review",
+    );
+    expect(container.querySelector(".stats-history__grid")).toBeNull();
+    expect(container.querySelector(".stats-history__total")?.textContent).toBe("Попыток: 0");
   });
 });

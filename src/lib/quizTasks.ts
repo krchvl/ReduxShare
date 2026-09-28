@@ -75,13 +75,16 @@ interface TaskVoteRecord {
   value: number;
 }
 
-interface ReviewImportRecord {
+export interface ReviewImportRecord {
   id: string;
+  moodle_domain?: string;
   course_id: number | null;
   quiz_id: number | null;
   page_url: string;
   imported_question_count: number | null;
   imported_question_hashes: Record<string, string> | null;
+  created?: string;
+  updated?: string;
 }
 
 export interface FetchReduxShareTasksResult {

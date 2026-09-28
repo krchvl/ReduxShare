@@ -58,13 +58,16 @@ import {
 } from "../lib/updates";
 import {
   fetchOwnUserProfile,
+  fetchUserAttemptHistory,
   fetchUserLeaderboard,
   recordUserQuizProgress,
+  type UserAttemptHistory,
   type UserLeaderboard,
 } from "../lib/userProfiles";
 import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../shared/storageKeys";
 import {
   CHECK_UPDATE_MESSAGE,
+  FETCH_ATTEMPT_HISTORY_MESSAGE,
   FETCH_LEADERBOARD_MESSAGE,
   FETCH_OWN_PROFILE_MESSAGE,
   FETCH_QUIZ_ANSWERS_MESSAGE,
@@ -134,6 +137,16 @@ interface FetchLeaderboardResponse {
   ok: boolean;
   error?: string;
   leaderboard?: UserLeaderboard;
+}
+
+interface FetchAttemptHistoryMessage {
+  type: typeof FETCH_ATTEMPT_HISTORY_MESSAGE;
+}
+
+interface FetchAttemptHistoryResponse {
+  ok: boolean;
+  error?: string;
+  history?: UserAttemptHistory;
 }
 
 interface VoteAnswerPayload {
@@ -256,6 +269,14 @@ function isFetchLeaderboardMessage(message: unknown): message is FetchLeaderboar
   }
 
   return (message as Partial<FetchLeaderboardMessage>).type === FETCH_LEADERBOARD_MESSAGE;
+}
+
+function isFetchAttemptHistoryMessage(message: unknown): message is FetchAttemptHistoryMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  return (message as Partial<FetchAttemptHistoryMessage>).type === FETCH_ATTEMPT_HISTORY_MESSAGE;
 }
 
 function isVoteAnswerMessage(message: unknown): message is VoteAnswerMessage {
@@ -618,6 +639,27 @@ async function handleFetchLeaderboard(): Promise<FetchLeaderboardResponse> {
   return {
     ok: true,
     leaderboard: result.leaderboard,
+  };
+}
+
+async function handleFetchAttemptHistory(): Promise<FetchAttemptHistoryResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await fetchUserAttemptHistory(authSession);
+  await saveStoredStatePatch({ authSession: result.authSession });
+
+  return {
+    ok: true,
+    history: result.history,
   };
 }
 
@@ -1245,6 +1287,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.leaderboardLoadFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchAttemptHistoryMessage(message)) {
+    void handleFetchAttemptHistory()
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.attemptHistoryLoadFailed");
       });
 
     return true;

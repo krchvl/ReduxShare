@@ -3,7 +3,9 @@ import type { UserProfile } from "../types";
 import { useI18n } from "../i18n/react";
 import {
   requestOwnUserProfile,
+  requestUserAttemptHistory,
   requestUserLeaderboard,
+  type UserAttemptHistory,
   type UserLeaderboard,
 } from "../lib/userProfiles";
 import { Button } from "./Button";
@@ -18,14 +20,19 @@ export function StatsPanel({ userProfile }: StatsPanelProps) {
   const { t, resolvedLanguage } = useI18n();
   const [profile, setProfile] = useState<UserProfile | null>(userProfile ?? null);
   const [leaderboard, setLeaderboard] = useState<UserLeaderboard | null>(null);
+  const [history, setHistory] = useState<UserAttemptHistory | null>(null);
   const [status, setStatus] = useState<StatsLoadStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
     let cancelled = false;
 
-    void Promise.all([requestOwnUserProfile(), requestUserLeaderboard()])
-      .then(([profileResponse, leaderboardResponse]) => {
+    void Promise.all([
+      requestOwnUserProfile(),
+      requestUserLeaderboard(),
+      requestUserAttemptHistory(),
+    ])
+      .then(([profileResponse, leaderboardResponse, historyResponse]) => {
         if (cancelled) {
           return;
         }
@@ -34,15 +41,20 @@ export function StatsPanel({ userProfile }: StatsPanelProps) {
           !profileResponse.ok ||
           !profileResponse.userProfile ||
           !leaderboardResponse.ok ||
-          !leaderboardResponse.leaderboard
+          !leaderboardResponse.leaderboard ||
+          !historyResponse.ok ||
+          !historyResponse.history
         ) {
-          setErrorMessage(profileResponse.error ?? leaderboardResponse.error ?? null);
+          setErrorMessage(
+            profileResponse.error ?? leaderboardResponse.error ?? historyResponse.error ?? null,
+          );
           setStatus("error");
           return;
         }
 
         setProfile(profileResponse.userProfile);
         setLeaderboard(leaderboardResponse.leaderboard);
+        setHistory(historyResponse.history);
         setStatus("ready");
       })
       .catch((error: unknown) => {
@@ -72,6 +84,21 @@ export function StatsPanel({ userProfile }: StatsPanelProps) {
     style: "percent",
     maximumFractionDigits: 0,
   });
+  const dateTimeFormat = new Intl.DateTimeFormat(resolvedLanguage, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const formatDate = (value: string | null) => {
+    if (!value) {
+      return "—";
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : dateTimeFormat.format(date);
+  };
 
   const formatAccuracy = (correct: number, incorrect: number) => {
     const verifiedCount = correct + incorrect;
@@ -178,6 +205,50 @@ export function StatsPanel({ userProfile }: StatsPanelProps) {
                 })}
               </div>
             </>
+          )}
+        </section>
+      )}
+      {history && (
+        <section className="stats-history">
+          <div className="stats-history__head">
+            <h2>{t("stats.history.title")}</h2>
+            <span className="stats-history__total">
+              {t("stats.history.totalLabel")}: {numberFormat.format(history.total)}
+            </span>
+          </div>
+          {history.entries.length === 0 ? (
+            <p className="stats-history__empty">{t("stats.history.empty")}</p>
+          ) : (
+            <div className="stats-history__grid">
+              <div className="stats-history__row stats-history__row--head">
+                <span>{t("stats.history.colDate")}</span>
+                <span>{t("stats.history.colQuiz")}</span>
+                <span>{t("stats.history.colDomain")}</span>
+                <span>{t("stats.history.colAnswers")}</span>
+              </div>
+              <div className="stats-history__list">
+                {history.entries.map((entry) => (
+                  <div key={entry.id} className="stats-history__row">
+                    <span className="stats-history__date">{formatDate(entry.updatedAt)}</span>
+                    <span className="stats-history__quiz">
+                      {entry.quizId !== null && entry.pageUrl ? (
+                        <a href={entry.pageUrl} target="_blank" rel="noreferrer noopener">
+                          {t("stats.history.quizLabel", { id: String(entry.quizId) })}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </span>
+                    <span className="stats-history__domain" title={entry.domain || undefined}>
+                      {entry.domain || "—"}
+                    </span>
+                    <span className="stats-history__count">
+                      {numberFormat.format(entry.importedQuestionsCount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </section>
       )}

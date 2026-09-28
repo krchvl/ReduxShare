@@ -1,13 +1,19 @@
 import type PocketBase from "pocketbase";
 import type { AuthSession, UserProfile } from "../types";
-import { FETCH_LEADERBOARD_MESSAGE, FETCH_OWN_PROFILE_MESSAGE } from "../shared/messages";
 import {
+  FETCH_ATTEMPT_HISTORY_MESSAGE,
+  FETCH_LEADERBOARD_MESSAGE,
+  FETCH_OWN_PROFILE_MESSAGE,
+} from "../shared/messages";
+import {
+  REVIEW_IMPORTS_COLLECTION,
   TASKS_COLLECTION,
   USERS_COLLECTION,
   isNotFoundError,
   toI18nError,
   withPocketBaseSessionRetry,
 } from "./pocketbase";
+import type { ReviewImportRecord } from "./quizTasks";
 import { AuthError } from "./auth";
 
 export interface PocketBaseUserRecord {
@@ -279,6 +285,92 @@ export function requestUserLeaderboard(): Promise<LeaderboardResponse> {
     chrome.runtime.sendMessage(
       { type: FETCH_LEADERBOARD_MESSAGE },
       (response: LeaderboardResponse | undefined) => {
+        const runtimeError = chrome.runtime.lastError;
+
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+
+        resolve(response ?? { ok: false, error: "Background script did not return a response." });
+      },
+    );
+  });
+}
+
+export interface AttemptHistoryEntry {
+  id: string;
+  domain: string;
+  courseId: number | null;
+  quizId: number | null;
+  pageUrl: string;
+  importedQuestionsCount: number;
+  updatedAt: string | null;
+}
+
+export interface UserAttemptHistory {
+  entries: AttemptHistoryEntry[];
+  total: number;
+}
+
+export interface FetchUserAttemptHistoryResult {
+  authSession: AuthSession;
+  history: UserAttemptHistory;
+}
+
+function mapAttemptHistoryEntry(record: ReviewImportRecord): AttemptHistoryEntry {
+  return {
+    id: record.id,
+    domain: record.moodle_domain ?? "",
+    courseId: record.course_id,
+    quizId: record.quiz_id,
+    pageUrl: record.page_url,
+    importedQuestionsCount: record.imported_question_count ?? 0,
+    updatedAt: record.updated ?? record.created ?? null,
+  };
+}
+
+export async function fetchUserAttemptHistory(
+  authSession: AuthSession,
+  limit = 20,
+): Promise<FetchUserAttemptHistoryResult> {
+  try {
+    const { authSession: nextAuthSession, result } = await withPocketBaseSessionRetry(
+      authSession,
+      async (pb, session) => {
+        const imports = await pb
+          .collection(REVIEW_IMPORTS_COLLECTION)
+          .getList<ReviewImportRecord>(1, limit, {
+            filter: pb.filter("user = {:user}", { user: session.user.id }),
+            sort: "-updated",
+          });
+
+        const history: UserAttemptHistory = {
+          entries: imports.items.map(mapAttemptHistoryEntry),
+          total: imports.totalItems,
+        };
+
+        return history;
+      },
+    );
+
+    return { authSession: nextAuthSession, history: result };
+  } catch (error) {
+    throw toI18nError(error, "errors.attemptHistoryLoadFailed");
+  }
+}
+
+export interface AttemptHistoryResponse {
+  ok: boolean;
+  error?: string;
+  history?: UserAttemptHistory;
+}
+
+export function requestUserAttemptHistory(): Promise<AttemptHistoryResponse> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: FETCH_ATTEMPT_HISTORY_MESSAGE },
+      (response: AttemptHistoryResponse | undefined) => {
         const runtimeError = chrome.runtime.lastError;
 
         if (runtimeError) {
