@@ -29,10 +29,12 @@ import {
 } from "./quizAttempt/hotkeys";
 import {
   attachAnswerHovercards,
+  createIdleAiAnswerState,
   getAnswerMenuMarkup,
   getAnswerTriggerMarkup,
   isAiSettingsSaved,
   renderAiAnswerFlyout,
+  renderAiExplanationFlyout,
 } from "../ui/answerMenu";
 import { attachAnswerMenuBehavior } from "../ui/answerMenuBehavior";
 import {
@@ -137,6 +139,7 @@ import {
   applyAiAnswerForQuestion,
   buildAiAnswerRequestPayload,
   getAiAnswerState,
+  getAiExplanationState,
   getAiQuestionKey,
   requestAiGeneratedAnswer,
 } from "./quizAttempt/aiAnswer";
@@ -215,6 +218,7 @@ import {
 import {
   activeCloseAnswerWidgetMenu,
   aiAnswerStatesByQuestionKey,
+  aiExplanationStatesByQuestionKey,
   answerDataByQuestionId,
   answerWidgetCleanups,
   answerWidgetStates,
@@ -967,6 +971,7 @@ function openAnswerMenuPortal(
     getAiAnswerState(aiQuestionKey),
     aiToolsEnabled,
     externalOnly,
+    getAiExplanationState(aiQuestionKey),
   );
 
   const menuBehavior = attachAnswerMenuBehavior(shadowRoot, {
@@ -980,6 +985,19 @@ function openAnswerMenuPortal(
   });
   const { setActiveMenuItem } = menuBehavior;
 
+  function isAnyAiRequestLoading() {
+    return (
+      aiAnswerStatesByQuestionKey.get(aiQuestionKey)?.status === "loading" ||
+      aiExplanationStatesByQuestionKey.get(aiQuestionKey)?.status === "loading"
+    );
+  }
+
+  function setAiRequestButtonsDisabled(disabled: boolean) {
+    for (const button of shadowRoot.querySelectorAll<HTMLButtonElement>(".menu-ai-button")) {
+      button.disabled = disabled;
+    }
+  }
+
   function updateAiAnswerState(nextState: AiAnswerState) {
     aiAnswerStatesByQuestionKey.set(aiQuestionKey, nextState);
 
@@ -990,10 +1008,32 @@ function openAnswerMenuPortal(
       answerFlyout.innerHTML = renderAiAnswerFlyout(nextState);
     }
 
-    const aiButton = shadowRoot.querySelector<HTMLButtonElement>('[data-ai-action="send"]');
-    if (aiButton) {
-      aiButton.disabled = nextState.status === "loading";
+    if (nextState.status === "loading") {
+      updateAiExplanationState(createIdleAiAnswerState());
     }
+
+    const showExplanationUi = nextState.status === "success" && Boolean(nextState.answer?.trim());
+    shadowRoot
+      .querySelector<HTMLButtonElement>('[data-ai-action="explain"]')
+      ?.toggleAttribute("hidden", !showExplanationUi);
+    shadowRoot
+      .querySelector<HTMLElement>('.menu-item[data-answer-menu="ai-explanation"]')
+      ?.toggleAttribute("hidden", !showExplanationUi);
+
+    setAiRequestButtonsDisabled(isAnyAiRequestLoading());
+  }
+
+  function updateAiExplanationState(nextState: AiAnswerState) {
+    aiExplanationStatesByQuestionKey.set(aiQuestionKey, nextState);
+
+    const explanationFlyout = shadowRoot.querySelector<HTMLElement>(
+      '.menu-item[data-answer-menu="ai-explanation"] .flyout',
+    );
+    if (explanationFlyout) {
+      explanationFlyout.innerHTML = renderAiExplanationFlyout(nextState);
+    }
+
+    setAiRequestButtonsDisabled(isAnyAiRequestLoading());
   }
 
   const aiRequestButton = shadowRoot.querySelector<HTMLButtonElement>('[data-ai-action="send"]');
@@ -1045,6 +1085,84 @@ function openAnswerMenuPortal(
       })
       .catch((error) => {
         updateAiAnswerState({
+          status: "error",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: error instanceof Error ? error.message : currentT("quiz.menu.empty"),
+        });
+      });
+  });
+
+  const aiExplainButton = shadowRoot.querySelector<HTMLButtonElement>('[data-ai-action="explain"]');
+  aiExplainButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!aiToolsEnabled) {
+      return;
+    }
+
+    const questionNode = findQuestionNodeForTrigger(trigger);
+
+    if (!questionNode) {
+      updateAiExplanationState({
+        status: "error",
+        answer: null,
+        confidence: null,
+        actions: [],
+        error: currentT("quiz.menu.aiQuestionMissing"),
+      });
+      setActiveMenuItem(
+        shadowRoot.querySelector<HTMLElement>('.menu-item[data-answer-menu="ai-explanation"]'),
+      );
+      return;
+    }
+
+    const aiState = getAiAnswerState(aiQuestionKey);
+
+    if (aiState.status !== "success" || !aiState.answer?.trim()) {
+      return;
+    }
+
+    updateAiExplanationState({
+      status: "loading",
+      answer: null,
+      confidence: null,
+      actions: [],
+      error: null,
+    });
+    setActiveMenuItem(
+      shadowRoot.querySelector<HTMLElement>('.menu-item[data-answer-menu="ai-explanation"]'),
+    );
+
+    void buildAiAnswerRequestPayload(questionNode, questionId)
+      .then((payload) =>
+        requestAiGeneratedAnswer({
+          ...payload,
+          mode: "explain",
+          answerToExplain: aiState.answer ?? undefined,
+        }),
+      )
+      .then((response) => {
+        if (aiExplanationStatesByQuestionKey.get(aiQuestionKey)?.status !== "loading") {
+          return;
+        }
+
+        updateAiExplanationState({
+          status: response.ok ? "success" : "error",
+          answer: response.ok ? (response.answer ?? "") : null,
+          confidence: response.ok ? (response.confidence ?? 0) : null,
+          actions: response.ok ? (response.actions ?? []) : [],
+          error: response.ok ? null : (response.error ?? currentT("quiz.menu.empty")),
+        });
+      })
+      .catch((error) => {
+        if (aiExplanationStatesByQuestionKey.get(aiQuestionKey)?.status !== "loading") {
+          return;
+        }
+
+        updateAiExplanationState({
           status: "error",
           answer: null,
           confidence: null,
@@ -2361,6 +2479,7 @@ function resetQuizAttemptTestState() {
   variantCountsByQuestionId.clear();
   answerDataByQuestionId.clear();
   aiAnswerStatesByQuestionKey.clear();
+  aiExplanationStatesByQuestionKey.clear();
   setCurrentQuizAttemptContext(null);
   pendingPipelineRun = true;
   setCurrentStoredState({

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchAiModelOptions, testAiConnection } from "../src/lib/aiProvider";
+import {
+  buildQuizExplanationPrompt,
+  fetchAiModelOptions,
+  generateAiAnswer,
+  testAiConnection,
+} from "../src/lib/aiProvider";
+import type { GenerateAiAnswerPayload } from "../src/lib/ai";
 import type { AiSettings } from "../src/types";
 
 function baseSettings(overrides: Partial<AiSettings> = {}): AiSettings {
@@ -358,5 +364,62 @@ describe("AI provider integration", () => {
     await expect(fetchAiModelOptions(baseSettings({ provider: "openai" }), 20)).rejects.toThrow(
       "OpenAI model list request timed out.",
     );
+  });
+});
+
+describe("AI explain mode", () => {
+  const explainPayload: GenerateAiAnswerPayload = {
+    questionId: "1385",
+    questionType: "multichoice",
+    questionText: "What is 2+2?",
+    answerLabels: ["3", "4", "5"],
+    controls: [],
+    images: [],
+    pageUrl: "https://example.test/mod/quiz/attempt.php",
+    mode: "explain",
+    answerToExplain: "4",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("builds an explanation prompt with the answer to explain and no JSON contract", () => {
+    const prompt = buildQuizExplanationPrompt(explainPayload);
+
+    expect(prompt).toContain("plain text only");
+    expect(prompt).toContain("The final answer to explain:");
+    expect(prompt).toContain("4");
+    expect(prompt).toContain("What is 2+2?");
+    expect(prompt).not.toContain("Return JSON with this schema");
+  });
+
+  it("explains via plain-text generation and skips structured answer parsing", async () => {
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: "Because 2 + 2 = 4.\nСумма двух двоек равна четырём." }],
+            },
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateAiAnswer(baseSettings(), explainPayload);
+
+    const [, requestInit] = fetchMock.mock.calls[0]!;
+    const requestBody = JSON.parse((requestInit as RequestInit).body as string) as {
+      contents: Array<{ parts: Array<{ text: string }> }>;
+      generationConfig: { responseMimeType: string; temperature: number };
+    };
+
+    expect(requestBody.generationConfig.responseMimeType).toBe("text/plain");
+    expect(requestBody.contents[0]!.parts[0]!.text).toContain("The final answer to explain:");
+    expect(result.answer).toBe("Because 2 + 2 = 4.\nСумма двух двоек равна четырём.");
+    expect(result.actions).toEqual([]);
+    expect(result.confidence).toBe(0);
   });
 });

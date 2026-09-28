@@ -6,6 +6,7 @@ import calculatedSimplePrompt from "../aiPrompts/calculatedsimple.json";
 import defaultPrompt from "../aiPrompts/default.json";
 import ddwtosPrompt from "../aiPrompts/ddwtos.json";
 import essayPrompt from "../aiPrompts/essay.json";
+import explainPrompt from "../aiPrompts/explain.json";
 import gapselectPrompt from "../aiPrompts/gapselect.json";
 import matchPrompt from "../aiPrompts/match.json";
 import multichoicePrompt from "../aiPrompts/multichoice.json";
@@ -529,8 +530,7 @@ function buildImageSummary(payload: GenerateAiAnswerPayload) {
   }));
 }
 
-export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
-  const promptConfig = getPromptConfig(payload.questionType);
+function buildPromptPayloadSummary(payload: GenerateAiAnswerPayload) {
   const controlOptionsSummary = buildControlOptionsSummary(payload);
   const imageSummary = buildImageSummary(payload);
   const questionData = {
@@ -543,6 +543,13 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
     controls: payload.controls ?? [],
     pageUrl: payload.pageUrl,
   };
+
+  return { questionData, controlOptionsSummary, imageSummary };
+}
+
+export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
+  const promptConfig = getPromptConfig(payload.questionType);
+  const { questionData, controlOptionsSummary, imageSummary } = buildPromptPayloadSummary(payload);
 
   return [
     "You help solve Moodle quiz questions. You must return ONLY valid JSON.",
@@ -595,6 +602,25 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
   ]
     .filter((part): part is string => part !== null)
     .join("\n");
+}
+
+export function buildQuizExplanationPrompt(payload: GenerateAiAnswerPayload) {
+  const { questionData } = buildPromptPayloadSummary(payload);
+  const answerToExplain = payload.answerToExplain?.trim();
+
+  return [
+    "You help explain answers to Moodle quiz questions. Respond with plain text only.",
+    "",
+    `Question prompt profile: ${explainPrompt.title}`,
+    ...explainPrompt.instructions.map((instruction) => `- ${instruction}`),
+    "",
+    answerToExplain
+      ? `The final answer to explain:\n${answerToExplain}`
+      : "No final answer was provided: determine the most likely correct answer yourself and explain it.",
+    "",
+    "Moodle question data:",
+    JSON.stringify(questionData, null, 2),
+  ].join("\n");
 }
 
 interface GoogleAiImagePart {
@@ -1213,43 +1239,52 @@ export function parseStructuredAiAnswer(text: string): StructuredAiAnswer {
   };
 }
 
+interface AiCompletionOptions {
+  prompt: string;
+  responseMimeType: "text/plain" | "application/json";
+  maxOutputTokens: number;
+  temperature: number;
+  imageParts: GoogleAiImagePart[];
+}
+
+async function requestAiCompletion(settings: AiSettings, options: AiCompletionOptions) {
+  if (settings.provider === "custom") {
+    return generateCustomAiText(settings, options.prompt, options);
+  }
+
+  if (settings.provider === "google") {
+    return generateGoogleAiText(settings, options.prompt, options);
+  }
+
+  if (settings.provider === "anthropic") {
+    return generateAnthropicAiText(settings, options.prompt, options);
+  }
+
+  return generateOpenAiCompatibleAiText(settings, options.prompt, options);
+}
+
 export async function generateAiAnswer(settings: AiSettings, payload: GenerateAiAnswerPayload) {
-  const prompt = buildQuizAnswerPrompt(payload);
-  const maxOutputTokens = payload.questionType === "essay" ? 4096 : 1536;
-  const temperature = payload.questionType === "essay" ? 0.35 : 0.15;
   const imageParts = payload.images?.length ? await buildGoogleAiImageParts(payload) : [];
 
-  let text: string;
+  if (payload.mode === "explain") {
+    const explanationText = await requestAiCompletion(settings, {
+      prompt: buildQuizExplanationPrompt(payload),
+      responseMimeType: "text/plain",
+      maxOutputTokens: 2048,
+      temperature: 0.3,
+      imageParts,
+    });
 
-  if (settings.provider === "custom") {
-    text = await generateCustomAiText(settings, prompt, {
-      responseMimeType: "application/json",
-      maxOutputTokens,
-      temperature,
-      imageParts,
-    });
-  } else if (settings.provider === "google") {
-    text = await generateGoogleAiText(settings, prompt, {
-      responseMimeType: "application/json",
-      maxOutputTokens,
-      temperature,
-      imageParts,
-    });
-  } else if (settings.provider === "anthropic") {
-    text = await generateAnthropicAiText(settings, prompt, {
-      responseMimeType: "application/json",
-      maxOutputTokens,
-      temperature,
-      imageParts,
-    });
-  } else {
-    text = await generateOpenAiCompatibleAiText(settings, prompt, {
-      responseMimeType: "application/json",
-      maxOutputTokens,
-      temperature,
-      imageParts,
-    });
+    return { answer: explanationText.trim(), confidence: 0, actions: [], rawText: explanationText };
   }
+
+  const text = await requestAiCompletion(settings, {
+    prompt: buildQuizAnswerPrompt(payload),
+    responseMimeType: "application/json",
+    maxOutputTokens: payload.questionType === "essay" ? 4096 : 1536,
+    temperature: payload.questionType === "essay" ? 0.35 : 0.15,
+    imageParts,
+  });
 
   return normalizeStructuredAiAnswerForPayload(parseStructuredAiAnswer(text), payload);
 }

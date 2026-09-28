@@ -84,6 +84,7 @@ type QuizAttemptTestApi = {
     aiAnswerState: AiAnswerState,
     aiToolsEnabled?: boolean,
     externalOnly?: boolean,
+    aiExplanationState?: AiAnswerState,
   ) => string;
   createEmptySourceAnswerData: () => SourceAnswerData;
   createEmptyVariantCounts: () => AnswerVariantCounts;

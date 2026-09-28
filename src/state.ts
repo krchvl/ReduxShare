@@ -20,6 +20,7 @@ export const answerWidgetStates = new Map<HTMLElement, AnswerWidgetState>();
 export const variantCountsByQuestionId = new Map<string, AnswerVariantCounts>();
 export const answerDataByQuestionId = new Map<string, SourceAnswerData>();
 export const aiAnswerStatesByQuestionKey = new Map<string, AiAnswerState>();
+export const aiExplanationStatesByQuestionKey = new Map<string, AiAnswerState>();
 
 export function setCurrentT(value: TranslateFn) {
   currentT = value;

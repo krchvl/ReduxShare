@@ -488,3 +488,113 @@ describe("R-menu vote rendering", () => {
     expect(card?.textContent).toContain("Голоса: 3 за · 1 против");
   });
 });
+
+describe("R-menu AI explain rendering", () => {
+  function successAiState(answer: string) {
+    return {
+      status: "success",
+      answer,
+      confidence: 92,
+      actions: [],
+      error: null,
+    } as const;
+  }
+
+  it("hides explain controls until an AI answer is received", async () => {
+    const api = await getQuizAttemptTestApi();
+    const root = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: exactAnswerData("true"),
+        }),
+        true,
+        idleAiState,
+        true,
+      ),
+    );
+
+    expect(textOf(root, '[data-ai-action="send"]')).toContain("Отправить запрос");
+    expect(textOf(root, '[data-ai-action="explain"]')).toContain("Объясни ответ");
+    expect(root.querySelector<HTMLButtonElement>('[data-ai-action="explain"]')?.hidden).toBe(true);
+    expect(root.querySelector('[data-answer-menu="ai-explanation"]')?.hidden).toBe(true);
+  });
+
+  it("shows explain controls with the explanation flyout after a successful AI answer", async () => {
+    const api = await getQuizAttemptTestApi();
+    const root = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: exactAnswerData("ом"),
+        }),
+        true,
+        successAiState("ом"),
+        true,
+        false,
+        {
+          status: "success",
+          answer: "Сопротивление измеряется в омах по определению единицы СИ.",
+          confidence: 0,
+          actions: [],
+          error: null,
+        },
+      ),
+    );
+
+    expect(textOf(root, '[data-answer-menu="ai-explanation"]')).toContain("Объяснить ответ");
+    expect(root.querySelector<HTMLButtonElement>('[data-ai-action="explain"]')?.hidden).toBe(false);
+    expect(root.querySelector('[data-answer-menu="ai-explanation"]')?.hidden).toBe(false);
+    expect(textOf(root, '[data-answer-menu="ai-explanation"] .flyout-text--answer')).toContain(
+      "в омах",
+    );
+    expect(
+      root.querySelector('[data-answer-menu="ai-explanation"] [data-ai-answer-action="apply"]'),
+    ).toBeNull();
+  });
+
+  it("renders explanation loading and error states in the flyout", async () => {
+    const api = await getQuizAttemptTestApi();
+    const loadingRoot = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: exactAnswerData("ом"),
+        }),
+        true,
+        successAiState("ом"),
+        true,
+        false,
+        {
+          status: "loading",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: null,
+        },
+      ),
+    );
+
+    expect(textOf(loadingRoot, '[data-answer-menu="ai-explanation"]')).toContain("Идёт запрос...");
+
+    const errorRoot = renderMenu(
+      api.getAnswerMenuMarkup(
+        sourceAnswerData({
+          reduxshare: exactAnswerData("ом"),
+        }),
+        true,
+        successAiState("ом"),
+        true,
+        false,
+        {
+          status: "error",
+          answer: null,
+          confidence: null,
+          actions: [],
+          error: "AI request failed",
+        },
+      ),
+    );
+
+    expect(textOf(errorRoot, '[data-answer-menu="ai-explanation"] .flyout-text--error')).toBe(
+      "AI request failed",
+    );
+  });
+});

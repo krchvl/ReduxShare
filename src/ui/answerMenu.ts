@@ -393,6 +393,16 @@ function getAiAnswerIconMarkup() {
   `;
 }
 
+function getAiExplainIconMarkup() {
+  return `
+    <svg viewBox="0 0 48 48">
+      <path d="M24 7a12 12 0 0 1 12 12c0 4.5-2.6 7.4-4.8 9.8-1.3 1.4-2.2 2.7-2.2 4.7h-10c0-2-.9-3.3-2.2-4.7C14.6 26.4 12 23.5 12 19A12 12 0 0 1 24 7Z" />
+      <path d="M19.5 40h9" />
+      <path d="M21 44h6" />
+    </svg>
+  `;
+}
+
 function renderEmptyFlyout(message = currentT("quiz.menu.empty")) {
   return `<div class="flyout-option flyout-empty">${escapeHtml(message)}</div>`;
 }
@@ -444,6 +454,22 @@ export function renderAiAnswerFlyout(state: AiAnswerState) {
   return renderEmptyFlyout();
 }
 
+export function renderAiExplanationFlyout(state: AiAnswerState) {
+  if (state.status === "loading") {
+    return renderEmptyFlyout(currentT("quiz.menu.aiLoading"));
+  }
+
+  if (state.status === "error") {
+    return `<div class="flyout-option flyout-text flyout-text--error">${escapeHtml(state.error ?? currentT("quiz.menu.empty"))}</div>`;
+  }
+
+  if (state.status === "success" && state.answer) {
+    return `<div class="flyout-option flyout-text flyout-text--answer">${escapeHtml(state.answer)}</div>`;
+  }
+
+  return renderEmptyFlyout();
+}
+
 function getAiConfidenceColor(confidence: number) {
   if (confidence > 85) {
     return "#4ade80";
@@ -465,9 +491,10 @@ function renderAnswerMenuItem(
   iconMarkup: string,
   flyoutMarkup: string,
   menuKey: string,
+  hidden = false,
 ) {
   return `
-    <div class="menu-item" role="menuitem" tabindex="0" data-answer-menu="${escapeHtml(menuKey)}">
+    <div class="menu-item" role="menuitem" tabindex="0" data-answer-menu="${escapeHtml(menuKey)}" ${hidden ? "hidden" : ""}>
       <span class="icon" aria-hidden="true">${iconMarkup}</span>
       <span class="label">${escapeHtml(label)}</span>
       <span class="chevron" aria-hidden="true">
@@ -483,6 +510,15 @@ function renderAiRequestButton(isLoading: boolean) {
     <button class="menu-ai-button" type="button" data-ai-action="send" ${isLoading ? "disabled" : ""}>
       <span class="icon" aria-hidden="true">${getAiRequestIconMarkup()}</span>
       <span class="label">${escapeHtml(currentT("quiz.menu.sendAiRequest"))}</span>
+    </button>
+  `;
+}
+
+function renderAiExplainButton(isLoading: boolean, hidden: boolean) {
+  return `
+    <button class="menu-ai-button" type="button" data-ai-action="explain" ${isLoading ? "disabled" : ""} ${hidden ? "hidden" : ""}>
+      <span class="icon" aria-hidden="true">${getAiExplainIconMarkup()}</span>
+      <span class="label">${escapeHtml(currentT("quiz.menu.explainAnswer"))}</span>
     </button>
   `;
 }
@@ -559,6 +595,7 @@ function renderSourceMenuPanel(
 function renderAiMenuPanel(
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
+  aiExplanationState: AiAnswerState,
   isActive: boolean,
 ) {
   if (!aiSettingsSaved) {
@@ -569,14 +606,27 @@ function renderAiMenuPanel(
     `;
   }
 
+  const showExplanationUi =
+    aiAnswerState.status === "success" && Boolean(aiAnswerState.answer?.trim());
+  const anyRequestLoading =
+    aiAnswerState.status === "loading" || aiExplanationState.status === "loading";
+
   return `
     <div class="menu-panel" data-menu-panel="ai" data-active="${isActive ? "true" : "false"}">
-      ${renderAiRequestButton(aiAnswerState.status === "loading")}
+      ${renderAiRequestButton(anyRequestLoading)}
+      ${renderAiExplainButton(aiExplanationState.status === "loading", !showExplanationUi)}
       ${renderAnswerMenuItem(
         currentT("quiz.menu.aiAnswer"),
         getAiAnswerIconMarkup(),
         renderAiAnswerFlyout(aiAnswerState),
         "ai-answer",
+      )}
+      ${renderAnswerMenuItem(
+        currentT("quiz.menu.aiExplanation"),
+        getAiExplainIconMarkup(),
+        renderAiExplanationFlyout(aiExplanationState),
+        "ai-explanation",
+        !showExplanationUi,
       )}
     </div>
   `;
@@ -620,6 +670,7 @@ function renderAnswerMenuPanels(
   aiAnswerState: AiAnswerState,
   aiToolsEnabled: boolean,
   externalOnly = false,
+  aiExplanationState: AiAnswerState = createIdleAiAnswerState(),
 ) {
   const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
@@ -627,7 +678,7 @@ function renderAnswerMenuPanels(
   return `
     ${tabs.includes("internal") ? renderSourceMenuPanel("internal", "reduxshare", answerData.reduxshare, activeTab === "internal") : ""}
     ${tabs.includes("external") ? renderSourceMenuPanel("external", "external", answerData.external, activeTab === "external") : ""}
-    ${tabs.includes("ai") ? renderAiMenuPanel(aiSettingsSaved, aiAnswerState, activeTab === "ai") : ""}
+    ${tabs.includes("ai") ? renderAiMenuPanel(aiSettingsSaved, aiAnswerState, aiExplanationState, activeTab === "ai") : ""}
   `;
 }
 
@@ -768,6 +819,7 @@ export function getAnswerMenuMarkup(
   aiAnswerState: AiAnswerState,
   aiToolsEnabled = true,
   externalOnly = false,
+  aiExplanationState: AiAnswerState = createIdleAiAnswerState(),
 ) {
   return `
     <style>
@@ -1011,8 +1063,14 @@ export function getAnswerMenuMarkup(
         opacity: 0.08;
       }
 
+      .menu-ai-button + .menu-ai-button,
       .menu-ai-button + .menu-item {
         border-top: 1px solid rgba(32, 32, 32, 0.72);
+      }
+
+      .menu-ai-button[hidden],
+      .menu-item[hidden] {
+        display: none;
       }
 
       .menu-item:hover,
@@ -1431,6 +1489,7 @@ export function getAnswerMenuMarkup(
       }
 
       :host([data-theme="light"]) .menu-item + .menu-item,
+      :host([data-theme="light"]) .menu-ai-button + .menu-ai-button,
       :host([data-theme="light"]) .menu-ai-button + .menu-item {
         border-top-color: rgba(15, 20, 35, 0.08);
       }
@@ -1540,7 +1599,7 @@ export function getAnswerMenuMarkup(
 
     <div class="menu" role="dialog" aria-label="ReduxShare">
       ${renderAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly)}
-      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled, externalOnly)}
+      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled, externalOnly, aiExplanationState)}
     </div>
   `;
 }

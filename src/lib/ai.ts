@@ -28,6 +28,8 @@ export interface FetchAiModelsMessage {
   payload: AiSettings;
 }
 
+export type AiAnswerRequestMode = "answer" | "explain";
+
 export interface GenerateAiAnswerPayload {
   questionId: string | null;
   questionType: string | null;
@@ -36,6 +38,8 @@ export interface GenerateAiAnswerPayload {
   controls?: AiQuestionControl[];
   images?: AiQuestionImage[];
   pageUrl: string;
+  mode?: AiAnswerRequestMode;
+  answerToExplain?: string;
 }
 
 export interface GenerateAiAnswerMessage {

@@ -5,8 +5,13 @@ import {
   normalizeStructuredAiAnswerForPayload,
   parseStructuredAiAnswer,
 } from "../src/lib/aiProvider";
+import { GENERATE_AI_ANSWER_MESSAGE } from "../src/shared/messages";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
+
+function flushMicrotasks() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
 
 function setQuestionHtml(html: string) {
   document.body.innerHTML = html;
@@ -721,5 +726,80 @@ describe("AI quiz behavior", () => {
     }
 
     expect(getSendMessageMock()).not.toHaveBeenCalled();
+  });
+});
+
+describe("AI explain flow", () => {
+  it("sends an explain request for the received AI answer and renders the explanation", async () => {
+    const api = await getQuizAttemptTestApi();
+    api.setStoredState({
+      settings: {
+        extensionEnabled: true,
+        stealthMode: true,
+        language: "ru",
+        ai: {
+          provider: "google",
+          model: "gemini-2.5-flash",
+          apiKey: "test-api-key",
+          connectionVerified: true,
+          verifiedAt: null,
+          customEndpoint: "",
+          customModelName: "",
+        },
+      },
+      authSession: { user: { id: "u1" } },
+    } as Parameters<typeof api.setStoredState>[0]);
+    const questionNode = loadQuestionFixture("multichoice", "attempt");
+    const answerNode = questionNode.querySelector(".answer")!;
+    const host = api.createAnswerWidgetHost(
+      "#76d982",
+      "1385",
+      api.createEmptyVariantCounts(),
+      api.createEmptySourceAnswerData(),
+      null,
+      false,
+    );
+    answerNode.append(host);
+
+    const sendMessageMock = getSendMessageMock();
+    const responses: unknown[] = [
+      { ok: true, answer: "4", confidence: 95, actions: [{ label: "4" }] },
+      { ok: true, answer: "Потому что 2 + 2 = 4." },
+    ];
+    let responseIndex = 0;
+    sendMessageMock.mockImplementation(
+      (_message: unknown, callback: (response: unknown) => void) => {
+        callback(responses[Math.min(responseIndex, responses.length - 1)]);
+        responseIndex += 1;
+      },
+    );
+
+    host.shadowRoot!.querySelector<HTMLButtonElement>(".trigger")!.click();
+    const root = document.querySelector('[data-reduxshare-answer-menu-portal="true"]')!.shadowRoot!;
+
+    expect(root.querySelector<HTMLButtonElement>('[data-ai-action="explain"]')?.hidden).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('[data-ai-action="send"]')!.click();
+    await flushMicrotasks();
+
+    const explainButton = root.querySelector<HTMLButtonElement>('[data-ai-action="explain"]')!;
+    expect(explainButton.hidden).toBe(false);
+
+    explainButton.click();
+    await flushMicrotasks();
+
+    const explainCall = sendMessageMock.mock.calls[1]![0] as {
+      type: string;
+      payload: Record<string, unknown>;
+    };
+    expect(explainCall.type).toBe(GENERATE_AI_ANSWER_MESSAGE);
+    expect(explainCall.payload.mode).toBe("explain");
+    expect(explainCall.payload.answerToExplain).toBe("4");
+
+    expect(root.querySelector('[data-answer-menu="ai-explanation"]')?.hidden).toBe(false);
+    expect(
+      root.querySelector('[data-answer-menu="ai-explanation"] .flyout-text--answer')?.textContent,
+    ).toContain("2 + 2 = 4");
+    expect(explainButton.disabled).toBe(false);
   });
 });

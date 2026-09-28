@@ -6,7 +6,11 @@ import multichoiceAttemptHtml from "../../test/fixtures/multichoice/attempt.html
 import matchAttemptHtml from "../../test/fixtures/match/attempt.html?raw";
 import shortanswerAttemptHtml from "../../test/fixtures/shortanswer/attempt.html?raw";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
-import { FETCH_QUIZ_PREVIEW_MESSAGE, VOTE_ANSWER_MESSAGE } from "../shared/messages";
+import {
+  FETCH_QUIZ_PREVIEW_MESSAGE,
+  GENERATE_AI_ANSWER_MESSAGE,
+  VOTE_ANSWER_MESSAGE,
+} from "../shared/messages";
 import type { AnswerData, QuizPreviewQuestion, StoredStateLike, SubmissionItem } from "../model";
 
 interface QuizAttemptPlaygroundApi {
@@ -84,6 +88,27 @@ function handleMockMessage(message: unknown): unknown {
     return { ok: true, authRequired: false, questions: buildQuizPreviewQuestions() };
   }
 
+  if (record.type === GENERATE_AI_ANSWER_MESSAGE) {
+    const mode = (record.payload as { mode?: string } | undefined)?.mode;
+
+    if (mode === "explain") {
+      return {
+        ok: true,
+        answer:
+          "Вопрос спрашивает, что верно для процента. 63% — единственный вариант, который\nсоответствует данным диаграммы: остальные значения дают другие доли.",
+        confidence: 0,
+        actions: [],
+      };
+    }
+
+    return {
+      ok: true,
+      answer: "63 percent of the time.",
+      confidence: 92,
+      actions: [{ label: "63 percent of the time." }],
+    };
+  }
+
   return { ok: true };
 }
 
@@ -151,6 +176,15 @@ function buildStoredState(): StoredStateLike {
       language: "ru",
       accentColor: "#9cb9f6",
       colorScheme: "dark",
+      ai: {
+        provider: "google",
+        model: "gemini-2.5-flash",
+        apiKey: "dev-key",
+        connectionVerified: true,
+        verifiedAt: null,
+        customEndpoint: "",
+        customModelName: "",
+      },
     },
     authSession: {
       accessToken: "dev-token",

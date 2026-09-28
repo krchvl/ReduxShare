@@ -8,6 +8,7 @@ import {
   type AiQuestionImage,
 } from "../../model";
 import { GENERATE_AI_ANSWER_MESSAGE } from "../../shared/messages";
+import type { GenerateAiAnswerPayload } from "../../lib/ai";
 import {
   getAnswerLabelMatchKeys,
   getQuestionText,
@@ -22,7 +23,7 @@ import {
   isMatchingQuestionNode,
   isMatchingQuestionTypeName,
 } from "../../dom/questionTypes";
-import { aiAnswerStatesByQuestionKey } from "../../state";
+import { aiAnswerStatesByQuestionKey, aiExplanationStatesByQuestionKey } from "../../state";
 import { applyOrderingOrder, getOrderingItemLabel, getOrderingItems } from "../../dom/ordering";
 import { createIdleAiAnswerState } from "../../ui/answerMenu";
 import { autoSelectChoiceQuestionAnswers, selectAnswerByLabel } from "./autoSelect";
@@ -406,15 +407,13 @@ export function getAiAnswerState(questionKey: string) {
   return aiAnswerStatesByQuestionKey.get(questionKey) ?? createIdleAiAnswerState();
 }
 
-export function requestAiGeneratedAnswer(payload: {
-  questionId: string | null;
-  questionType: string | null;
-  questionText: string;
-  answerLabels: string[];
-  controls: AiQuestionControl[];
-  images: AiQuestionImage[];
-  pageUrl: string;
-}): Promise<AiAnswerResponse> {
+export function getAiExplanationState(questionKey: string) {
+  return aiExplanationStatesByQuestionKey.get(questionKey) ?? createIdleAiAnswerState();
+}
+
+export function requestAiGeneratedAnswer(
+  payload: GenerateAiAnswerPayload,
+): Promise<AiAnswerResponse> {
   return new Promise((resolve, reject) => {
     try {
       chrome.runtime.sendMessage(
