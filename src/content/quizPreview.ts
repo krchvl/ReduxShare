@@ -5,6 +5,7 @@ import {
   loadStoredState,
   logReduxShareInfo,
   logReduxShareWarning,
+  syncCopyUnlock,
   syncLanguage,
 } from "../logic/runtime";
 import { FETCH_QUIZ_PREVIEW_MESSAGE } from "../shared/messages";
@@ -596,6 +597,7 @@ export async function initializeQuizPreviewFeatures() {
   const storedState = await loadStoredState();
   setCurrentStoredState(storedState);
   syncLanguage(storedState);
+  syncCopyUnlock(storedState);
   syncQuizPreviewHotkey(storedState);
   resetQuizPreviewPanelState();
   setQuizPreviewRefreshHandler(() => {

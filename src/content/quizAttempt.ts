@@ -168,6 +168,7 @@ import {
   loadStoredState,
   logReduxShareInfo,
   logReduxShareWarning,
+  syncCopyUnlock,
   syncLanguage,
   syncStealthMode,
   waitForFullPageLoad,
@@ -412,6 +413,7 @@ export function syncAnswerWidgetHotkey(storedState: StoredStateLike | undefined)
 function syncAllFeatures(storedState: StoredStateLike | undefined) {
   syncLanguage(storedState);
   syncStealthMode(storedState);
+  syncCopyUnlock(storedState);
   syncAnswerWidgetHotkey(storedState);
   syncPageOverlayOpacity(storedState);
 }
@@ -2154,6 +2156,7 @@ function resetRestrictedQuizState() {
 const PIPELINE_RELEVANT_SETTING_KEYS = [
   "extensionEnabled",
   "stealthMode",
+  "copyUnlock",
   "attemptStatusPanelClosed",
   "autoSelect",
   "autoSelectAvgSeconds",
@@ -2205,6 +2208,7 @@ function watchStoredSettingsChanges() {
       if (pipelineChanged) {
         syncLanguage(nextState);
         syncStealthMode(nextState);
+        syncCopyUnlock(nextState);
       }
 
       syncQuizPreviewFeatures(nextState);
@@ -2214,6 +2218,7 @@ function watchStoredSettingsChanges() {
     if (pipelineChanged) {
       syncLanguage(nextState);
       syncStealthMode(nextState);
+      syncCopyUnlock(nextState);
       syncAnswerWidgetHotkey(nextState);
       syncPageOverlayOpacity(nextState);
     }
@@ -2412,6 +2417,7 @@ async function initializeQuizSummaryTracking() {
   setCurrentStoredState(storedState);
   syncLanguage(storedState);
   syncStealthMode(storedState);
+  syncCopyUnlock(storedState);
 
   if (!canUseQuizFeatures(storedState)) {
     await saveQuizReviewSaveDiagnostics("content-blocked-before-load", {

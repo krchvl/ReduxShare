@@ -746,6 +746,21 @@ export function MainScreen({
             }
           />
           <SettingPanelRow
+            title={t("settings.copyUnlock.title")}
+            lines={
+              settings.copyUnlock
+                ? [t("settings.copyUnlock.on.line1"), t("settings.copyUnlock.on.line2")]
+                : [t("settings.copyUnlock.off.line1"), t("settings.copyUnlock.off.line2")]
+            }
+            control={
+              <Switch
+                checked={settings.copyUnlock}
+                label={t("settings.copyUnlock.title")}
+                onChange={(checked) => updateSetting("copyUnlock", checked)}
+              />
+            }
+          />
+          <SettingPanelRow
             title={t("settings.hotkey.title")}
             lines={hotkeyLines}
             control={

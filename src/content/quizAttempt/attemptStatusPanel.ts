@@ -48,6 +48,7 @@ const ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY = "reduxshareAttemptStatusPanelP
 
 let attemptStatusPanelClockId: number | null = null;
 let attemptStatusPanelCollapsed = false;
+let attemptStatusPanelTrayOpen = false;
 
 let attemptStatusPanelClosedInSession = false;
 let attemptStatusPanelInteractionListenerInstalled = false;
@@ -73,6 +74,7 @@ let attemptStatusPanelDragState: {
 
 export function resetAttemptStatusPanelState() {
   attemptStatusPanelCollapsed = false;
+  attemptStatusPanelTrayOpen = false;
   attemptStatusPanelClosedInSession = false;
   removeAttemptStatusPanel();
 }
@@ -790,6 +792,7 @@ export function finishAttemptStatusPanelDrag(event: PointerEvent | null) {
     void chrome.storage.local.set({
       [ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY]: attemptStatusPanelPosition,
     });
+    renderAttemptStatusPanel();
   }
 
   attemptStatusPanelDragState = null;
@@ -913,6 +916,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .panel {
           box-sizing: border-box;
+          position: relative;
           width: 100%;
           border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.24);
           border-radius: 16px;
@@ -1114,6 +1118,165 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .panel--collapsed .toggle {
           display: none;
+        }
+
+        .settings-ear {
+          all: unset;
+          box-sizing: border-box;
+          position: absolute;
+          top: 14px;
+          display: grid;
+          width: 22px;
+          height: 36px;
+          place-items: center;
+          border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.24);
+          border-radius: 8px;
+          background: linear-gradient(180deg, rgba(19, 20, 27, 0.97), rgba(15, 16, 22, 0.94));
+          color: color-mix(in srgb, var(--reduxshare-panel-accent) 78%, #f6f7fb);
+          cursor: pointer;
+          pointer-events: auto;
+          transition:
+            background-color 140ms ease,
+            border-color 140ms ease,
+            box-shadow 160ms ease,
+            transform 120ms ease;
+        }
+
+        .settings-ear[data-side="right"] {
+          right: -12px;
+        }
+
+        .settings-ear[data-side="left"] {
+          left: -12px;
+        }
+
+        .settings-ear:hover {
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.14);
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.4);
+          box-shadow: 0 8px 20px rgba(var(--reduxshare-panel-accent-rgb), 0.16);
+        }
+
+        .settings-ear:active {
+          transform: scale(0.95);
+        }
+
+        .settings-ear__icon {
+          display: block;
+          width: 14px;
+          height: 14px;
+          fill: none;
+          stroke: currentColor;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-width: 2.4;
+          transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .settings-ear[data-side="right"] .settings-ear__icon {
+          transform: rotate(0deg);
+        }
+
+        .settings-ear[data-side="right"][data-open="true"] .settings-ear__icon {
+          transform: rotate(180deg);
+        }
+
+        .settings-ear[data-side="left"] .settings-ear__icon {
+          transform: rotate(180deg);
+        }
+
+        .settings-ear[data-side="left"][data-open="true"] .settings-ear__icon {
+          transform: rotate(0deg);
+        }
+
+        .settings-tray {
+          box-sizing: border-box;
+          position: absolute;
+          top: 14px;
+          display: inline-flex;
+          gap: 6px;
+          align-items: center;
+          border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.24);
+          border-radius: 12px;
+          background:
+            radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.14), transparent 60%),
+            linear-gradient(180deg, rgba(19, 20, 27, 0.97), rgba(15, 16, 22, 0.94));
+          box-shadow:
+            0 16px 32px rgba(0, 0, 0, 0.3),
+            0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.05) inset;
+          padding: 6px;
+          opacity: 0;
+          pointer-events: none;
+          visibility: hidden;
+          z-index: 1;
+          transition:
+            opacity 180ms ease,
+            transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+            visibility 220ms ease;
+        }
+
+        .settings-tray[data-side="right"] {
+          left: calc(100% + 10px);
+          transform: translateX(-6px);
+        }
+
+        .settings-tray[data-side="left"] {
+          right: calc(100% + 10px);
+          transform: translateX(6px);
+        }
+
+        .settings-tray[data-open="true"] {
+          opacity: 1;
+          pointer-events: auto;
+          transform: translateX(0);
+          visibility: visible;
+        }
+
+        .tray-action {
+          all: unset;
+          box-sizing: border-box;
+          display: grid;
+          width: 32px;
+          height: 32px;
+          place-items: center;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(246, 247, 251, 0.45);
+          cursor: pointer;
+          transition:
+            background-color 140ms ease,
+            border-color 140ms ease,
+            color 140ms ease,
+            box-shadow 160ms ease,
+            transform 120ms ease;
+        }
+
+        .tray-action:hover {
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.4);
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.12);
+          color: #f6f7fb;
+        }
+
+        .tray-action:active {
+          transform: scale(0.95);
+        }
+
+        .tray-action[aria-pressed="true"] {
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.2);
+          color: var(--reduxshare-panel-accent);
+          box-shadow: 0 8px 20px rgba(var(--reduxshare-panel-accent-rgb), 0.24);
+        }
+
+        .tray-action svg {
+          display: block;
+          width: 16px;
+          height: 16px;
+          fill: none;
+          stroke: currentColor;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-width: 2;
         }
 
         .panel__body {
@@ -1347,6 +1510,28 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           color: #d9484f;
         }
 
+        :host([data-theme="light"]) .settings-ear,
+        :host([data-theme="light"]) .settings-tray {
+          background:
+            radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.1), transparent 60%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 242, 246, 0.96));
+          box-shadow:
+            0 16px 32px rgba(20, 30, 60, 0.14),
+            0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.08) inset;
+          color: color-mix(in srgb, var(--reduxshare-panel-accent-soft) 55%, #1b2a52);
+        }
+
+        :host([data-theme="light"]) .tray-action {
+          border-color: rgba(15, 20, 35, 0.12);
+          background: rgba(15, 20, 35, 0.04);
+          color: rgba(20, 25, 40, 0.45);
+        }
+
+        :host([data-theme="light"]) .tray-action[aria-pressed="true"] {
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.5);
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.16);
+        }
+
         @keyframes panel-enter {
           from {
             opacity: 0;
@@ -1387,6 +1572,17 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
               <span class="close__label" aria-hidden="true">&times;</span>
             </button>
           </div>
+        </div>
+        <button class="settings-ear" type="button" data-side="right" data-open="false" aria-expanded="false">
+          <svg class="settings-ear__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+        </button>
+        <div class="settings-tray" data-side="right" data-open="false" role="group">
+          <button class="tray-action" type="button" data-tray-action="copyUnlock" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="9" y="9" width="12" height="12" rx="2.5" />
+              <path d="M5 15h-.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5" />
+            </svg>
+          </button>
         </div>
         <div class="panel__body">
           <div class="meta">
@@ -1468,6 +1664,24 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
     host.shadowRoot.querySelector<HTMLButtonElement>(".close")?.addEventListener("click", () => {
       void setAttemptStatusPanelClosedInSession(true);
     });
+
+    host.shadowRoot
+      .querySelector<HTMLButtonElement>(".settings-ear")
+      ?.addEventListener("click", () => {
+        setAttemptStatusPanelTrayOpen(!attemptStatusPanelTrayOpen);
+      });
+
+    host.shadowRoot
+      .querySelector<HTMLElement>(".settings-tray")
+      ?.addEventListener("click", (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+
+        if (!target?.closest('[data-tray-action="copyUnlock"]')) {
+          return;
+        }
+
+        void setCopyUnlockSetting(currentStoredState?.settings?.copyUnlock !== true);
+      });
   }
 
   return host;
@@ -1638,6 +1852,33 @@ export function renderAttemptStatusPanel() {
   if (closeButton) {
     closeButton.setAttribute("aria-label", closeLabel);
     closeButton.setAttribute("title", closeLabel);
+  }
+
+  const traySide = getAttemptStatusPanelTraySide();
+  const settingsEar = shadowRoot.querySelector<HTMLButtonElement>(".settings-ear");
+  const settingsTray = shadowRoot.querySelector<HTMLElement>(".settings-tray");
+  const copyUnlockAction = shadowRoot.querySelector<HTMLButtonElement>(
+    '[data-tray-action="copyUnlock"]',
+  );
+  const copyUnlockEnabled = currentStoredState?.settings?.copyUnlock === true;
+
+  if (settingsEar) {
+    settingsEar.dataset.side = traySide;
+    settingsEar.dataset.open = attemptStatusPanelTrayOpen ? "true" : "false";
+    settingsEar.setAttribute("aria-expanded", attemptStatusPanelTrayOpen ? "true" : "false");
+    settingsEar.setAttribute("aria-label", currentT("quiz.panel.settingsTitle"));
+    settingsEar.setAttribute("title", currentT("quiz.panel.settingsTitle"));
+  }
+
+  if (settingsTray) {
+    settingsTray.dataset.side = traySide;
+    settingsTray.dataset.open = attemptStatusPanelTrayOpen ? "true" : "false";
+  }
+
+  if (copyUnlockAction) {
+    copyUnlockAction.setAttribute("aria-pressed", copyUnlockEnabled ? "true" : "false");
+    copyUnlockAction.setAttribute("aria-label", currentT("quiz.panel.copyUnlockTitle"));
+    copyUnlockAction.setAttribute("title", currentT("quiz.panel.copyUnlockTitle"));
   }
 
   if (userLabel) {
@@ -1859,6 +2100,39 @@ export function setAttemptStatusPanelCollapsed(collapsed: boolean) {
   void saveAttemptStatusPanelCollapsedState(collapsed);
 }
 
+export function getAttemptStatusPanelTraySide(): "left" | "right" {
+  return (attemptStatusPanelPosition?.anchor ?? "left") === "left" ? "right" : "left";
+}
+
+export function setAttemptStatusPanelTrayOpen(open: boolean) {
+  if (attemptStatusPanelTrayOpen === open) {
+    return;
+  }
+
+  attemptStatusPanelTrayOpen = open;
+  renderAttemptStatusPanel();
+}
+
+export async function setCopyUnlockSetting(enabled: boolean) {
+  if (currentStoredState?.settings?.copyUnlock === enabled) {
+    return;
+  }
+
+  const nextSettings: Settings = {
+    ...(currentStoredState?.settings as Settings),
+    copyUnlock: enabled,
+  };
+
+  setCurrentStoredState({
+    ...(currentStoredState as StoredStateLike),
+    settings: nextSettings,
+  });
+  attemptStatusPanelTrayOpen = true;
+  renderAttemptStatusPanel();
+
+  await patchStoredState({ settings: nextSettings });
+}
+
 export function handleAttemptStatusPanelPointerDown(event: PointerEvent) {
   if (attemptStatusPanelDragState) {
     return;
@@ -1872,12 +2146,21 @@ export function handleAttemptStatusPanelPointerDown(event: PointerEvent) {
 
   const clickedInsidePanel = event.composedPath().includes(panelHost);
 
-  if (clickedInsidePanel) {
-    if (attemptStatusPanelCollapsed) {
-      setAttemptStatusPanelCollapsed(false);
+  if (!clickedInsidePanel) {
+    if (attemptStatusPanelTrayOpen) {
+      setAttemptStatusPanelTrayOpen(false);
     }
 
     return;
+  }
+
+  const target = event.composedPath().find((node): node is Element => node instanceof Element);
+  const clickedSettingsUi = Boolean(
+    target?.closest(".settings-ear") ?? target?.closest(".settings-tray"),
+  );
+
+  if (attemptStatusPanelCollapsed && !clickedSettingsUi) {
+    setAttemptStatusPanelCollapsed(false);
   }
 }
 
