@@ -148,6 +148,13 @@ function getTextareaEditorContainer(textarea: HTMLTextAreaElement) {
   );
 }
 
+export function hasRichTextEditorForTextarea(textarea: HTMLTextAreaElement) {
+  return (
+    textarea.dataset.fieldtype === "editor" ||
+    Boolean(getTinyMceBodyForTextarea(textarea) || getContentEditableForTextarea(textarea))
+  );
+}
+
 function getTinyMceIframeForTextarea(textarea: HTMLTextAreaElement) {
   if (textarea.id) {
     const iframe = document.getElementById(`${textarea.id}_ifr`);

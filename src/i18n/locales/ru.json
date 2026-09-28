@@ -215,5 +215,9 @@
   "errors.questionIdMissing": "Question qid не найден.",
   "errors.voteTaskMissing": "Вариант ответа не найден.",
   "errors.voteUnverifiableOnly": "Голосовать можно только за непроверенные ответы.",
-  "errors.voteSaveFailed": "Не удалось сохранить голос: {message}"
+  "errors.voteSaveFailed": "Не удалось сохранить голос: {message}",
+  "errors.essaySaveEmpty": "Ответ пустой — сначала напишите текст эссе.",
+  "errors.essaySaveFailed": "Не удалось сохранить пример эссе: {message}",
+  "errors.essayExamplesFetchFailed": "Не удалось загрузить примеры эссе: {message}",
+  "errors.essayVoteFailed": "Не удалось сохранить голос за пример: {message}"
 }

@@ -7,6 +7,8 @@ export const USERS_COLLECTION = "users";
 export const TASKS_COLLECTION = "reduxshare_tasks";
 export const TASK_VOTES_COLLECTION = "reduxshare_task_votes";
 export const REVIEW_IMPORTS_COLLECTION = "reduxshare_review_imports";
+export const ESSAY_EXAMPLES_COLLECTION = "reduxshare_essay_examples";
+export const ESSAY_VOTES_COLLECTION = "reduxshare_essay_votes";
 
 export function getPocketBaseUrl() {
   const rawUrl = (import.meta.env.VITE_POCKETBASE_URL as string | undefined)

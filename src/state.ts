@@ -3,6 +3,7 @@ import type {
   AiAnswerState,
   AnswerVariantCounts,
   AnswerWidgetState,
+  EssayExampleEntry,
   QuizAttemptContext,
   SourceAnswerData,
   StoredStateLike,
@@ -21,6 +22,7 @@ export const variantCountsByQuestionId = new Map<string, AnswerVariantCounts>();
 export const answerDataByQuestionId = new Map<string, SourceAnswerData>();
 export const aiAnswerStatesByQuestionKey = new Map<string, AiAnswerState>();
 export const aiExplanationStatesByQuestionKey = new Map<string, AiAnswerState>();
+export const essayExamplesByQuestionId = new Map<string, EssayExampleEntry[]>();
 
 export function setCurrentT(value: TranslateFn) {
   currentT = value;

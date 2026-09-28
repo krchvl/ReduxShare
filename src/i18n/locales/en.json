@@ -215,5 +215,9 @@
   "errors.questionIdMissing": "Question qid was not found.",
   "errors.voteTaskMissing": "Answer variant was not found.",
   "errors.voteUnverifiableOnly": "Only unverified answers can be voted on.",
-  "errors.voteSaveFailed": "Could not save the vote: {message}"
+  "errors.voteSaveFailed": "Could not save the vote: {message}",
+  "errors.essaySaveEmpty": "The answer is empty — write the essay text first.",
+  "errors.essaySaveFailed": "Could not save the essay example: {message}",
+  "errors.essayExamplesFetchFailed": "Could not load essay examples: {message}",
+  "errors.essayVoteFailed": "Could not save the example vote: {message}"
 }

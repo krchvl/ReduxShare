@@ -2,6 +2,7 @@ import {
   DEFAULT_ACCENT_COLOR,
   type AiAnswerState,
   type AnswerData,
+  type EssayExampleEntry,
   type SourceAnswerData,
   type StoredStateLike,
   type SubmissionItem,
@@ -10,12 +11,17 @@ import {
 import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
 import { getBooleanSuggestionValue } from "../shared/answerParsing";
 import { isDownvotedAnswerItem } from "../data/answerData";
-import { getCheckIconMarkup, getSourceTabIconMarkup } from "./icons";
+import { getCheckIconMarkup, getQuestionTypeScanIconMarkup, getSourceTabIconMarkup } from "./icons";
 
 let currentT: TranslateFn = getContentTranslator(undefined);
 
 export function setAnswerMenuTranslator(t: TranslateFn) {
   currentT = t;
+}
+
+export interface EssayMenuState {
+  examples: EssayExampleEntry[];
+  canSave: boolean;
 }
 
 function hasMenuAnswerData(answerData: AnswerData) {
@@ -403,6 +409,17 @@ function getAiExplainIconMarkup() {
   `;
 }
 
+function getEssaySaveIconMarkup() {
+  return `
+    <svg viewBox="0 0 48 48">
+      <path d="M10 8h20l8 8v24a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2Z" />
+      <path d="M16 8v10h14V8" />
+      <path d="M16 30h16" />
+      <path d="M24 24v12" />
+    </svg>
+  `;
+}
+
 function renderEmptyFlyout(message = currentT("quiz.menu.empty")) {
   return `<div class="flyout-option flyout-empty">${escapeHtml(message)}</div>`;
 }
@@ -529,19 +546,32 @@ function getVisibleAnswerMenuTabs(
   answerData: SourceAnswerData,
   aiToolsEnabled: boolean,
   externalOnly = false,
+  essayMenu?: EssayMenuState,
 ): AnswerMenuTabKey[] {
   const tabs: AnswerMenuTabKey[] = [];
 
-  if (!externalOnly && hasMenuAnswerData(answerData.reduxshare)) {
-    tabs.push("internal");
-  }
+  if (essayMenu) {
+    // Эссе: внутренние данные ответов не запрашиваются, но таб «Примеры»
+    // показывается всегда (список примеров + кнопка сохранения).
+    if (!externalOnly) {
+      tabs.push("internal");
+    }
 
-  if (hasMenuAnswerData(answerData.external)) {
-    tabs.push("external");
-  }
+    if (!externalOnly && aiToolsEnabled) {
+      tabs.push("ai");
+    }
+  } else {
+    if (!externalOnly && hasMenuAnswerData(answerData.reduxshare)) {
+      tabs.push("internal");
+    }
 
-  if (!externalOnly && aiToolsEnabled) {
-    tabs.push("ai");
+    if (hasMenuAnswerData(answerData.external)) {
+      tabs.push("external");
+    }
+
+    if (!externalOnly && aiToolsEnabled) {
+      tabs.push("ai");
+    }
   }
 
   if (tabs.length > 0) {
@@ -592,6 +622,76 @@ function renderSourceMenuPanel(
   `;
 }
 
+function renderEssayVoteCluster(example: EssayExampleEntry): string {
+  const upActive = example.myVote === 1;
+  const downActive = example.myVote === -1;
+
+  return `
+      <div class="flyout-votes" role="group">
+        <button type="button" class="flyout-vote-btn${upActive ? " flyout-vote-btn--active" : ""}" data-vote-action="up" data-vote-example-id="${escapeHtml(example.exampleId)}" title="${escapeHtml(currentT("quiz.menu.voteUp"))}" aria-pressed="${upActive ? "true" : "false"}" tabindex="-1">${VOTE_UP_ICON_MARKUP}<span class="flyout-vote-count">${example.votesUp}</span></button>
+        <button type="button" class="flyout-vote-btn${downActive ? " flyout-vote-btn--active" : ""}" data-vote-action="down" data-vote-example-id="${escapeHtml(example.exampleId)}" title="${escapeHtml(currentT("quiz.menu.voteDown"))}" aria-pressed="${downActive ? "true" : "false"}" tabindex="-1">${VOTE_DOWN_ICON_MARKUP}<span class="flyout-vote-count">${example.votesDown}</span></button>
+      </div>`;
+}
+
+function renderEssayExampleRow(example: EssayExampleEntry): string {
+  // Сомнительные примеры (минусов больше, чем плюсов) остаются в списке,
+  // но помечаются — как непроверенные ответы в статистике.
+  const dubiousClass = example.votesDown > example.votesUp ? " flyout-label--dubious" : "";
+  const meta = getAnswerMetaParts({
+    contributor: example.authorName,
+    addedAt: example.createdAt,
+    updatedAt: example.updatedAt,
+  });
+  const metaBits: string[] = [];
+
+  if (meta.user) {
+    metaBits.push(meta.user);
+  }
+
+  if (meta.added) {
+    metaBits.push(meta.added);
+  }
+
+  return `
+      <div class="flyout-row essay-example" data-essay-example-id="${escapeHtml(example.exampleId)}" data-meta-votes="${example.votesUp}/${example.votesDown}">
+        <div class="flyout-label-block">
+          <span class="flyout-label essay-example__body${dubiousClass}" data-essay-action="apply" title="${escapeHtml(currentT("quiz.menu.essayExampleApply"))}">${escapeHtml(example.body)}</span>
+        </div>
+        <div class="essay-example__meta">
+          <span class="essay-example__author">${escapeHtml(metaBits.join(" · "))}</span>
+          ${renderEssayVoteCluster(example)}
+        </div>
+      </div>`;
+}
+
+function renderEssayMenuPanel(essayMenu: EssayMenuState, isActive: boolean) {
+  const listMarkup =
+    essayMenu.examples.length > 0
+      ? essayMenu.examples.map(renderEssayExampleRow).join("")
+      : `<div class="essay-examples-empty">${escapeHtml(currentT("quiz.menu.essayExamplesEmpty"))}</div>`;
+
+  return `
+    <div class="menu-panel" data-menu-panel="internal" data-active="${isActive ? "true" : "false"}">
+      ${renderAnswerMenuItem(
+        currentT("quiz.menu.essayExamples"),
+        getQuestionTypeScanIconMarkup("essay"),
+        `<div class="essay-examples-list">${listMarkup}</div>`,
+        "essay-examples",
+      )}
+      ${
+        essayMenu.canSave
+          ? `
+      <button class="menu-ai-button" type="button" data-essay-action="save">
+        <span class="icon" aria-hidden="true">${getEssaySaveIconMarkup()}</span>
+        <span class="label">${escapeHtml(currentT("quiz.menu.essayExampleSave"))}</span>
+      </button>
+      <div class="essay-save-status" data-essay-save-status hidden></div>`
+          : ""
+      }
+    </div>
+  `;
+}
+
 function renderAiMenuPanel(
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
@@ -636,8 +736,9 @@ function renderAnswerMenuTabs(
   answerData: SourceAnswerData,
   aiToolsEnabled: boolean,
   externalOnly = false,
+  essayMenu?: EssayMenuState,
 ) {
-  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
+  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly, essayMenu);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
   return `
@@ -671,12 +772,13 @@ function renderAnswerMenuPanels(
   aiToolsEnabled: boolean,
   externalOnly = false,
   aiExplanationState: AiAnswerState = createIdleAiAnswerState(),
+  essayMenu?: EssayMenuState,
 ) {
-  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly);
+  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly, essayMenu);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
   return `
-    ${tabs.includes("internal") ? renderSourceMenuPanel("internal", "reduxshare", answerData.reduxshare, activeTab === "internal") : ""}
+    ${tabs.includes("internal") ? (essayMenu ? renderEssayMenuPanel(essayMenu, activeTab === "internal") : renderSourceMenuPanel("internal", "reduxshare", answerData.reduxshare, activeTab === "internal")) : ""}
     ${tabs.includes("external") ? renderSourceMenuPanel("external", "external", answerData.external, activeTab === "external") : ""}
     ${tabs.includes("ai") ? renderAiMenuPanel(aiSettingsSaved, aiAnswerState, aiExplanationState, activeTab === "ai") : ""}
   `;
@@ -820,6 +922,7 @@ export function getAnswerMenuMarkup(
   aiToolsEnabled = true,
   externalOnly = false,
   aiExplanationState: AiAnswerState = createIdleAiAnswerState(),
+  essayMenu?: EssayMenuState,
 ) {
   return `
     <style>
@@ -1346,6 +1449,60 @@ export function getAnswerMenuMarkup(
         text-decoration-color: #fbbf24;
       }
 
+      .essay-examples-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+
+      .essay-example {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+      }
+
+      .essay-example__body {
+        max-height: 140px;
+        overflow-y: auto;
+        cursor: pointer;
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.45;
+      }
+
+      .essay-example__meta {
+        display: flex;
+        flex-shrink: 0;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        opacity: 0.72;
+      }
+
+      .essay-example__author {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .essay-examples-empty {
+        padding: 4px 2px;
+        font-size: 12px;
+        opacity: 0.65;
+      }
+
+      .essay-save-status {
+        padding: 2px 0 0;
+        font-size: 11px;
+        opacity: 0.7;
+      }
+
       .ai-answer-option {
         align-items: flex-start;
         cursor: pointer;
@@ -1598,8 +1755,8 @@ export function getAnswerMenuMarkup(
     </style>
 
     <div class="menu" role="dialog" aria-label="ReduxShare">
-      ${renderAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly)}
-      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled, externalOnly, aiExplanationState)}
+      ${renderAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly, essayMenu)}
+      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled, externalOnly, aiExplanationState, essayMenu)}
     </div>
   `;
 }

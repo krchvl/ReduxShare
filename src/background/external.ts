@@ -22,6 +22,14 @@ import {
   type SaveReduxShareReviewPayload,
 } from "../lib/quizTasks";
 import {
+  fetchEssayExamples,
+  saveEssayExample,
+  voteEssayExample,
+  type FetchEssayExamplesPayload,
+  type SaveEssayExamplePayload,
+  type VoteEssayExamplePayload,
+} from "../lib/essayExamples";
+import {
   flushPendingReviewSaves,
   flushPendingReviewSavesWithStoredState,
   handleSharedAlarmForPendingSaves,
@@ -68,6 +76,7 @@ import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../sh
 import {
   CHECK_UPDATE_MESSAGE,
   FETCH_ATTEMPT_HISTORY_MESSAGE,
+  FETCH_ESSAY_EXAMPLES_MESSAGE,
   FETCH_LEADERBOARD_MESSAGE,
   FETCH_OWN_PROFILE_MESSAGE,
   FETCH_QUIZ_ANSWERS_MESSAGE,
@@ -75,13 +84,22 @@ import {
   GET_UPDATE_STATE_MESSAGE,
   PRELOAD_QUIZ_QUESTIONS_MESSAGE,
   RECORD_QUIZ_PROGRESS_MESSAGE,
+  SAVE_ESSAY_EXAMPLE_MESSAGE,
   SAVE_REVIEW_ANSWERS_MESSAGE,
   VOTE_ANSWER_MESSAGE,
+  VOTE_ESSAY_EXAMPLE_MESSAGE,
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
 import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
-import type { AnswerData, AnswerVoteResponse, QuizPreviewRequestPayload } from "../model";
+import type {
+  AnswerData,
+  AnswerVoteResponse,
+  EssayExamplesResponse,
+  EssayExampleSaveResponse,
+  EssayExampleVoteResponse,
+  QuizPreviewRequestPayload,
+} from "../model";
 import { createEmptyAnswerData, getAnswerData } from "../data/answerData";
 import {
   normalizeAiSettings,
@@ -157,6 +175,21 @@ interface VoteAnswerPayload {
 interface VoteAnswerMessage {
   type: typeof VOTE_ANSWER_MESSAGE;
   payload: VoteAnswerPayload;
+}
+
+interface FetchEssayExamplesMessage {
+  type: typeof FETCH_ESSAY_EXAMPLES_MESSAGE;
+  payload: FetchEssayExamplesPayload;
+}
+
+interface SaveEssayExampleMessage {
+  type: typeof SAVE_ESSAY_EXAMPLE_MESSAGE;
+  payload: SaveEssayExamplePayload;
+}
+
+interface VoteEssayExampleMessage {
+  type: typeof VOTE_ESSAY_EXAMPLE_MESSAGE;
+  payload: VoteEssayExamplePayload;
 }
 
 interface FetchQuizPreviewMessage {
@@ -292,6 +325,54 @@ function isVoteAnswerMessage(message: unknown): message is VoteAnswerMessage {
     candidate.payload !== null &&
     typeof candidate.payload.taskId === "string" &&
     candidate.payload.taskId.length > 0 &&
+    (candidate.payload.value === 1 || candidate.payload.value === -1)
+  );
+}
+
+function isFetchEssayExamplesMessage(message: unknown): message is FetchEssayExamplesMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<FetchEssayExamplesMessage>;
+
+  return (
+    candidate.type === FETCH_ESSAY_EXAMPLES_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null &&
+    Array.isArray(candidate.payload.questions)
+  );
+}
+
+function isSaveEssayExampleMessage(message: unknown): message is SaveEssayExampleMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<SaveEssayExampleMessage>;
+
+  return (
+    candidate.type === SAVE_ESSAY_EXAMPLE_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null &&
+    typeof candidate.payload.body === "string" &&
+    candidate.payload.body.trim().length > 0
+  );
+}
+
+function isVoteEssayExampleMessage(message: unknown): message is VoteEssayExampleMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<VoteEssayExampleMessage>;
+
+  return (
+    candidate.type === VOTE_ESSAY_EXAMPLE_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null &&
+    typeof candidate.payload.exampleId === "string" &&
+    candidate.payload.exampleId.length > 0 &&
     (candidate.payload.value === 1 || candidate.payload.value === -1)
   );
 }
@@ -587,6 +668,77 @@ async function handleVoteAnswer(payload: VoteAnswerPayload): Promise<AnswerVoteR
   }
 
   const result = await voteTaskAnswer(authSession, payload);
+  await saveStoredStatePatch({ authSession: result.authSession });
+
+  return {
+    ok: true,
+    votesUp: result.votesUp,
+    votesDown: result.votesDown,
+    myVote: result.myVote,
+  };
+}
+
+async function handleFetchEssayExamples(
+  payload: FetchEssayExamplesPayload,
+): Promise<EssayExamplesResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await fetchEssayExamples(authSession, payload);
+  await saveStoredStatePatch({ authSession: result.authSession });
+
+  return {
+    ok: true,
+    results: result.results,
+  };
+}
+
+async function handleSaveEssayExample(
+  payload: SaveEssayExamplePayload,
+): Promise<EssayExampleSaveResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await saveEssayExample(authSession, payload);
+  await saveStoredStatePatch({ authSession: result.authSession });
+
+  return {
+    ok: true,
+    example: result.example,
+  };
+}
+
+async function handleVoteEssayExample(
+  payload: VoteEssayExamplePayload,
+): Promise<EssayExampleVoteResponse> {
+  const storedState = await loadStoredState();
+  const authSession = getStoredAuthSession(storedState);
+  const t = getTranslator(storedState.settings?.language);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.authRequired"),
+    };
+  }
+
+  const result = await voteEssayExample(authSession, payload);
   await saveStoredStatePatch({ authSession: result.authSession });
 
   return {
@@ -1267,6 +1419,36 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.voteSaveFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchEssayExamplesMessage(message)) {
+    void handleFetchEssayExamples(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.essayExamplesFetchFailed");
+      });
+
+    return true;
+  }
+
+  if (isSaveEssayExampleMessage(message)) {
+    void handleSaveEssayExample(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.essaySaveFailed");
+      });
+
+    return true;
+  }
+
+  if (isVoteEssayExampleMessage(message)) {
+    void handleVoteEssayExample(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.essayVoteFailed");
       });
 
     return true;

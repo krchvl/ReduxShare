@@ -186,6 +186,44 @@ export interface AnswerVoteResponse {
   myVote?: 1 | -1 | 0;
 }
 
+export interface EssayExampleEntry {
+  exampleId: string;
+  questionId: string;
+  questionHash: string;
+  body: string;
+  authorName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  votesUp: number;
+  votesDown: number;
+  myVote: 1 | -1 | 0;
+}
+
+export interface EssayExamplesResponse {
+  ok: boolean;
+  error?: string;
+  results?: Array<{
+    questionId: string | null;
+    questionHash: string | null;
+    ok: boolean;
+    examples: EssayExampleEntry[];
+  }>;
+}
+
+export interface EssayExampleSaveResponse {
+  ok: boolean;
+  error?: string;
+  example?: EssayExampleEntry;
+}
+
+export interface EssayExampleVoteResponse {
+  ok: boolean;
+  error?: string;
+  votesUp?: number;
+  votesDown?: number;
+  myVote?: 1 | -1 | 0;
+}
+
 export interface SuggestionItem extends AnswerVoteMeta {
   correctness: number;
   confidence: number;

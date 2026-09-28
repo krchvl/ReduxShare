@@ -5,13 +5,24 @@
 import multichoiceAttemptHtml from "../../test/fixtures/multichoice/attempt.html?raw";
 import matchAttemptHtml from "../../test/fixtures/match/attempt.html?raw";
 import shortanswerAttemptHtml from "../../test/fixtures/shortanswer/attempt.html?raw";
+import essayAttemptHtml from "../../test/fixtures/essay/attempt.html?raw";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
 import {
+  FETCH_ESSAY_EXAMPLES_MESSAGE,
   FETCH_QUIZ_PREVIEW_MESSAGE,
   GENERATE_AI_ANSWER_MESSAGE,
+  SAVE_ESSAY_EXAMPLE_MESSAGE,
   VOTE_ANSWER_MESSAGE,
+  VOTE_ESSAY_EXAMPLE_MESSAGE,
 } from "../shared/messages";
-import type { AnswerData, QuizPreviewQuestion, StoredStateLike, SubmissionItem } from "../model";
+import type {
+  AnswerData,
+  EssayExampleEntry,
+  QuizPreviewQuestion,
+  StoredStateLike,
+  SubmissionItem,
+} from "../model";
+import { essayExamplesByQuestionId } from "../state";
 
 interface QuizAttemptPlaygroundApi {
   setStoredState: (state: StoredStateLike | undefined) => void;
@@ -37,15 +48,9 @@ function seedVoteTally(taskId: string, up: number, down: number, mine: 1 | -1 | 
   voteTallies.set(taskId, { up, down, mine });
 }
 
-function handleMockVote(payload: { taskId?: unknown; value?: unknown }) {
-  const taskId = typeof payload?.taskId === "string" ? payload.taskId : null;
-  const value = payload?.value === -1 ? -1 : 1;
-
-  if (!taskId) {
-    return { ok: false, error: "taskId missing" };
-  }
-
-  const tally = voteTallies.get(taskId) ?? { up: 0, down: 0, mine: 0 as 1 | -1 | 0 };
+// Голоса по общему реестру: ключом служит и id варианта, и id примера эссе.
+function applyVoteTally(key: string, value: 1 | -1) {
+  const tally = voteTallies.get(key) ?? { up: 0, down: 0, mine: 0 as 1 | -1 | 0 };
   let { up, down, mine } = tally;
 
   if (mine === 0) {
@@ -72,9 +77,123 @@ function handleMockVote(payload: { taskId?: unknown; value?: unknown }) {
     mine = value;
   }
 
-  voteTallies.set(taskId, { up, down, mine });
+  voteTallies.set(key, { up, down, mine });
 
   return { ok: true, votesUp: Math.max(up, 0), votesDown: Math.max(down, 0), myVote: mine };
+}
+
+function handleMockVote(payload: { taskId?: unknown; value?: unknown }) {
+  const taskId = typeof payload?.taskId === "string" ? payload.taskId : null;
+  const value = payload?.value === -1 ? -1 : 1;
+
+  if (!taskId) {
+    return { ok: false, error: "taskId missing" };
+  }
+
+  return applyVoteTally(taskId, value);
+}
+
+// Ин-мемори база примеров эссе для плейграунда.
+const essayExamplesStore: EssayExampleEntry[] = [];
+let essayExampleIdSeq = 1;
+
+function seedEssayExample(questionId: string, overrides: Partial<EssayExampleEntry> = {}) {
+  const id = `essay-${essayExampleIdSeq}`;
+  essayExampleIdSeq += 1;
+  essayExamplesStore.push({
+    exampleId: id,
+    questionId,
+    questionHash: "hash-essay",
+    body: "",
+    authorName: "dev",
+    createdAt: "2026-09-20T10:00:00.000Z",
+    updatedAt: "2026-09-25T10:00:00.000Z",
+    votesUp: 0,
+    votesDown: 0,
+    myVote: 0,
+    ...overrides,
+  });
+  return id;
+}
+
+function sortEssayExamplesForPlayground(items: EssayExampleEntry[]) {
+  return [...items].sort((a, b) => {
+    const netDiff = b.votesUp - b.votesDown - (a.votesUp - a.votesDown);
+    return netDiff !== 0 ? netDiff : b.updatedAt.localeCompare(a.updatedAt);
+  });
+}
+
+function handleMockFetchEssayExamples(payload: { questions?: Array<{ questionId?: unknown }> }) {
+  const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+
+  return {
+    ok: true,
+    results: questions.map((question) => {
+      const questionId = typeof question?.questionId === "string" ? question.questionId : null;
+
+      return {
+        questionId,
+        questionHash: null,
+        ok: true,
+        examples: sortEssayExamplesForPlayground(
+          essayExamplesStore.filter((item) => item.questionId === questionId),
+        ),
+      };
+    }),
+  };
+}
+
+function handleMockSaveEssayExample(payload: {
+  questionId?: unknown;
+  questionHash?: unknown;
+  questionText?: unknown;
+  body?: unknown;
+}) {
+  const body = typeof payload?.body === "string" ? payload.body.trim() : "";
+
+  if (!body) {
+    return { ok: false, error: "Ответ пустой" };
+  }
+
+  const questionId = typeof payload?.questionId === "string" ? payload.questionId : "";
+  const own = essayExamplesStore.find(
+    (item) => item.exampleId === "essay-own" && item.questionId === questionId,
+  );
+  const updatedAt = new Date().toISOString();
+
+  if (own) {
+    own.body = body;
+    own.updatedAt = updatedAt;
+
+    return { ok: true, example: own };
+  }
+
+  const example: EssayExampleEntry = {
+    exampleId: "essay-own",
+    questionId,
+    questionHash: typeof payload?.questionHash === "string" ? payload.questionHash : "",
+    body,
+    authorName: "you",
+    createdAt: updatedAt,
+    updatedAt,
+    votesUp: 0,
+    votesDown: 0,
+    myVote: 0,
+  };
+  essayExamplesStore.push(example);
+
+  return { ok: true, example };
+}
+
+function handleMockEssayVote(payload: { exampleId?: unknown; value?: unknown }) {
+  const exampleId = typeof payload?.exampleId === "string" ? payload.exampleId : null;
+  const value = payload?.value === -1 ? -1 : 1;
+
+  if (!exampleId) {
+    return { ok: false, error: "exampleId missing" };
+  }
+
+  return applyVoteTally(`essay:${exampleId}`, value);
 }
 
 function handleMockMessage(message: unknown): unknown {
@@ -82,6 +201,27 @@ function handleMockMessage(message: unknown): unknown {
 
   if (record.type === VOTE_ANSWER_MESSAGE) {
     return handleMockVote(record.payload as { taskId: string; value: 1 | -1 });
+  }
+
+  if (record.type === FETCH_ESSAY_EXAMPLES_MESSAGE) {
+    return handleMockFetchEssayExamples(
+      record.payload as { questions?: Array<{ questionId?: unknown }> },
+    );
+  }
+
+  if (record.type === SAVE_ESSAY_EXAMPLE_MESSAGE) {
+    return handleMockSaveEssayExample(
+      record.payload as {
+        questionId?: unknown;
+        questionHash?: unknown;
+        questionText?: unknown;
+        body?: unknown;
+      },
+    );
+  }
+
+  if (record.type === VOTE_ESSAY_EXAMPLE_MESSAGE) {
+    return handleMockEssayVote(record.payload as { exampleId: string; value: 1 | -1 });
   }
 
   if (record.type === FETCH_QUIZ_PREVIEW_MESSAGE) {
@@ -356,6 +496,27 @@ function shortanswerAnswerData(): AnswerData {
   };
 }
 
+function seedEssayExamples() {
+  const topId = seedEssayExample("2101", {
+    body:
+      "Октябрьская революция произошла из-за кризиса Временного правительства: " +
+      "оно не решило вопросы о земле и мире, а большевики предложили простые лозунги, " +
+      "поддержанные солдатами и рабочими.",
+    authorName: "maria",
+    votesUp: 4,
+    votesDown: 1,
+  });
+  seedVoteTally(`essay:${topId}`, 4, 1, 0);
+
+  const dubiousId = seedEssayExample("2101", {
+    body: "Революция случилась просто потому, что так было угодно народу.",
+    authorName: "guest",
+    votesUp: 0,
+    votesDown: 3,
+  });
+  seedVoteTally(`essay:${dubiousId}`, 0, 3, 0);
+}
+
 function emptyAnswerData(): AnswerData {
   return { anchors: [], suggestions: [], submissions: [], slots: [] };
 }
@@ -430,7 +591,12 @@ function injectFixtures() {
   const host = document.getElementById("reduxshare-dev-questions");
 
   if (host) {
-    host.innerHTML = [multichoiceAttemptHtml, matchAttemptHtml, shortanswerAttemptHtml].join("");
+    host.innerHTML = [
+      multichoiceAttemptHtml,
+      matchAttemptHtml,
+      shortanswerAttemptHtml,
+      essayAttemptHtml,
+    ].join("");
   }
 }
 
@@ -438,6 +604,7 @@ async function boot() {
   installChromeMock();
   injectFixtures();
   injectViewPageFixture();
+  seedEssayExamples();
 
   await chrome.storage.local.set({ [APP_STORAGE_KEY]: buildStoredState() });
 
@@ -457,6 +624,12 @@ async function boot() {
   api.setSourceAnswerData("3699", "reduxshare", matchAnswerData());
   api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
   api.mountAnswerWidgets("#9cb9f6");
+
+  // loadQuizAnswers в плейграунде не вызывается — сеем примеры в карту напрямую.
+  essayExamplesByQuestionId.set(
+    "2101",
+    sortEssayExamplesForPlayground(essayExamplesStore.filter((item) => item.questionId === "2101")),
+  );
 
   const { initializeQuizPreviewFeatures } = await import("../content/quizPreview");
   await initializeQuizPreviewFeatures();

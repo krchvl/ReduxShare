@@ -4,6 +4,7 @@ import {
   CHOICE_QUESTION_TYPES,
   DEFAULT_HOTKEY,
   DEFAULT_HOTKEY_CODE,
+  ESSAY_QUESTION_TYPES,
   MAX_METADATA_WAIT_MS,
   METADATA_POLL_MS,
   SUPPORTED_WIDGET_QUESTION_TYPES,
@@ -11,6 +12,10 @@ import {
   type AnswerEntry,
   type AnswerVariantCounts,
   type AnswerVoteResponse,
+  type EssayExampleEntry,
+  type EssayExampleSaveResponse,
+  type EssayExampleVoteResponse,
+  type EssayExamplesResponse,
   type QuizAnswersResponse,
   type QuizAttemptContext,
   type QuizQuestionSummary,
@@ -20,7 +25,14 @@ import {
 } from "../model";
 import { APP_STORAGE_KEY, QUIZ_CONTEXT_STORAGE_KEY } from "../shared/storageKeys";
 import { patchStoredState } from "../lib/storage";
-import { FETCH_QUIZ_ANSWERS_MESSAGE, VOTE_ANSWER_MESSAGE } from "../shared/messages";
+import type { SaveEssayExamplePayload } from "../lib/essayExamples";
+import {
+  FETCH_ESSAY_EXAMPLES_MESSAGE,
+  FETCH_QUIZ_ANSWERS_MESSAGE,
+  SAVE_ESSAY_EXAMPLE_MESSAGE,
+  VOTE_ANSWER_MESSAGE,
+  VOTE_ESSAY_EXAMPLE_MESSAGE,
+} from "../shared/messages";
 import {
   hotkeyMatchesEvent,
   isEditableHotkeyTarget,
@@ -35,6 +47,7 @@ import {
   isAiSettingsSaved,
   renderAiAnswerFlyout,
   renderAiExplanationFlyout,
+  type EssayMenuState,
 } from "../ui/answerMenu";
 import { attachAnswerMenuBehavior } from "../ui/answerMenuBehavior";
 import {
@@ -146,6 +159,11 @@ import {
 } from "./quizAttempt/aiAnswer";
 import { getDdimageOrTextDropForTrigger } from "./quizAttempt/ddimageortext";
 import {
+  applyEssayExampleToQuestion,
+  getCurrentEssayText,
+  getEssayExampleMapKey,
+} from "./quizAttempt/essayExamples";
+import {
   applyAttemptStatusPanelStorageChanges,
   loadAttemptStatusPanelCollapsedState,
   syncAttemptStatusPanelClosedState,
@@ -156,6 +174,7 @@ import {
   setAttemptStatusPanelClosedInSession,
 } from "./quizAttempt/attemptStatusPanel";
 import { isQuizAttemptUrl, isQuizSummaryUrl, isQuizViewUrl } from "./quizAttempt/quizUrl";
+import { DEFAULT_SETTINGS } from "../types";
 import {
   applyUpdateNoticeStorageChanges,
   loadUpdateNoticeDismissedState,
@@ -228,6 +247,7 @@ import {
   currentQuizAttemptContext,
   currentStoredState,
   currentT,
+  essayExamplesByQuestionId,
   setActiveCloseAnswerWidgetMenu,
   setAnswerWidgetsVisible as setAnswerWidgetsVisibleState,
   setCurrentQuizAttemptContext,
@@ -942,6 +962,59 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   clampAnswerMenuPortalToViewport(menuPortal);
 }
 
+// Сомнительные примеры (минусов больше, чем плюсов) — в конец списка,
+// далее по чистым голосам и свежести обновления.
+function compareEssayExamplesForDisplay(a: EssayExampleEntry, b: EssayExampleEntry): number {
+  const aDubious = a.votesDown > a.votesUp ? 1 : 0;
+  const bDubious = b.votesDown > b.votesUp ? 1 : 0;
+
+  if (aDubious !== bDubious) {
+    return aDubious - bDubious;
+  }
+
+  const netDiff = b.votesUp - b.votesDown - (a.votesUp - a.votesDown);
+
+  if (netDiff !== 0) {
+    return netDiff;
+  }
+
+  return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+}
+
+function getEssayExampleMapKeyForNode(questionNode: Element | null, questionId: string | null) {
+  if (!questionNode) {
+    return null;
+  }
+
+  if (questionId) {
+    return questionId;
+  }
+
+  return getEssayExampleMapKey({
+    questionId: null,
+    questionHash: getQuestionHash(questionNode, getSecondQuestionClass(questionNode)),
+  });
+}
+
+function getEssayExamplesForQuestion(questionNode: Element | null, questionId: string | null) {
+  const mapKey = getEssayExampleMapKeyForNode(questionNode, questionId);
+
+  if (!mapKey) {
+    return [];
+  }
+
+  return [...(essayExamplesByQuestionId.get(mapKey) ?? [])].sort(compareEssayExamplesForDisplay);
+}
+
+function upsertEssayExampleInMap(mapKey: string, example: EssayExampleEntry) {
+  const existing = essayExamplesByQuestionId.get(mapKey) ?? [];
+
+  essayExamplesByQuestionId.set(mapKey, [
+    ...existing.filter((item) => item.exampleId !== example.exampleId),
+    example,
+  ]);
+}
+
 function openAnswerMenuPortal(
   trigger: HTMLButtonElement,
   accentColor: string,
@@ -965,6 +1038,15 @@ function openAnswerMenuPortal(
     initialQuestionNode && isAiOnlyQuestionTypeName(initialQuestionType)
       ? createEmptySourceAnswerData()
       : answerData;
+  const isEssayQuestion = Boolean(
+    initialQuestionNode && initialQuestionType && ESSAY_QUESTION_TYPES.has(initialQuestionType),
+  );
+  const essayMenuState: EssayMenuState | undefined = isEssayQuestion
+    ? {
+        examples: getEssayExamplesForQuestion(initialQuestionNode, questionId),
+        canSave: !externalOnly,
+      }
+    : undefined;
 
   menuPortal.setAttribute(ANSWER_MENU_PORTAL_ATTR, "true");
   menuPortal.style.setProperty("--reduxshare-accent", accentColor);
@@ -976,6 +1058,7 @@ function openAnswerMenuPortal(
     aiToolsEnabled,
     externalOnly,
     getAiExplanationState(aiQuestionKey),
+    essayMenuState,
   );
 
   const menuBehavior = attachAnswerMenuBehavior(shadowRoot, {
@@ -1272,10 +1355,11 @@ function openAnswerMenuPortal(
 
   const handleVoteButtonClick = (button: HTMLButtonElement) => {
     const taskId = button.dataset.voteTaskId;
+    const exampleId = button.dataset.voteExampleId;
     const action = button.dataset.voteAction;
     const row = button.closest(".flyout-row");
 
-    if (!taskId || (action !== "up" && action !== "down") || !row) {
+    if ((!taskId && !exampleId) || (action !== "up" && action !== "down") || !row) {
       return;
     }
 
@@ -1294,7 +1378,11 @@ function openAnswerMenuPortal(
     applyVoteStateToRow(row, nextVotesUp, nextVotesDown, nextMyVote);
     button.dataset.votePending = "true";
 
-    void requestVoteAnswer(taskId, desiredValue)
+    const voteRequest: Promise<AnswerVoteResponse> = taskId
+      ? requestVoteAnswer(taskId, desiredValue)
+      : requestVoteEssayExample(exampleId ?? "", desiredValue);
+
+    void voteRequest
       .then((response) => {
         if (!response.ok) {
           throw new Error(response.error ?? "vote failed");
@@ -1328,6 +1416,131 @@ function openAnswerMenuPortal(
     event.stopPropagation();
 
     handleVoteButtonClick(button);
+  });
+
+  const setEssaySaveStatus = (message: string | null) => {
+    const statusEl = shadowRoot.querySelector<HTMLElement>("[data-essay-save-status]");
+
+    if (!statusEl) {
+      return;
+    }
+
+    if (message) {
+      statusEl.textContent = message;
+      statusEl.hidden = false;
+    } else {
+      statusEl.hidden = true;
+    }
+  };
+
+  const handleEssaySaveClick = () => {
+    if (!essayMenuState?.canSave) {
+      return;
+    }
+
+    const questionNode = findQuestionNodeForTrigger(trigger);
+    const body = questionNode ? getCurrentEssayText(questionNode) : "";
+
+    if (!body) {
+      setEssaySaveStatus(currentT("quiz.menu.essaySaveEmpty"));
+      return;
+    }
+
+    const context = currentQuizAttemptContext;
+
+    if (!context || context.courseId === null || context.contextInstanceId === null) {
+      setEssaySaveStatus(currentT("quiz.menu.essaySaveFailed"));
+      return;
+    }
+
+    setEssaySaveStatus(currentT("quiz.menu.essaySaveSaving"));
+
+    const payload: SaveEssayExamplePayload = {
+      domain: context.domain,
+      courseId: context.courseId,
+      quizId: context.contextInstanceId,
+      questionId,
+      questionHash: questionNode
+        ? getQuestionHash(questionNode, getSecondQuestionClass(questionNode))
+        : "",
+      questionText: questionNode ? getQuestionText(questionNode) : "",
+      body,
+    };
+
+    void requestSaveEssayExample(payload)
+      .then((response) => {
+        if (!response.ok || !response.example) {
+          setEssaySaveStatus(response.error ?? currentT("quiz.menu.essaySaveFailed"));
+          return;
+        }
+
+        const mapKey = getEssayExampleMapKeyForNode(questionNode, questionId);
+
+        if (mapKey) {
+          upsertEssayExampleInMap(mapKey, response.example);
+        }
+
+        if (essayMenuState) {
+          essayMenuState.examples = getEssayExamplesForQuestion(questionNode, questionId);
+        }
+
+        setEssaySaveStatus(currentT("quiz.menu.essaySaveSaved"));
+      })
+      .catch(() => {
+        setEssaySaveStatus(currentT("quiz.menu.essaySaveFailed"));
+      });
+  };
+
+  const handleEssayApplyClick = (applyTarget: HTMLElement) => {
+    const row = applyTarget.closest<HTMLElement>("[data-essay-example-id]");
+    const exampleId = row?.getAttribute("data-essay-example-id") ?? null;
+    const example = exampleId
+      ? essayMenuState?.examples.find((item) => item.exampleId === exampleId)
+      : undefined;
+    const questionNode = findQuestionNodeForTrigger(trigger);
+
+    if (!example || !questionNode) {
+      return;
+    }
+
+    void applyEssayExampleToQuestion(questionNode, example.body, {
+      humanTyping: currentStoredState?.settings?.humanTyping ?? DEFAULT_SETTINGS.humanTyping,
+    }).then((applied) => {
+      if (!applied) {
+        return;
+      }
+
+      void reportSolvedQuestions([getQuestionProgressId(questionNode, questionId)]);
+      renderAttemptStatusPanel();
+      window.setTimeout(() => closePortal(), 120);
+    });
+  };
+
+  shadowRoot.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const saveButton = target.closest<HTMLButtonElement>('[data-essay-action="save"]');
+
+    if (saveButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleEssaySaveClick();
+      return;
+    }
+
+    const applyTarget = target.closest<HTMLElement>('[data-essay-action="apply"]');
+
+    if (!applyTarget || target.closest("[data-vote-action]")) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    handleEssayApplyClick(applyTarget);
   });
 
   shadowRoot.addEventListener("keydown", (event) => {
@@ -2151,6 +2364,7 @@ function resetRestrictedQuizState() {
   removeAnswerWidgets();
   variantCountsByQuestionId.clear();
   answerDataByQuestionId.clear();
+  essayExamplesByQuestionId.clear();
   setCurrentQuizAttemptContext(null);
   removeAttemptStatusPanel();
 }
@@ -2243,6 +2457,7 @@ function watchStoredSettingsChanges() {
 
       if (!isLoggedInToExtension(nextState)) {
         clearReduxShareAnswerData();
+        essayExamplesByQuestionId.clear();
       }
 
       const accentColor = getAccentColor(nextState?.settings);
@@ -2330,6 +2545,134 @@ function requestVoteAnswer(taskId: string, value: 1 | -1): Promise<AnswerVoteRes
   });
 }
 
+function requestEssayExamples(
+  domain: string,
+  courseId: number | null,
+  quizId: number | null,
+  questions: Array<{ questionId: string | null; questionHash: string | null }>,
+): Promise<EssayExamplesResponse> {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: FETCH_ESSAY_EXAMPLES_MESSAGE,
+          payload: { domain, courseId, quizId, questions },
+        },
+        (response: EssayExamplesResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
+
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(response ?? { ok: false });
+        },
+      );
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+function requestSaveEssayExample(
+  payload: SaveEssayExamplePayload,
+): Promise<EssayExampleSaveResponse> {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(
+        { type: SAVE_ESSAY_EXAMPLE_MESSAGE, payload },
+        (response: EssayExampleSaveResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
+
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(
+            response ?? {
+              ok: false,
+              error: "Background script did not return a response.",
+            },
+          );
+        },
+      );
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+function requestVoteEssayExample(
+  exampleId: string,
+  value: 1 | -1,
+): Promise<EssayExampleVoteResponse> {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(
+        { type: VOTE_ESSAY_EXAMPLE_MESSAGE, payload: { exampleId, value } },
+        (response: EssayExampleVoteResponse | undefined) => {
+          const runtimeError = chrome.runtime.lastError;
+
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
+
+          resolve(
+            response ?? {
+              ok: false,
+              error: "Background script did not return a response.",
+            },
+          );
+        },
+      );
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+async function loadEssayExamples(context: QuizAttemptContext) {
+  const essayQuestions = context.questions.filter(
+    (question) => question.questionType !== null && ESSAY_QUESTION_TYPES.has(question.questionType),
+  );
+
+  for (const question of essayQuestions) {
+    essayExamplesByQuestionId.delete(getEssayExampleMapKey(question));
+  }
+
+  if (essayQuestions.length === 0) {
+    return;
+  }
+
+  try {
+    const response = await requestEssayExamples(
+      context.domain,
+      context.courseId,
+      context.contextInstanceId,
+      essayQuestions.map((question) => ({
+        questionId: question.questionId,
+        questionHash: question.questionHash,
+      })),
+    );
+
+    if (!response.ok || !response.results) {
+      return;
+    }
+
+    for (const item of response.results) {
+      essayExamplesByQuestionId.set(
+        getEssayExampleMapKey({ questionId: item.questionId, questionHash: item.questionHash }),
+        item.examples,
+      );
+    }
+  } catch (error) {
+    logReduxShareWarning("ReduxShare: essay examples request failed", error);
+  }
+}
+
 async function loadQuizAnswers(context: QuizAttemptContext) {
   if (context.questions.length === 0) {
     renderAttemptStatusPanel();
@@ -2359,6 +2702,7 @@ async function loadQuizAnswers(context: QuizAttemptContext) {
     answerDataByQuestionId.clear();
     if (isLoggedInToExtension(currentState)) {
       applyQuizAnswerResults(response.reduxshareResults, "reduxshare");
+      void loadEssayExamples(context);
     }
     applyQuizAnswerResults(response.externalResults, "external");
 
