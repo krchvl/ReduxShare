@@ -89,6 +89,8 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
    - **External sources** for external results.
    - **AI tools** when AI is supported for the Moodle question type and configured in settings.
 
+   For essay questions the internal tab shows **community answer examples** with up/down voting instead of per-option statistics.
+
 4. **Correctness handling**
    Verified review answers are saved as exact answers and may be auto-applied. Hidden-review or uncertain answers are saved as statistics only and are not used as confirmed correct answers.
 
@@ -115,6 +117,8 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
 
 - **Shared answer statistics** — shows aggregated answers collected from previous attempts from other users.
 
+- **Essay answer examples** — save your essay answer as a shared example from the R-menu and vote for the best ones; the top-voted example can be inserted into the answer field.
+
 - **Review import** — imports answer data from Moodle quiz review pages.
 
 - **Auto matching** — provides correct answers automatically.
@@ -137,7 +141,7 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
   | Drag and drop into text      | `ddwtos`           |   ✅    |        ✅        |        🔴        |    ✅    |
   | Drag and drop markers        | `ddmarker`         |   🟡    |        ✅        |        🔴        |    🔴    |
   | Drag and drop onto image     | `ddimageortext`    |   🟡    |        ✅        |        🔴        |    🔴    |
-  | Essay                        | `essay`            |   🟡    |        🔴        |        🔴        |    ✅    |
+  | Essay                        | `essay`            |   🟡    |        🟡        |        🔴        |    ✅    |
   | Matching                     | `match`            |   ✅    |        ✅        |        ✅        |    ✅    |
   | Embedded answers / Cloze     | `multianswer`      |   ✅    |        ✅        |        ✅        |    ✅    |
   | Multiple choice              | `multichoice`      |   ✅    |        ✅        |        ✅        |    ✅    |
@@ -147,6 +151,8 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
   | Random short-answer matching | `randomsamatch`    |   ✅    |        ✅        |        ✅        |    ✅    |
   | Select missing words         | `gapselect`        |   ✅    |        ✅        |        ✅        |    ✅    |
   | True/False                   | `truefalse`        |   ✅    |        ✅        |        ✅        |    ✅    |
+
+  🟡 in the **Internal Sources** column for `essay` means the shared answer **examples with voting** are available; exact answers and per-option statistics do not apply to essay questions.
 
 ---
 
