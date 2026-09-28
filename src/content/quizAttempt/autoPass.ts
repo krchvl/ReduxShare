@@ -597,9 +597,20 @@ const AUTO_PASS_START_BUTTON_MARKUP = `
     }
 
     .apx-trigger:hover {
-      background: rgba(var(--reduxshare-accent-rgb), 0.22);
+      background: rgba(var(--reduxshare-accent-rgb), 0.34);
       box-shadow: 0 8px 22px rgba(var(--reduxshare-accent-rgb), 0.28);
       transform: translateY(-1px);
+    }
+
+    :host([data-theme="dark"]) .apx-trigger {
+      border-color: rgba(var(--reduxshare-accent-rgb), 0.65);
+      background: color-mix(in srgb, var(--reduxshare-accent) 30%, #171923);
+      color: color-mix(in srgb, var(--reduxshare-accent) 45%, #f6f7fb);
+    }
+
+    :host([data-theme="dark"]) .apx-trigger:hover {
+      border-color: rgba(var(--reduxshare-accent-rgb), 0.8);
+      background: color-mix(in srgb, var(--reduxshare-accent) 40%, #171923);
     }
 
     .apx-trigger:active {

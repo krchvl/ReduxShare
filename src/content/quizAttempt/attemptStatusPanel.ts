@@ -1250,10 +1250,10 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           width: 32px;
           height: 32px;
           place-items: center;
-          border: 1px solid rgba(255, 255, 255, 0.16);
+          border: 1px solid rgba(255, 255, 255, 0.2);
           border-radius: 10px;
-          background: rgba(255, 255, 255, 0.12);
-          color: rgba(246, 247, 251, 0.85);
+          background: #262834;
+          color: #f6f7fb;
           cursor: pointer;
           transition:
             background-color 140ms ease,
@@ -1264,9 +1264,9 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         .tray-action:hover {
-          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.4);
-          background: rgba(var(--reduxshare-panel-accent-rgb), 0.12);
-          color: #f6f7fb;
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
+          background: color-mix(in srgb, var(--reduxshare-panel-accent) 26%, #262834);
+          color: #ffffff;
         }
 
         .tray-action:active {
@@ -1275,8 +1275,8 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .tray-action[aria-pressed="true"],
         .tray-action[data-result="true"] {
-          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
-          background: rgba(var(--reduxshare-panel-accent-rgb), 0.2);
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.6);
+          background: color-mix(in srgb, var(--reduxshare-panel-accent) 32%, #262834);
           color: var(--reduxshare-panel-accent);
           box-shadow: 0 8px 20px rgba(var(--reduxshare-panel-accent-rgb), 0.24);
         }
@@ -1320,8 +1320,8 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .tray-action[data-mode="running"],
         .tray-action[data-mode="paused"] {
-          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
-          background: rgba(var(--reduxshare-panel-accent-rgb), 0.2);
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.6);
+          background: color-mix(in srgb, var(--reduxshare-panel-accent) 32%, #262834);
           color: var(--reduxshare-panel-accent);
         }
 

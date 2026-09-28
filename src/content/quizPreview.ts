@@ -97,6 +97,17 @@ const QUIZ_PREVIEW_BUTTON_MARKUP = `
       transform: translateY(-1px);
     }
 
+    :host([data-theme="dark"]) .rpx-trigger {
+      border-color: rgba(var(--reduxshare-accent-rgb), 0.65);
+      background: color-mix(in srgb, var(--reduxshare-accent) 30%, #171923);
+      color: color-mix(in srgb, var(--reduxshare-accent) 45%, #f6f7fb);
+    }
+
+    :host([data-theme="dark"]) .rpx-trigger:hover {
+      border-color: rgba(var(--reduxshare-accent-rgb), 0.8);
+      background: color-mix(in srgb, var(--reduxshare-accent) 40%, #171923);
+    }
+
     .rpx-trigger:active {
       transform: translateY(0) scale(0.98);
     }
