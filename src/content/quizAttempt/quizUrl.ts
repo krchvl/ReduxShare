@@ -9,3 +9,7 @@ export function isQuizSummaryUrl(url: Location) {
 export function isQuizViewUrl(url: Location) {
   return url.protocol === "https:" && url.pathname.endsWith("/mod/quiz/view.php");
 }
+
+export function isQuizStartAttemptUrl(url: Location) {
+  return url.protocol === "https:" && url.pathname.endsWith("/mod/quiz/startattempt.php");
+}

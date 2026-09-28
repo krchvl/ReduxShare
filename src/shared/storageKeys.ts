@@ -8,3 +8,5 @@ export const PENDING_REVIEW_SAVES_STORAGE_KEY = "reduxsharePendingReviewSaves";
 export const SELECTION_SAVES_STORAGE_KEY = "reduxshareSelectionSaves";
 export const UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY = "reduxshareUpdateNoticeDismissedCheck";
 export const UPDATE_NOTICE_POSITION_STORAGE_KEY = "reduxshareUpdateNoticePosition";
+
+export const AUTO_PASS_SESSION_STORAGE_KEY = "reduxshareAutoPassSession";

@@ -534,6 +534,10 @@ export function cancelAllAutoSelectSchedules() {
   }
 }
 
+export function countPendingAutoSelectSchedules(): number {
+  return pendingAutoSelectAnswers.size;
+}
+
 function handleAutoSelectUserInput(event: Event) {
   if (pendingAutoSelectAnswers.size === 0) {
     return;

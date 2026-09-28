@@ -178,7 +178,29 @@ import {
   resetAttemptStatusPanelState,
   setAttemptStatusPanelClosedInSession,
 } from "./quizAttempt/attemptStatusPanel";
-import { isQuizAttemptUrl, isQuizSummaryUrl, isQuizViewUrl } from "./quizAttempt/quizUrl";
+import {
+  isQuizAttemptUrl,
+  isQuizStartAttemptUrl,
+  isQuizSummaryUrl,
+  isQuizViewUrl,
+} from "./quizAttempt/quizUrl";
+import {
+  applyAutoPassStorageChanges,
+  continueAutoPass,
+  ensureAutoPassStartButton,
+  getAutoPassSessionState,
+  handleAutoPassSummaryPage,
+  navigateToNextPage,
+  resetAutoPassState,
+  resumeAutoPassOnAttemptPage,
+  runAutoPassOnConfirmationPage,
+  runAutoPassPage,
+  startAutoPassForCurrentAttempt,
+  startAutoPassFromViewPage,
+  stopAutoPass,
+  syncAutoPassViewFeatures,
+  watchAutoPassStartButtonMount,
+} from "./quizAttempt/autoPass";
 import { DEFAULT_SETTINGS } from "../types";
 import {
   applyUpdateNoticeStorageChanges,
@@ -305,6 +327,20 @@ declare global {
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
         flushQuestionSelections: typeof flushQuestionSelections;
         resolveSelectionVerdict: typeof resolveSelectionVerdict;
+        applyAutoPassStorageChanges: typeof applyAutoPassStorageChanges;
+        continueAutoPass: typeof continueAutoPass;
+        ensureAutoPassStartButton: typeof ensureAutoPassStartButton;
+        getAutoPassSessionState: typeof getAutoPassSessionState;
+        handleAutoPassSummaryPage: typeof handleAutoPassSummaryPage;
+        navigateToNextPage: typeof navigateToNextPage;
+        resetAutoPassState: typeof resetAutoPassState;
+        resumeAutoPassOnAttemptPage: typeof resumeAutoPassOnAttemptPage;
+        runAutoPassOnConfirmationPage: typeof runAutoPassOnConfirmationPage;
+        runAutoPassPage: typeof runAutoPassPage;
+        startAutoPassForCurrentAttempt: typeof startAutoPassForCurrentAttempt;
+        startAutoPassFromViewPage: typeof startAutoPassFromViewPage;
+        stopAutoPass: typeof stopAutoPass;
+        watchAutoPassStartButtonMount: typeof watchAutoPassStartButtonMount;
       }
     | undefined;
 }
@@ -2414,6 +2450,7 @@ function watchStoredSettingsChanges() {
 
     applyAttemptStatusPanelStorageChanges(changes);
     applyUpdateNoticeStorageChanges(changes);
+    applyAutoPassStorageChanges(changes);
 
     if (!changes[APP_STORAGE_KEY]) {
       return;
@@ -2435,6 +2472,7 @@ function watchStoredSettingsChanges() {
       }
 
       syncQuizPreviewFeatures(nextState);
+      syncAutoPassViewFeatures();
       return;
     }
 
@@ -2763,6 +2801,7 @@ async function initializeQuizAttemptFeatures() {
   mountAnswerWidgets(accentColor);
   logReduxShareInfo("ReduxShare: quiz metadata detected");
   await loadQuizAnswers(context);
+  void resumeAutoPassOnAttemptPage();
 }
 
 async function initializeQuizSummaryTracking() {
@@ -2814,6 +2853,13 @@ async function bootstrapQuizPageDetection() {
 
   if (isQuizSummaryUrl(window.location)) {
     await initializeQuizSummaryTracking();
+    await handleAutoPassSummaryPage();
+    renderUpdateNotice();
+    return;
+  }
+
+  if (isQuizStartAttemptUrl(window.location)) {
+    await runAutoPassOnConfirmationPage();
     renderUpdateNotice();
     return;
   }
@@ -2826,6 +2872,9 @@ async function bootstrapQuizPageDetection() {
 
   if (isQuizViewUrl(window.location)) {
     await initializeQuizPreviewFeatures();
+    ensureAutoPassStartButton();
+    watchAutoPassStartButtonMount();
+    void syncAutoPassViewFeatures();
     renderUpdateNotice();
   }
 }
@@ -2866,6 +2915,7 @@ function resetQuizAttemptTestState() {
   setAnswerWidgetsVisible(true);
   resetAttemptStatusPanelState();
   resetUpdateNoticeState();
+  resetAutoPassState();
   void syncAttemptStatusPanelClosedState(currentStoredState);
 }
 
@@ -2907,6 +2957,20 @@ function installQuizAttemptTestApi() {
     runHumanPrecursors,
     shuffleScheduleOrder,
     typeTextHumanLike,
+    applyAutoPassStorageChanges,
+    continueAutoPass,
+    ensureAutoPassStartButton,
+    getAutoPassSessionState,
+    handleAutoPassSummaryPage,
+    navigateToNextPage,
+    resetAutoPassState,
+    resumeAutoPassOnAttemptPage,
+    runAutoPassOnConfirmationPage,
+    runAutoPassPage,
+    startAutoPassForCurrentAttempt,
+    startAutoPassFromViewPage,
+    stopAutoPass,
+    watchAutoPassStartButtonMount,
   };
   resetQuizAttemptTestState();
 }

@@ -34,6 +34,13 @@ import {
 import { getChoiceAnswerInputs, getTextAnswerInputs } from "./answerControls";
 import { applyAllExactAnswersNow, type ApplyAllExactAnswersResult } from "./autoSelect";
 import {
+  continueAutoPass,
+  getAutoPassPauseInfo,
+  getAutoPassTrayMode,
+  handleAutoPassTrayAction,
+  stopAutoPass,
+} from "./autoPass";
+import {
   currentQuizAttemptContext,
   currentStoredState,
   currentT,
@@ -1285,6 +1292,128 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           stroke-width: 2;
         }
 
+        .settings-ear[data-attention="true"] {
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.65);
+          color: var(--reduxshare-panel-accent);
+          animation: ear-attention 1.4s ease-in-out infinite;
+        }
+
+        @keyframes ear-attention {
+          0%,
+          100% {
+            box-shadow: 0 0 0 0 rgba(var(--reduxshare-panel-accent-rgb), 0.45);
+          }
+
+          55% {
+            box-shadow: 0 0 0 7px rgba(var(--reduxshare-panel-accent-rgb), 0);
+          }
+        }
+
+        .settings-tray[data-mode="running"] .auto-pass-icon--play,
+        .settings-tray[data-mode="paused"] .auto-pass-icon--play {
+          display: none;
+        }
+
+        .tray-action:not([data-mode="running"]):not([data-mode="paused"]) .auto-pass-icon--stop {
+          display: none;
+        }
+
+        .tray-action[data-mode="running"],
+        .tray-action[data-mode="paused"] {
+          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.2);
+          color: var(--reduxshare-panel-accent);
+        }
+
+        .tray-pause {
+          display: grid;
+          gap: 6px;
+          max-width: 232px;
+          padding: 10px;
+          border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.3);
+          border-radius: 10px;
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.08);
+        }
+
+        .settings-tray:not([data-mode="paused"]) .tray-pause {
+          display: none;
+        }
+
+        .settings-tray[data-mode="paused"] {
+          flex-direction: column;
+          align-items: stretch;
+          max-width: 256px;
+        }
+
+        .tray-pause__title {
+          color: #f6f7fb;
+          font-size: 12.5px;
+          font-weight: 700;
+          line-height: 1.35;
+        }
+
+        .tray-pause__question {
+          color: rgba(246, 247, 251, 0.72);
+          font-size: 11.5px;
+          line-height: 1.4;
+        }
+
+        .tray-pause__hint {
+          color: rgba(246, 247, 251, 0.55);
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
+        .tray-pause__actions {
+          display: flex;
+          gap: 6px;
+          margin-top: 2px;
+        }
+
+        .tray-pause__continue,
+        .tray-pause__stop {
+          all: unset;
+          box-sizing: border-box;
+          flex: 1;
+          padding: 6px 10px;
+          border-radius: 8px;
+          text-align: center;
+          font-size: 11.5px;
+          font-weight: 650;
+          cursor: pointer;
+          transition:
+            background-color 140ms ease,
+            border-color 140ms ease,
+            color 140ms ease,
+            transform 120ms ease;
+        }
+
+        .tray-pause__continue {
+          border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.55);
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.22);
+          color: var(--reduxshare-panel-accent);
+        }
+
+        .tray-pause__continue:hover {
+          background: rgba(var(--reduxshare-panel-accent-rgb), 0.34);
+        }
+
+        .tray-pause__continue:active,
+        .tray-pause__stop:active {
+          transform: scale(0.96);
+        }
+
+        .tray-pause__stop {
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(246, 247, 251, 0.6);
+        }
+
+        .tray-pause__stop:hover {
+          border-color: rgba(255, 107, 107, 0.5);
+          color: #ff6b6b;
+        }
+
         .panel__body {
           display: grid;
           gap: 0;
@@ -1539,6 +1668,29 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           background: rgba(var(--reduxshare-panel-accent-rgb), 0.16);
         }
 
+        :host([data-theme="light"]) .tray-pause {
+          border-color: rgba(15, 20, 35, 0.12);
+          background: rgba(15, 20, 35, 0.04);
+        }
+
+        :host([data-theme="light"]) .tray-pause__title {
+          color: #1c2233;
+        }
+
+        :host([data-theme="light"]) .tray-pause__question {
+          color: rgba(28, 34, 51, 0.72);
+        }
+
+        :host([data-theme="light"]) .tray-pause__hint {
+          color: rgba(28, 34, 51, 0.55);
+        }
+
+        :host([data-theme="light"]) .tray-pause__stop {
+          border-color: rgba(15, 20, 35, 0.14);
+          background: rgba(15, 20, 35, 0.04);
+          color: rgba(20, 25, 40, 0.6);
+        }
+
         @keyframes panel-enter {
           from {
             opacity: 0;
@@ -1584,6 +1736,15 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           <svg class="settings-ear__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
         </button>
         <div class="settings-tray" data-side="right" data-open="false" role="group">
+          <div class="tray-pause" hidden>
+            <div class="tray-pause__title"></div>
+            <div class="tray-pause__question" hidden></div>
+            <div class="tray-pause__hint"></div>
+            <div class="tray-pause__actions">
+              <button class="tray-pause__continue" type="button"></button>
+              <button class="tray-pause__stop" type="button"></button>
+            </div>
+          </div>
           <button class="tray-action" type="button" data-tray-action="copyUnlock" aria-pressed="false">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="9" y="9" width="12" height="12" rx="2.5" />
@@ -1593,6 +1754,15 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           <button class="tray-action" type="button" data-tray-action="solveAll">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4.5 12.75 9.75 18 19.5 6.75" />
+            </svg>
+          </button>
+          <button class="tray-action" type="button" data-tray-action="autoPass" data-mode="idle">
+            <svg class="auto-pass-icon auto-pass-icon--play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6.5v11l9-5.5-9-5.5Z" />
+              <path d="M5 5v14" />
+            </svg>
+            <svg class="auto-pass-icon auto-pass-icon--stop" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="10" rx="1.5" />
             </svg>
           </button>
         </div>
@@ -1695,6 +1865,21 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         if (target?.closest('[data-tray-action="solveAll"]')) {
           runSolveAllTrayAction();
+          return;
+        }
+
+        if (target?.closest('[data-tray-action="autoPass"]')) {
+          handleAutoPassTrayAction();
+          return;
+        }
+
+        if (target?.closest(".tray-pause__continue")) {
+          void continueAutoPass();
+          return;
+        }
+
+        if (target?.closest(".tray-pause__stop")) {
+          void stopAutoPass();
         }
       });
   }
@@ -1880,6 +2065,7 @@ export function renderAttemptStatusPanel() {
   if (settingsEar) {
     settingsEar.dataset.side = traySide;
     settingsEar.dataset.open = attemptStatusPanelTrayOpen ? "true" : "false";
+    settingsEar.toggleAttribute("data-attention", getAutoPassTrayMode() === "paused");
     settingsEar.setAttribute("aria-expanded", attemptStatusPanelTrayOpen ? "true" : "false");
     settingsEar.setAttribute("aria-label", currentT("quiz.panel.settingsTitle"));
     settingsEar.setAttribute("title", currentT("quiz.panel.settingsTitle"));
@@ -1888,6 +2074,7 @@ export function renderAttemptStatusPanel() {
   if (settingsTray) {
     settingsTray.dataset.side = traySide;
     settingsTray.dataset.open = attemptStatusPanelTrayOpen ? "true" : "false";
+    settingsTray.dataset.mode = getAutoPassTrayMode();
   }
 
   if (copyUnlockAction) {
@@ -1906,6 +2093,68 @@ export function renderAttemptStatusPanel() {
     solveAllAction.setAttribute("aria-label", solveAllLabel);
     solveAllAction.setAttribute("title", solveAllLabel);
     solveAllAction.toggleAttribute("data-result", attemptStatusPanelSolveAllResult !== null);
+  }
+
+  const autoPassMode = getAutoPassTrayMode();
+  const autoPassAction = shadowRoot.querySelector<HTMLButtonElement>(
+    '[data-tray-action="autoPass"]',
+  );
+
+  if (autoPassAction) {
+    autoPassAction.dataset.mode = autoPassMode;
+    const autoPassLabel =
+      autoPassMode === "idle"
+        ? currentT("quiz.autoPass.buttonStart")
+        : currentT("quiz.autoPass.buttonStop");
+
+    autoPassAction.setAttribute("aria-label", autoPassLabel);
+    autoPassAction.setAttribute("title", autoPassLabel);
+  }
+
+  const autoPassPause = getAutoPassPauseInfo();
+  const trayPause = shadowRoot.querySelector<HTMLElement>(".tray-pause");
+
+  if (trayPause) {
+    trayPause.hidden = autoPassPause === null;
+    trayPause.setAttribute("aria-label", currentT("quiz.autoPass.running"));
+
+    const pauseTitle = shadowRoot.querySelector<HTMLElement>(".tray-pause__title");
+
+    if (pauseTitle) {
+      pauseTitle.textContent =
+        autoPassPause?.questionNo !== null && autoPassPause?.questionNo !== undefined
+          ? currentT("quiz.autoPass.pausedTitle", { no: autoPassPause.questionNo })
+          : currentT("quiz.autoPass.pausedNoNumber");
+    }
+
+    const pauseQuestion = shadowRoot.querySelector<HTMLElement>(".tray-pause__question");
+
+    if (pauseQuestion) {
+      const questionText = autoPassPause?.questionText ?? null;
+
+      pauseQuestion.textContent = questionText ?? "";
+      pauseQuestion.hidden = questionText === null;
+    }
+
+    const pauseHint = shadowRoot.querySelector<HTMLElement>(".tray-pause__hint");
+
+    if (pauseHint) {
+      pauseHint.textContent = currentT("quiz.autoPass.pausedHint");
+    }
+
+    const pauseContinue = shadowRoot.querySelector<HTMLButtonElement>(".tray-pause__continue");
+
+    if (pauseContinue) {
+      pauseContinue.textContent = currentT("quiz.autoPass.continue");
+      pauseContinue.setAttribute("aria-label", currentT("quiz.autoPass.continue"));
+    }
+
+    const pauseStop = shadowRoot.querySelector<HTMLButtonElement>(".tray-pause__stop");
+
+    if (pauseStop) {
+      pauseStop.textContent = currentT("quiz.autoPass.buttonStop");
+      pauseStop.setAttribute("aria-label", currentT("quiz.autoPass.buttonStop"));
+    }
   }
 
   if (userLabel) {

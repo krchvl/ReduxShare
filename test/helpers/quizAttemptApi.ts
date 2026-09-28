@@ -6,6 +6,7 @@ import type {
   SourceAnswerData,
   StoredStateLike,
 } from "../../src/model";
+import type { AutoPassSession } from "../../src/lib/autoPassSession";
 
 type QuizAttemptTestApi = {
   reset: () => void;
@@ -114,6 +115,22 @@ type QuizAttemptTestApi = {
   ) => string;
   createEmptySourceAnswerData: () => SourceAnswerData;
   createEmptyVariantCounts: () => AnswerVariantCounts;
+  applyAutoPassStorageChanges: (
+    changes: Record<string, { newValue?: unknown } | undefined>,
+  ) => void;
+  continueAutoPass: () => Promise<void>;
+  ensureAutoPassStartButton: () => boolean;
+  getAutoPassSessionState: () => AutoPassSession | null;
+  handleAutoPassSummaryPage: () => Promise<void>;
+  navigateToNextPage: () => void;
+  resetAutoPassState: () => void;
+  resumeAutoPassOnAttemptPage: () => Promise<void>;
+  runAutoPassOnConfirmationPage: () => Promise<void>;
+  runAutoPassPage: () => Promise<void>;
+  startAutoPassForCurrentAttempt: () => Promise<void>;
+  startAutoPassFromViewPage: () => Promise<void>;
+  stopAutoPass: () => Promise<void>;
+  watchAutoPassStartButtonMount: () => void;
 };
 
 export async function getQuizAttemptTestApi() {
