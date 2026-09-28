@@ -16,6 +16,7 @@ import {
   type UserProfile,
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
+import { AiAccessModeIcon, type AiAccessMode } from "./AiAccessModeIcon";
 import { AiProviderIcon } from "./AiProviderIcon";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
@@ -292,6 +293,7 @@ export function MainScreen({
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("main");
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
+  const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>("custom");
   const [aiDraft, setAiDraft] = useState<AiSettings>(() => normalizeAiSettings(settings.ai));
   const [aiTestState, setAiTestState] = useState<AiTestState>({
     status: settings.ai.connectionVerified ? "saved" : "idle",
@@ -767,131 +769,177 @@ export function MainScreen({
                   </>
                 )}
               </div>
-            </div>
-            <div className="ai-settings-form">
-              <div className="ai-field">
-                <span>{t("settings.ai.provider")}</span>
-                <div
-                  className="ai-provider-tabs"
-                  role="radiogroup"
-                  aria-label={t("settings.ai.provider")}
-                >
-                  {AI_PROVIDER_OPTIONS.map((provider) => {
-                    const active = aiDraft.provider === provider.value;
-
-                    return (
-                      <button
-                        key={provider.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        aria-label={getAiProviderLabel(provider.value, t)}
-                        className={`ai-provider-tab${active ? " ai-provider-tab--active" : ""}`}
-                        onClick={() => {
-                          if (!active) {
-                            updateAiProvider(provider.value);
-                          }
-                        }}
-                      >
-                        <span className="ai-provider-tab__icon" aria-hidden="true">
-                          <AiProviderIcon provider={provider.value} />
-                        </span>
-                        <span className="ai-provider-tab__label">
-                          {getAiProviderLabel(provider.value, t)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {isCustomProvider ? (
-                <>
-                  <label className="ai-field">
-                    <span>{t("settings.ai.customEndpoint")}</span>
-                    <input
-                      className="ai-input"
-                      type="text"
-                      value={aiDraft.customEndpoint ?? ""}
-                      placeholder="https://api.example.com/v1/chat/completions"
-                      autoComplete="off"
-                      onChange={(event) => updateAiDraft({ customEndpoint: event.target.value })}
-                    />
-                  </label>
-                  <label className="ai-field">
-                    <span>{t("settings.ai.customModelName")}</span>
-                    <input
-                      className="ai-input"
-                      type="text"
-                      value={aiDraft.customModelName ?? ""}
-                      placeholder={t("settings.ai.customModelPlaceholder")}
-                      autoComplete="off"
-                      onChange={(event) => updateAiDraft({ customModelName: event.target.value })}
-                    />
-                  </label>
-                </>
-              ) : (
-                <div className="ai-field">
-                  <span>{t("settings.ai.model")}</span>
-                  <CustomSelect
-                    value={aiDraft.model}
-                    options={
-                      aiModelOptions.length === 0
-                        ? [{ value: "", label: t("settings.ai.modelEmpty"), disabled: true }]
-                        : aiModelOptions.map((model) => ({
-                            value: model.value,
-                            label: model.label,
-                          }))
-                    }
-                    onChange={(model) => updateAiDraft({ model })}
-                    ariaLabel={t("settings.ai.model")}
-                    listLabel={t("settings.ai.model")}
-                  />
-                </div>
-              )}
-              <label className="ai-field ai-field--key">
-                <span>{t("settings.ai.apiKey")}</span>
-                <input
-                  className="ai-input"
-                  type="password"
-                  value={aiDraft.apiKey}
-                  placeholder={t("settings.ai.apiKeyPlaceholder")}
-                  autoComplete="off"
-                  onChange={(event) => updateAiDraft({ apiKey: event.target.value })}
+              <TabCardGroup label={t("settings.ai.mode.title")} columns={2}>
+                <TabCard
+                  icon={<AiAccessModeIcon mode="official" />}
+                  label={t("settings.ai.mode.official")}
+                  active={aiAccessMode === "official"}
+                  onClick={() => setAiAccessMode("official")}
                 />
-              </label>
-              <div className="ai-settings-actions">
-                <Button
-                  className="secondary-wide-button"
-                  variant="outline"
-                  disabled={!canTestAiConnection}
-                  onClick={handleTestAiConnection}
-                >
-                  {isAiConnectionChecking
-                    ? t("settings.ai.actions.checking")
-                    : t("settings.ai.actions.test")}
-                </Button>
-                <Button
-                  className="secondary-wide-button"
-                  variant="outline"
-                  disabled={!canSaveAiSettings}
-                  onClick={handleSaveAiSettings}
-                >
-                  {t("settings.ai.actions.save")}
-                </Button>
-              </div>
-              {aiTestState.message && (
-                <p className={`ai-status ai-status--${aiTestState.status}`}>
-                  {aiTestState.message}
-                </p>
-              )}
-              {aiModelsState.provider === aiDraft.provider && aiModelsState.message && (
-                <p
-                  className={`ai-status ai-status--${aiModelsState.status === "error" ? "error" : "success"}`}
-                >
-                  {aiModelsState.message}
-                </p>
-              )}
+                <TabCard
+                  icon={<AiAccessModeIcon mode="custom" />}
+                  label={t("settings.ai.mode.custom")}
+                  active={aiAccessMode === "custom"}
+                  onClick={() => setAiAccessMode("custom")}
+                />
+              </TabCardGroup>
             </div>
+            {aiAccessMode === "custom" ? (
+              <div className="ai-settings-form">
+                <div className="ai-field">
+                  <span>{t("settings.ai.provider")}</span>
+                  <div
+                    className="ai-provider-tabs"
+                    role="radiogroup"
+                    aria-label={t("settings.ai.provider")}
+                  >
+                    {AI_PROVIDER_OPTIONS.map((provider) => {
+                      const active = aiDraft.provider === provider.value;
+
+                      return (
+                        <button
+                          key={provider.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          aria-label={getAiProviderLabel(provider.value, t)}
+                          className={`ai-provider-tab${active ? " ai-provider-tab--active" : ""}`}
+                          onClick={() => {
+                            if (!active) {
+                              updateAiProvider(provider.value);
+                            }
+                          }}
+                        >
+                          <span className="ai-provider-tab__icon" aria-hidden="true">
+                            <AiProviderIcon provider={provider.value} />
+                          </span>
+                          <span className="ai-provider-tab__label">
+                            {getAiProviderLabel(provider.value, t)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {isCustomProvider ? (
+                  <>
+                    <label className="ai-field">
+                      <span>{t("settings.ai.customEndpoint")}</span>
+                      <input
+                        className="ai-input"
+                        type="text"
+                        value={aiDraft.customEndpoint ?? ""}
+                        placeholder="https://api.example.com/v1/chat/completions"
+                        autoComplete="off"
+                        onChange={(event) => updateAiDraft({ customEndpoint: event.target.value })}
+                      />
+                    </label>
+                    <label className="ai-field">
+                      <span>{t("settings.ai.customModelName")}</span>
+                      <input
+                        className="ai-input"
+                        type="text"
+                        value={aiDraft.customModelName ?? ""}
+                        placeholder={t("settings.ai.customModelPlaceholder")}
+                        autoComplete="off"
+                        onChange={(event) => updateAiDraft({ customModelName: event.target.value })}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <div className="ai-field">
+                    <span>{t("settings.ai.model")}</span>
+                    <CustomSelect
+                      value={aiDraft.model}
+                      options={
+                        aiModelOptions.length === 0
+                          ? [{ value: "", label: t("settings.ai.modelEmpty"), disabled: true }]
+                          : aiModelOptions.map((model) => ({
+                              value: model.value,
+                              label: model.label,
+                            }))
+                      }
+                      onChange={(model) => updateAiDraft({ model })}
+                      ariaLabel={t("settings.ai.model")}
+                      listLabel={t("settings.ai.model")}
+                    />
+                  </div>
+                )}
+                <label className="ai-field ai-field--key">
+                  <span>{t("settings.ai.apiKey")}</span>
+                  <input
+                    className="ai-input"
+                    type="password"
+                    value={aiDraft.apiKey}
+                    placeholder={t("settings.ai.apiKeyPlaceholder")}
+                    autoComplete="off"
+                    onChange={(event) => updateAiDraft({ apiKey: event.target.value })}
+                  />
+                </label>
+                <div className="ai-settings-actions">
+                  <Button
+                    className="secondary-wide-button"
+                    variant="outline"
+                    disabled={!canTestAiConnection}
+                    onClick={handleTestAiConnection}
+                  >
+                    {isAiConnectionChecking
+                      ? t("settings.ai.actions.checking")
+                      : t("settings.ai.actions.test")}
+                  </Button>
+                  <Button
+                    className="secondary-wide-button"
+                    variant="outline"
+                    disabled={!canSaveAiSettings}
+                    onClick={handleSaveAiSettings}
+                  >
+                    {t("settings.ai.actions.save")}
+                  </Button>
+                </div>
+                {aiTestState.message && (
+                  <p className={`ai-status ai-status--${aiTestState.status}`}>
+                    {aiTestState.message}
+                  </p>
+                )}
+                {aiModelsState.provider === aiDraft.provider && aiModelsState.message && (
+                  <p
+                    className={`ai-status ai-status--${aiModelsState.status === "error" ? "error" : "success"}`}
+                  >
+                    {aiModelsState.message}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="ai-settings-form ai-official">
+                <div className="ai-official__head">
+                  <span className="ai-official__badge">{t("settings.ai.official.badge")}</span>
+                  <h3>{t("settings.ai.official.title")}</h3>
+                </div>
+                <p className="ai-official__desc">{t("settings.ai.official.line1")}</p>
+                <div className="ai-official__quota">
+                  <span className="ai-official__quota-label">
+                    {t("settings.ai.official.quotaTitle")}
+                  </span>
+                  <span className="ai-official__quota-value">
+                    {t("settings.ai.official.quotaValue")}
+                  </span>
+                  <div className="ai-official__bar">
+                    <div className="ai-official__bar-fill" />
+                  </div>
+                  <span className="ai-official__quota-hint">
+                    {t("settings.ai.official.quotaHint")}
+                  </span>
+                </div>
+                <div className="ai-settings-actions">
+                  <Button className="secondary-wide-button" variant="outline" disabled>
+                    {t("settings.ai.actions.test")}
+                  </Button>
+                  <Button className="secondary-wide-button" variant="outline" disabled>
+                    {t("settings.ai.official.connect")}
+                  </Button>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       );
