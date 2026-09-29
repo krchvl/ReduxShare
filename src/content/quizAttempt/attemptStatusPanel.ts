@@ -61,6 +61,14 @@ let attemptStatusPanelTrayOpen = false;
 let attemptStatusPanelSolveAllResult: string | null = null;
 let attemptStatusPanelSolveAllResultTimeoutId: number | null = null;
 
+// Тур онбординга рендерит панель на демо-странице вне attempt-URL; флаг снимает
+// только URL-гейт — остальные гейты (stealth, сессия) работают как обычно.
+let attemptStatusPanelTourMode = false;
+
+export function setAttemptStatusPanelTourMode(enabled: boolean) {
+  attemptStatusPanelTourMode = enabled;
+}
+
 let attemptStatusPanelClosedInSession = false;
 let attemptStatusPanelInteractionListenerInstalled = false;
 let attemptStatusPanelResizeListenerInstalled = false;
@@ -1973,7 +1981,7 @@ export function updateAttemptStatusPanelProgress() {
 
 export function renderAttemptStatusPanel() {
   if (
-    !isQuizAttemptUrl(window.location) ||
+    (!attemptStatusPanelTourMode && !isQuizAttemptUrl(window.location)) ||
     stealthModeEnabled ||
     !canUseQuizFeatures(currentStoredState)
   ) {

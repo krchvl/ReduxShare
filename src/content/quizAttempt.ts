@@ -177,6 +177,7 @@ import {
   renderAttemptStatusPanel,
   resetAttemptStatusPanelState,
   setAttemptStatusPanelClosedInSession,
+  setAttemptStatusPanelTourMode,
 } from "./quizAttempt/attemptStatusPanel";
 import {
   isQuizAttemptUrl,
@@ -313,6 +314,9 @@ declare global {
         mountAnswerWidgets: typeof mountAnswerWidgets;
         createAnswerWidgetHost: typeof createAnswerWidgetHost;
         getAnswerMenuMarkup: typeof getAnswerMenuMarkup;
+        mountAttemptStatusPanelForTour: typeof mountAttemptStatusPanelForTour;
+        openAnswerMenuForQuestion: typeof openAnswerMenuForQuestion;
+        syncStealthMode: typeof syncStealthMode;
         computeAutoSelectDelayMs: typeof computeAutoSelectDelayMs;
         estimateQuestionReadingSeconds: typeof estimateQuestionReadingSeconds;
         getQuestionBehaviour: typeof getQuestionBehaviour;
@@ -2920,6 +2924,51 @@ function resetQuizAttemptTestState() {
   void syncAttemptStatusPanelClosedState(currentStoredState);
 }
 
+// Тур онбординга: статус-панель рендерится на демо-странице вне attempt-URL.
+function mountAttemptStatusPanelForTour() {
+  setAttemptStatusPanelTourMode(true);
+  renderAttemptStatusPanel();
+}
+
+// Тур онбординга: программное открытие R-меню у вопроса (для автодемо-шагов).
+// У multichoice все виджеты inline (по варианту) — берём первый хост вопроса
+// в порядке монтирования, как если бы пользователь кликнул сам.
+function openAnswerMenuForQuestion(
+  questionId: string | null,
+  tab?: "internal" | "external" | "ai",
+): boolean {
+  for (const [host, state] of answerWidgetStates) {
+    if ((state.questionId ?? null) !== (questionId ?? null)) {
+      continue;
+    }
+
+    const trigger = host.shadowRoot?.querySelector(".trigger");
+
+    if (!(trigger instanceof HTMLButtonElement)) {
+      continue;
+    }
+
+    openAnswerMenuPortal(
+      trigger,
+      host.style.getPropertyValue("--reduxshare-accent"),
+      state.answerData,
+      state.questionId ?? questionId,
+    );
+
+    if (tab) {
+      const portal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);
+
+      portal?.shadowRoot
+        ?.querySelector<HTMLButtonElement>(`.menu-tab[data-menu-tab="${tab}"]`)
+        ?.click();
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 function installQuizAttemptTestApi() {
   globalThis.__reduxshareQuizAttemptTestApi = {
     reset: resetQuizAttemptTestState,
@@ -2944,6 +2993,9 @@ function installQuizAttemptTestApi() {
     mountAnswerWidgets,
     createAnswerWidgetHost,
     getAnswerMenuMarkup,
+    mountAttemptStatusPanelForTour,
+    openAnswerMenuForQuestion,
+    syncStealthMode,
     computeAutoSelectDelayMs,
     parseQuizTimeLeftSeconds,
     scheduleAutoSelectAnswer,

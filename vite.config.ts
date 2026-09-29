@@ -13,6 +13,7 @@ const entryPoints: Record<string, string> = contentPass
     }
   : {
       popup: resolve(__dirname, "index.html"),
+      onboarding: resolve(__dirname, "onboarding.html"),
       external: resolve(__dirname, "src/background/external.ts"),
     };
 

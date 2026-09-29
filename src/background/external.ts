@@ -53,6 +53,7 @@ import {
   type ExternalVariantsPayload,
 } from "../lib/externalProvider";
 import { getRequestErrorMessage, getTranslator, type TranslationKey } from "../i18n";
+import { handleRuntimeInstalled } from "./onboardingInstall";
 import {
   UPDATE_ALARM_NAME,
   UPDATE_CHECK_INTERVAL_MS,
@@ -1606,7 +1607,8 @@ if (chrome.storage?.onChanged) {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
+  handleRuntimeInstalled(details);
   ensureUpdateAlarm();
   void checkForUpdates({ force: true, reason: "installed" });
 });
