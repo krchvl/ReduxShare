@@ -11,5 +11,6 @@ dist/
 coverage/
 agents/
 docs/
+AGENTS.md
 
 .zcode/
