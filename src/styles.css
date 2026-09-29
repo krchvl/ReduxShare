@@ -1301,7 +1301,7 @@ button:focus-visible {
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: var(--input-color);
+  background: var(--background-panel-soft);
   color: var(--white);
   font-size: 14px;
   line-height: 1.2;
@@ -1315,14 +1315,14 @@ button:focus-visible {
 }
 
 .cselect__trigger:hover {
-  background: color-mix(in srgb, var(--accent) 6%, var(--input-color));
+  background: color-mix(in srgb, var(--accent) 6%, var(--background-panel-soft));
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
   transform: translateY(-1px);
 }
 
 .cselect__trigger[aria-expanded="true"] {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--input-color));
+  background: color-mix(in srgb, var(--accent) 8%, var(--background-panel-soft));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
@@ -1374,7 +1374,7 @@ button:focus-visible {
   border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
   border-radius: 12px;
   padding: 6px;
-  background: var(--input-color);
+  background: var(--background-panel-soft);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
   transform-origin: top right;
   will-change: opacity, transform;
