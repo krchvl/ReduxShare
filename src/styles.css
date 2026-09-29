@@ -726,8 +726,57 @@ button:focus-visible {
 
 .opacity-slider {
   width: 140px;
-  accent-color: var(--accent);
+  height: 16px;
+  --slider-fill: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
   cursor: pointer;
+}
+
+.opacity-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--slider-fill),
+    var(--border-strong) var(--slider-fill)
+  );
+}
+
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--background-panel);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.opacity-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--slider-fill),
+    var(--border-strong) var(--slider-fill)
+  );
+}
+
+.opacity-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--background-panel);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.opacity-slider:focus-visible {
+  outline: 1px solid var(--white);
+  outline-offset: 2px;
 }
 
 .opacity-value {

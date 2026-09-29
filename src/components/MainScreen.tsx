@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
 import {
@@ -1145,6 +1145,16 @@ export function MainScreen({
                       step={1}
                       value={autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds)}
                       aria-label={t("settings.autoselectAvg.title")}
+                      style={
+                        {
+                          "--slider-fill": `${
+                            ((autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds) -
+                              AUTO_SELECT_SLIDER_POSITION_MIN) *
+                              100) /
+                            (AUTO_SELECT_SLIDER_POSITION_MAX - AUTO_SELECT_SLIDER_POSITION_MIN)
+                          }%`,
+                        } as CSSProperties
+                      }
                       onChange={(event) =>
                         updateSetting(
                           "autoSelectAvgSeconds",
