@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { Header } from "./Header";
 import type { UpdateState } from "../types";
 
@@ -30,6 +30,18 @@ export function Shell({
   popupOpacity,
 }: ShellProps) {
   const effectiveAccentColor = extensionEnabled ? accentColor : DISABLED_ACCENT_COLOR;
+
+  // --accent-strong in styles.css lives on :root[data-theme="light"], so the
+  // accent variables must be set on the document element for it to resolve.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--accent", effectiveAccentColor);
+    root.style.setProperty("--accent-soft", mixHexWithWhite(effectiveAccentColor, 0.28));
+    return () => {
+      root.style.removeProperty("--accent");
+      root.style.removeProperty("--accent-soft");
+    };
+  }, [effectiveAccentColor]);
 
   return (
     <main
