@@ -63,7 +63,7 @@
   "settings.ai.provider": "Провайдер",
   "settings.ai.provider.custom": "Кастомный",
   "settings.ai.model": "Модель",
-  "settings.ai.modelEmpty": "Сначала введите ключ — список подгрузится",
+  "settings.ai.modelEmpty": "Введите ключ",
   "settings.ai.apiKey": "API ключ",
   "settings.ai.apiKeyPlaceholder": "API ключ...",
   "settings.ai.customEndpoint": "Эндпоинт",
