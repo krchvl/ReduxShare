@@ -89,7 +89,7 @@ describe("auto pass start button on the quiz view page", () => {
     expect(host.hidden).toBe(false);
 
     const label = host.shadowRoot!.querySelector<HTMLElement>(".apx-trigger-label")!;
-    expect(label.textContent).toBe("Пройти автоматически");
+    expect(label.textContent).toBe("Автоматически решить весь тест");
 
     const moodleSubmit = document.querySelector<HTMLInputElement>("#moodle-start-button")!;
     const submitClickSpy = vi.spyOn(moodleSubmit, "click");

@@ -12,7 +12,6 @@ import { setCurrentStoredState } from "../src/state";
 import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
 
 const PANEL_HOST_ID = "reduxshare-attempt-status-panel";
-const SOLVE_ALL_RESULT_VISIBLE_MS = 2500;
 
 function baseStoredState(authenticated: boolean) {
   return {
@@ -48,12 +47,6 @@ function getChoiceInput(id: string) {
   return input as HTMLInputElement;
 }
 
-function countDelayProgressBars() {
-  return Array.from(
-    document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
-  ).filter((host) => host.shadowRoot?.querySelector(".delay-progress")).length;
-}
-
 function mountMultichoiceWithExactSlots(api: Awaited<ReturnType<typeof getQuizAttemptTestApi>>) {
   loadQuestionFixture("multichoice", "attempt");
   removeFixtureWidgetPlaceholders();
@@ -72,60 +65,30 @@ function mountMultichoiceWithExactSlots(api: Awaited<ReturnType<typeof getQuizAt
   api.mountAnswerWidgets("#5eead4");
 }
 
-describe("solve-all tray action", () => {
-  it("applies every exact answer at once from the tray, cancels pending schedules and flashes the result", async () => {
-    vi.useFakeTimers();
-    try {
-      window.history.pushState({}, "", "/mod/quiz/attempt.php?attempt=91&cmid=978");
+describe("auto-pass tray action", () => {
+  it("keeps only the auto-pass action in the tray and labels it as the whole-test solver", async () => {
+    window.history.pushState({}, "", "/mod/quiz/attempt.php?attempt=91&cmid=978");
 
-      const api = await getQuizAttemptTestApi();
-      api.reset();
+    const api = await getQuizAttemptTestApi();
+    api.reset();
 
-      const state = baseStoredState(true);
-      api.setStoredState(state);
-      setCurrentStoredState(state);
-      syncLanguage(state);
-      syncStealthMode(state);
+    const state = baseStoredState(true);
+    api.setStoredState(state);
+    setCurrentStoredState(state);
+    syncLanguage(state);
+    syncStealthMode(state);
 
-      mountMultichoiceWithExactSlots(api);
+    mountMultichoiceWithExactSlots(api);
 
-      const questionNode = document.querySelector(".que");
-      expect(questionNode).toBeInstanceOf(Element);
+    const shadow = getPanelShadow();
+    shadow.querySelector<HTMLButtonElement>(".settings-ear")!.click();
 
-      expect(api.scheduleAutoSelectAnswer("1385", questionNode as Element, state, false)).toBe(
-        true,
-      );
-      expect(countDelayProgressBars()).toBeGreaterThan(0);
-      expect(getChoiceInput("q125:1_choice3").checked).toBe(false);
+    expect(shadow.querySelector('[data-tray-action="solveAll"]')).toBeNull();
 
-      const shadow = getPanelShadow();
-      shadow.querySelector<HTMLButtonElement>(".settings-ear")!.click();
-
-      const action = shadow.querySelector<HTMLButtonElement>('[data-tray-action="solveAll"]')!;
-      expect(action).toBeInstanceOf(HTMLButtonElement);
-      expect(action.getAttribute("title")).toBe("Решить весь тест");
-      expect(action.hasAttribute("data-result")).toBe(false);
-
-      action.click();
-
-      expect(getChoiceInput("q125:1_choice0").checked).toBe(false);
-      expect(getChoiceInput("q125:1_choice1").checked).toBe(false);
-      expect(getChoiceInput("q125:1_choice2").checked).toBe(false);
-      expect(getChoiceInput("q125:1_choice3").checked).toBe(true);
-      expect(countDelayProgressBars()).toBe(0);
-      expect((questionNode as HTMLElement).dataset.reduxshareAutoSelected).toBe("true");
-
-      expect(action.getAttribute("title")).toBe("Применено: 1 из 1");
-      expect(action.getAttribute("aria-label")).toBe("Применено: 1 из 1");
-      expect(action.hasAttribute("data-result")).toBe(true);
-
-      await vi.advanceTimersByTimeAsync(SOLVE_ALL_RESULT_VISIBLE_MS + 100);
-
-      expect(action.getAttribute("title")).toBe("Решить весь тест");
-      expect(action.hasAttribute("data-result")).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
+    const autoPass = shadow.querySelector<HTMLButtonElement>('[data-tray-action="autoPass"]')!;
+    expect(autoPass).toBeInstanceOf(HTMLButtonElement);
+    expect(autoPass.getAttribute("title")).toBe("Автоматически решить весь тест");
+    expect(autoPass.getAttribute("aria-label")).toBe("Автоматически решить весь тест");
   });
 
   it("returns applied/total counts, works with auto-select disabled and skips questions without exact data", async () => {

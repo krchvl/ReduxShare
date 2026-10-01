@@ -123,7 +123,7 @@ describe("auto pass tray controls", () => {
     )!;
 
     expect(tray.dataset.mode).toBe("idle");
-    expect(autoPassAction.getAttribute("title")).toBe("Пройти автоматически");
+    expect(autoPassAction.getAttribute("title")).toBe("Автоматически решить весь тест");
 
     const setMock = chrome.storage.local.set as unknown as Mock;
     setMock.mockClear();

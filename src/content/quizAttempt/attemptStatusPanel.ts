@@ -32,7 +32,6 @@ import {
   getDdimageOrTextSelectedLabelForDrop,
 } from "./ddimageortext";
 import { getChoiceAnswerInputs, getTextAnswerInputs } from "./answerControls";
-import { applyAllExactAnswersNow, type ApplyAllExactAnswersResult } from "./autoSelect";
 import {
   continueAutoPass,
   getAutoPassPauseInfo,
@@ -53,13 +52,10 @@ import { patchStoredState } from "../../lib/storage";
 const ATTEMPT_STATUS_PANEL_ID = "reduxshare-attempt-status-panel";
 const ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY = "reduxshareAttemptStatusPanelCollapsed";
 const ATTEMPT_STATUS_PANEL_POSITION_STORAGE_KEY = "reduxshareAttemptStatusPanelPosition";
-const SOLVE_ALL_RESULT_VISIBLE_MS = 2500;
 
 let attemptStatusPanelClockId: number | null = null;
 let attemptStatusPanelCollapsed = false;
 let attemptStatusPanelTrayOpen = false;
-let attemptStatusPanelSolveAllResult: string | null = null;
-let attemptStatusPanelSolveAllResultTimeoutId: number | null = null;
 
 let attemptStatusPanelTourMode = false;
 
@@ -92,7 +88,6 @@ let attemptStatusPanelDragState: {
 export function resetAttemptStatusPanelState() {
   attemptStatusPanelCollapsed = false;
   attemptStatusPanelTrayOpen = false;
-  clearAttemptStatusPanelSolveAllResult();
   attemptStatusPanelClosedInSession = false;
   removeAttemptStatusPanel();
 }
@@ -1168,12 +1163,6 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           left: -12px;
         }
 
-        .settings-ear:hover {
-          background: rgba(var(--reduxshare-panel-accent-rgb), 0.14);
-          border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.4);
-          box-shadow: 0 8px 20px rgba(var(--reduxshare-panel-accent-rgb), 0.16);
-        }
-
         .settings-ear:active {
           transform: scale(0.95);
         }
@@ -1757,11 +1746,6 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
               <path d="M5 15h-.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5" />
             </svg>
           </button>
-          <button class="tray-action" type="button" data-tray-action="solveAll">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4.5 12.75 9.75 18 19.5 6.75" />
-            </svg>
-          </button>
           <button class="tray-action" type="button" data-tray-action="autoPass" data-mode="idle">
             <svg class="auto-pass-icon auto-pass-icon--play" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M9 6.5v11l9-5.5-9-5.5Z" />
@@ -1866,11 +1850,6 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         if (target?.closest('[data-tray-action="copyUnlock"]')) {
           void setCopyUnlockSetting(currentStoredState?.settings?.copyUnlock !== true);
-          return;
-        }
-
-        if (target?.closest('[data-tray-action="solveAll"]')) {
-          runSolveAllTrayAction();
           return;
         }
 
@@ -2087,18 +2066,6 @@ export function renderAttemptStatusPanel() {
     copyUnlockAction.setAttribute("aria-pressed", copyUnlockEnabled ? "true" : "false");
     copyUnlockAction.setAttribute("aria-label", currentT("quiz.panel.copyUnlockTitle"));
     copyUnlockAction.setAttribute("title", currentT("quiz.panel.copyUnlockTitle"));
-  }
-
-  const solveAllAction = shadowRoot.querySelector<HTMLButtonElement>(
-    '[data-tray-action="solveAll"]',
-  );
-
-  if (solveAllAction) {
-    const solveAllLabel = attemptStatusPanelSolveAllResult ?? currentT("quiz.panel.solveAllTitle");
-
-    solveAllAction.setAttribute("aria-label", solveAllLabel);
-    solveAllAction.setAttribute("title", solveAllLabel);
-    solveAllAction.toggleAttribute("data-result", attemptStatusPanelSolveAllResult !== null);
   }
 
   const autoPassMode = getAutoPassTrayMode();
@@ -2389,34 +2356,6 @@ export function setAttemptStatusPanelTrayOpen(open: boolean) {
 
   attemptStatusPanelTrayOpen = open;
   renderAttemptStatusPanel();
-}
-
-function clearAttemptStatusPanelSolveAllResult() {
-  if (attemptStatusPanelSolveAllResultTimeoutId !== null) {
-    window.clearTimeout(attemptStatusPanelSolveAllResultTimeoutId);
-    attemptStatusPanelSolveAllResultTimeoutId = null;
-  }
-
-  attemptStatusPanelSolveAllResult = null;
-}
-
-function showAttemptStatusPanelSolveAllResult(result: ApplyAllExactAnswersResult) {
-  clearAttemptStatusPanelSolveAllResult();
-  attemptStatusPanelSolveAllResult = currentT("quiz.panel.solveAllResult", {
-    applied: result.applied,
-    total: result.total,
-  });
-  renderAttemptStatusPanel();
-
-  attemptStatusPanelSolveAllResultTimeoutId = window.setTimeout(() => {
-    attemptStatusPanelSolveAllResultTimeoutId = null;
-    attemptStatusPanelSolveAllResult = null;
-    renderAttemptStatusPanel();
-  }, SOLVE_ALL_RESULT_VISIBLE_MS);
-}
-
-function runSolveAllTrayAction() {
-  showAttemptStatusPanelSolveAllResult(applyAllExactAnswersNow(currentStoredState));
 }
 
 export async function setCopyUnlockSetting(enabled: boolean) {
