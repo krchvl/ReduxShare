@@ -73,14 +73,14 @@ describe("MainScreen security tab", () => {
 
     const copyUnlockSwitch = getCopyUnlockSwitch();
     expect(copyUnlockSwitch).toBeInstanceOf(HTMLButtonElement);
-    expect(copyUnlockSwitch!.getAttribute("aria-checked")).toBe("false");
+    expect(copyUnlockSwitch!.getAttribute("aria-checked")).toBe("true");
 
     act(() => {
       copyUnlockSwitch!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onSettingsChange).toHaveBeenCalledTimes(1);
-    expect(onSettingsChange.mock.calls[0][0]).toMatchObject({ copyUnlock: true });
+    expect(onSettingsChange.mock.calls[0][0]).toMatchObject({ copyUnlock: false });
   });
 
   it("reflects the enabled copy unlock state", () => {

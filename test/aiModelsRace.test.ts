@@ -28,6 +28,7 @@ const baseSettings: Settings = {
     apiKey: "test-key",
     model: getDefaultAiModelForProvider("google"),
     connectionVerified: true,
+    accessMode: "custom",
   },
 };
 

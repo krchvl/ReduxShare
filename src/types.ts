@@ -184,7 +184,7 @@ export interface StoredState {
 export const DEFAULT_SETTINGS: Settings = {
   extensionEnabled: true,
   stealthMode: false,
-  copyUnlock: false,
+  copyUnlock: true,
   autoSelect: true,
   autoSelectAvgSeconds: 4,
   humanTyping: true,
@@ -207,7 +207,7 @@ export const DEFAULT_SETTINGS: Settings = {
     apiKey: "",
     connectionVerified: false,
     verifiedAt: null,
-    accessMode: "custom",
+    accessMode: "official",
   },
 };
 
@@ -308,8 +308,7 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
     settings?.connectionVerified && apiKey && verifiedAt && hasConnectionTarget,
   );
 
-  const accessMode: AiAccessModeSetting =
-    settings?.accessMode === "official" ? "official" : "custom";
+  const accessMode: AiAccessModeSetting = settings?.accessMode === "custom" ? "custom" : "official";
 
   return {
     provider,

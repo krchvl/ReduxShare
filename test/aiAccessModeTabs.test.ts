@@ -82,7 +82,7 @@ describe("MainScreen AI access mode tabs", () => {
     container = null;
   });
 
-  it("defaults to the custom mode with the provider form visible", () => {
+  it("defaults to the official mode with the official panel visible", () => {
     renderMainScreen();
     openAiTab();
 
@@ -90,12 +90,12 @@ describe("MainScreen AI access mode tabs", () => {
       `.tab-card[aria-label="Official"]`,
     );
     const custom = container!.querySelector<HTMLButtonElement>(`.tab-card[aria-label="Custom"]`);
-    expect(official?.getAttribute("aria-checked")).toBe("false");
-    expect(custom?.getAttribute("aria-checked")).toBe("true");
+    expect(official?.getAttribute("aria-checked")).toBe("true");
+    expect(custom?.getAttribute("aria-checked")).toBe("false");
 
-    expect(container!.querySelector(".ai-provider-tab")).toBeTruthy();
-    expect(container!.querySelector(".ai-input[type='password']")).toBeTruthy();
-    expect(container!.querySelector(".ai-official")).toBeNull();
+    expect(container!.querySelector(".ai-provider-tab")).toBeNull();
+    expect(container!.querySelector(".ai-input[type='password']")).toBeNull();
+    expect(container!.querySelector(".ai-official")).toBeTruthy();
   });
 
   it("shows the mock official panel when the official tab is selected", () => {
