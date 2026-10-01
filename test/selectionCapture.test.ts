@@ -129,6 +129,24 @@ describe("user answer selection capture", () => {
     expect(payloads[1][0].verdict).toBe("incorrect");
   });
 
+  it("ignores external exact answers when resolving the verdict", async () => {
+    const api = await getQuizAttemptTestApi();
+    await seedStoredState();
+    const questionNode = loadQuestionFixture("multichoice", "attempt");
+    const checkbox = questionNode.querySelector<HTMLInputElement>('input[type="checkbox"]');
+
+    api.setSourceAnswerData("1385", "external", {
+      ...emptyAnswerData(),
+      suggestions: [exactSuggestion("63 percent of the time.")],
+    });
+
+    checkbox!.checked = true;
+    checkbox!.dispatchEvent(new Event("change", { bubbles: true }));
+    await api.flushQuestionSelections(questionNode);
+
+    expect(getSentSelectionPayloads()[0][0].verdict).toBe("unknown");
+  });
+
   it("does not resend already tracked selections", async () => {
     const api = await getQuizAttemptTestApi();
     await seedStoredState();

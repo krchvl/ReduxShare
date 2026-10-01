@@ -181,12 +181,6 @@ export async function flushQuestionSelections(questionNode: Element) {
   }
 }
 
-function getPreferredSelectionSource(answerData: SourceAnswerData): AnswerData {
-  return getPreferredSuggestionLabels(answerData.reduxshare.suggestions).length > 0
-    ? answerData.reduxshare
-    : answerData.external;
-}
-
 function getExactLabelsForObservation(source: AnswerData, observation: ReviewObservation) {
   if (observation.slotIndex !== null) {
     const slot = getAnswerSlotByIndex(source, observation.slotIndex);
@@ -207,10 +201,7 @@ export function resolveSelectionVerdict(
     return "unknown";
   }
 
-  const exactLabels = getExactLabelsForObservation(
-    getPreferredSelectionSource(answerData),
-    observation,
-  );
+  const exactLabels = getExactLabelsForObservation(answerData.reduxshare, observation);
 
   if (exactLabels.length === 0) {
     return "unknown";
