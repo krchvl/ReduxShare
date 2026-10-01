@@ -2,13 +2,16 @@ import {
   AI_DISABLED_QUESTION_TYPES,
   type GenerateAiAnswerPayload,
   isFetchAiModelsMessage,
+  isFetchAiUsageMessage,
   isGenerateAiAnswerMessage,
   isTestAiConnectionMessage,
   type AiModelsResponse,
   type AiResponse,
+  type AiUsageResponse,
 } from "../lib/ai";
 import {
   fetchAiModelOptions,
+  fetchOfficialAiUsage,
   generateAiAnswer,
   hasUsableAiSettings,
   testAiConnection,
@@ -1297,8 +1300,16 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
     connectionVerified: true,
     verifiedAt: new Date().toISOString(),
   });
+  const authSession = getStoredAuthSession(storedState);
 
-  if (!aiSettings.apiKey) {
+  if (aiSettings.accessMode === "official") {
+    if (!authSession) {
+      return {
+        ok: false,
+        error: t("errors.aiOfficialUnauthorized"),
+      };
+    }
+  } else if (!aiSettings.apiKey) {
     return {
       ok: false,
       error: t("errors.aiApiKeyMissing"),
@@ -1306,11 +1317,15 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
   }
 
   try {
-    await testAiConnection(aiSettings);
+    const outcome = await testAiConnection(aiSettings, { authSession: authSession ?? null });
+
+    if (outcome.authSession) {
+      await saveStoredStatePatch({ authSession: outcome.authSession });
+    }
 
     return {
       ok: true,
-      answer: "OK",
+      answer: outcome.text,
     };
   } catch (error) {
     return {
@@ -1351,11 +1366,19 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
   const storedState = await loadStoredState();
   const t = getTranslator(storedState.settings?.language);
   const aiSettings = normalizeAiSettings(storedState.settings?.ai);
+  const authSession = getStoredAuthSession(storedState);
 
   if (payload.questionType && AI_DISABLED_QUESTION_TYPES.has(payload.questionType)) {
     return {
       ok: false,
       error: t("errors.aiQuestionTypeUnsupported"),
+    };
+  }
+
+  if (aiSettings.accessMode === "official" && !authSession) {
+    return {
+      ok: false,
+      error: t("errors.aiOfficialUnauthorized"),
     };
   }
 
@@ -1367,13 +1390,50 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
   }
 
   try {
-    const aiAnswer = await generateAiAnswer(aiSettings, payload);
+    const aiAnswer = await generateAiAnswer(aiSettings, payload, { authSession });
+
+    if (aiAnswer.authSession) {
+      await saveStoredStatePatch({ authSession: aiAnswer.authSession });
+    }
 
     return {
       ok: true,
       answer: aiAnswer.answer,
       confidence: aiAnswer.confidence,
       actions: aiAnswer.actions,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: getRequestErrorMessage(
+        error,
+        storedState.settings?.language,
+        "errors.aiRequestFailed",
+      ),
+    };
+  }
+}
+
+async function handleFetchAiUsage(): Promise<AiUsageResponse> {
+  const storedState = await loadStoredState();
+  const t = getTranslator(storedState.settings?.language);
+  const authSession = getStoredAuthSession(storedState);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.aiOfficialUnauthorized"),
+    };
+  }
+
+  try {
+    const { usage, authSession: nextAuthSession } = await fetchOfficialAiUsage(authSession);
+
+    await saveStoredStatePatch({ authSession: nextAuthSession });
+
+    return {
+      ok: true,
+      usage,
     };
   } catch (error) {
     return {
@@ -1430,6 +1490,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
 
   if (isGenerateAiAnswerMessage(message)) {
     void handleGenerateAiAnswer(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.aiRequestFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchAiUsageMessage(message)) {
+    void handleFetchAiUsage()
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.aiRequestFailed");

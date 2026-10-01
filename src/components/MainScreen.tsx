@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
@@ -27,7 +27,8 @@ import { StatsPanel } from "./StatsPanel";
 import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
-import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
+import { requestAiConnectionTest, requestAiModels, requestOfficialAiUsage } from "../lib/ai";
+import type { OfficialAiUsageState } from "../shared/aiOfficial";
 import {
   isBroadHostPermissionGrantedSync,
   needsBroadHostPermission,
@@ -307,6 +308,8 @@ export function MainScreen({
     models: [],
     message: null,
   });
+  const [officialUsage, setOfficialUsage] = useState<OfficialAiUsageState | null>(null);
+  const [officialUsageError, setOfficialUsageError] = useState<string | null>(null);
   const [updateToastDismissed, setUpdateToastDismissed] = useState(false);
 
   const aiDraftRef = useRef(aiDraft);
@@ -538,9 +541,34 @@ export function MainScreen({
     };
   }, [aiModelsAutoRequestKey, aiModelsState.requestKey]);
 
+  const loadOfficialAiUsage = useCallback(async () => {
+    const response = await requestOfficialAiUsage();
+
+    if (response.ok && response.usage) {
+      setOfficialUsage(response.usage);
+      setOfficialUsageError(null);
+    } else {
+      setOfficialUsage(null);
+      setOfficialUsageError(response.error ?? null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "ai" && aiAccessMode === "official") {
+      void loadOfficialAiUsage();
+    }
+  }, [activeTab, aiAccessMode, loadOfficialAiUsage]);
+
+  async function handleTestOfficialAi() {
+    await handleTestAiConnection();
+    void loadOfficialAiUsage();
+  }
+
   async function handleTestAiConnection() {
+    const isOfficialFlow = aiDraft.accessMode === "official";
     const requiresBroadPermission =
-      isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint);
+      !isOfficialFlow &&
+      (isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint));
 
     if (requiresBroadPermission && !(await requestBroadHostPermission())) {
       setAiTestState({
@@ -914,32 +942,52 @@ export function MainScreen({
             ) : (
               <div className="ai-settings-form ai-official">
                 <div className="ai-official__head">
-                  <span className="ai-official__badge">{t("settings.ai.official.badge")}</span>
                   <h3>{t("settings.ai.official.title")}</h3>
                 </div>
                 <p className="ai-official__desc">{t("settings.ai.official.line1")}</p>
+                <p className="ai-official__desc">{t("settings.ai.official.modelLine")}</p>
                 <div className="ai-official__quota">
                   <span className="ai-official__quota-label">
                     {t("settings.ai.official.quotaTitle")}
                   </span>
                   <span className="ai-official__quota-value">
-                    {t("settings.ai.official.quotaValue")}
+                    {officialUsage
+                      ? t("settings.ai.official.quotaValue", {
+                          used: officialUsage.dayUsed,
+                          limit: officialUsage.dayLimit,
+                        })
+                      : "—"}
                   </span>
                   <div className="ai-official__bar">
-                    <div className="ai-official__bar-fill" />
+                    <div
+                      className="ai-official__bar-fill"
+                      style={{
+                        width: `${officialUsage ? Math.min(100, Math.round((officialUsage.dayUsed / Math.max(1, officialUsage.dayLimit)) * 100)) : 0}%`,
+                      }}
+                    />
                   </div>
                   <span className="ai-official__quota-hint">
-                    {t("settings.ai.official.quotaHint")}
+                    {officialUsageError ??
+                      t("settings.ai.official.quotaHint", {
+                        minute: officialUsage?.minuteLimit ?? 5,
+                      })}
                   </span>
                 </div>
                 <div className="ai-settings-actions">
-                  <Button className="secondary-wide-button" variant="outline" disabled>
+                  <Button
+                    className="secondary-wide-button"
+                    variant="outline"
+                    disabled={aiTestState.status === "checking"}
+                    onClick={() => void handleTestOfficialAi()}
+                  >
                     {t("settings.ai.actions.test")}
                   </Button>
-                  <Button className="secondary-wide-button" variant="outline" disabled>
-                    {t("settings.ai.official.connect")}
-                  </Button>
                 </div>
+                {aiTestState.message && (
+                  <p className={`ai-status ai-status--${aiTestState.status}`}>
+                    {aiTestState.message}
+                  </p>
+                )}
               </div>
             )}
           </section>

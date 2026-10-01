@@ -98,10 +98,12 @@ describe("MainScreen AI access mode tabs", () => {
     expect(container!.querySelector(".ai-official")).toBeTruthy();
   });
 
-  it("shows the mock official panel when the official tab is selected", () => {
+  it("shows the working official panel when the official tab is selected", async () => {
     renderMainScreen();
     openAiTab();
     clickModeTab("Official");
+
+    await act(async () => {});
 
     expect(
       container!.querySelector(".tab-card[aria-label='Official']")?.getAttribute("aria-checked"),
@@ -111,15 +113,14 @@ describe("MainScreen AI access mode tabs", () => {
 
     const official = container!.querySelector(".ai-official");
     expect(official).toBeTruthy();
-    expect(official!.querySelector(".ai-official__badge")?.textContent).toBe("Soon");
+    expect(official!.querySelector(".ai-official__badge")).toBeNull();
     expect(official!.querySelector(".ai-official__head h3")?.textContent).toBe("Official access");
-    expect(official!.querySelector(".ai-official__quota-value")?.textContent).toBe("0 of 100");
+    expect(official!.querySelector(".ai-official__quota-value")?.textContent).toBe("—");
 
     const buttons = Array.from(official!.querySelectorAll<HTMLButtonElement>("button"));
-    expect(buttons.length).toBe(2);
-    expect(buttons.map((button) => button.textContent)).toEqual(["Test", "Connect"]);
+    expect(buttons.map((button) => button.textContent)).toEqual(["Test"]);
     for (const button of buttons) {
-      expect(button.disabled).toBe(true);
+      expect(button.disabled).toBe(false);
     }
   });
 

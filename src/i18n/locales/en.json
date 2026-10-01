@@ -4,7 +4,6 @@
   "language.en": "English",
   "language.select.label": "Extension language",
   "language.select.list": "Choose extension language",
-
   "auth.email": "Email",
   "auth.password": "Password",
   "auth.username": "Username",
@@ -18,7 +17,6 @@
   "auth.validation.register": "Enter email, username, and password.",
   "auth.register.created": "Account created. Sign in to continue.",
   "auth.register.confirmEmail": "Account created. If email confirmation is enabled, check your inbox before signing in.",
-
   "main.tabs.basic": "Basic",
   "main.tabs.ui": "UI settings",
   "main.tabs.security": "Security",
@@ -27,7 +25,6 @@
   "main.tabs.extra": "Extra",
   "main.tabs.aria": "Settings sections",
   "main.panel.aria": "ReduxShare settings",
-
   "settings.theme.title": "Color theme",
   "settings.theme.line1": "Light, dark, or follow the system",
   "settings.theme.line2": "Applies to the extension window",
@@ -85,13 +82,11 @@
   "settings.ai.mode.title": "Access mode",
   "settings.ai.mode.official": "Official",
   "settings.ai.mode.custom": "Custom",
-  "settings.ai.official.badge": "Soon",
   "settings.ai.official.title": "Official access",
   "settings.ai.official.line1": "Unified access to AI models via the ReduxShare server — no personal API key needed.",
   "settings.ai.official.quotaTitle": "Available requests",
-  "settings.ai.official.quotaValue": "0 of 100",
-  "settings.ai.official.quotaHint": "Quota will be granted once the official server launches",
-  "settings.ai.official.connect": "Connect",
+  "settings.ai.official.quotaValue": "{used} of {limit}",
+  "settings.ai.official.quotaHint": "Up to {minute} requests per minute. Resets daily.",
   "settings.extension.title": "Extension status",
   "settings.extension.on.line1": "Full extension functionality is enabled",
   "settings.extension.on.line2": "The extension tracks user actions in Moodle",
@@ -140,7 +135,6 @@
   "settings.actions.logout": "Log out",
   "settings.social.github": "Author GitHub",
   "settings.social.telegram": "Author Telegram",
-
   "updates.title": "Updates",
   "updates.date.never": "not checked yet",
   "updates.checking.line1": "Checking for a new version",
@@ -161,7 +155,6 @@
   "updates.toast.body": "Version {version} is out",
   "updates.toast.open": "Download",
   "updates.toast.later": "Later",
-
   "quiz.menu.internalSources": "Internal sources",
   "quiz.menu.externalSources": "External sources",
   "quiz.menu.aiTools": "AI tools",
@@ -179,7 +172,6 @@
   "quiz.menu.voteDown": "Answer is wrong",
   "quiz.menu.votesLine": "Votes: {up} for · {down} against",
   "quiz.ordering.position": "Position {position}",
-
   "stats.tiles.solved": "Tests solved",
   "stats.tiles.accuracy": "Accuracy",
   "stats.tiles.accuracyHint": "of verified answers",
@@ -203,7 +195,6 @@
   "stats.history.colAnswers": "Answers",
   "stats.history.quizLabel": "Quiz #{id}",
   "stats.history.empty": "No imported attempts yet — the history fills up after answer imports from review pages",
-
   "errors.generic": "Could not complete the action.",
   "errors.loginGeneric": "Could not sign in.",
   "errors.sessionExpired": "Session expired. Sign in again.",
@@ -239,7 +230,6 @@
   "errors.essaySaveFailed": "Could not save the essay example: {message}",
   "errors.essayExamplesFetchFailed": "Could not load essay examples: {message}",
   "errors.essayVoteFailed": "Could not save the example vote: {message}",
-
   "tour.welcome.title": "Welcome to ReduxShare!",
   "tour.welcome.text": "This is a demo Moodle page with real questions. Everything works for real and the network is mocked — nobody sees your clicks. Take a short tour to see what the extension can do.",
   "tour.welcome.start": "Start the tour",
@@ -274,5 +264,8 @@
   "tour.finished.title": "Tour finished!",
   "tour.finished.text": "Now you know how ReduxShare works on a real Moodle page.",
   "tour.finished.restart": "Restart the tour",
-  "tour.finished.close": "Close this tab"
+  "tour.finished.close": "Close this tab",
+  "settings.ai.official.modelLine": "The server picks a random available model for every request.",
+  "errors.aiOfficialUnauthorized": "Log in to the extension account to use official AI access.",
+  "errors.aiQuotaExceeded": "Official access limit reached. Try again later."
 }

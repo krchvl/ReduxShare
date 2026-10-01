@@ -1,5 +1,15 @@
-import type { AiModelOption, AiProvider, AiSettings } from "../types";
+import type { AiModelOption, AiProvider, AiSettings, AuthSession } from "../types";
 import { isAbortError } from "./externalProvider";
+import { ClientResponseError } from "pocketbase";
+import { I18nError } from "../i18n";
+import { getPocketBaseUrl, withPocketBaseSessionRetry } from "./pocketbase";
+import {
+  DEFAULT_OFFICIAL_AI_USAGE,
+  OFFICIAL_AI_CHAT_PATH,
+  OFFICIAL_AI_MODEL,
+  OFFICIAL_AI_USAGE_PATH,
+  type OfficialAiUsageState,
+} from "../shared/aiOfficial";
 import calculatedPrompt from "../aiPrompts/calculated.json";
 import calculatedMultiPrompt from "../aiPrompts/calculatedmulti.json";
 import calculatedSimplePrompt from "../aiPrompts/calculatedsimple.json";
@@ -29,6 +39,20 @@ const GEMINI_MODELS_MAX_PAGES = 5;
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const AI_MODEL_LIST_TIMEOUT_MS = 15_000;
+const OFFICIAL_AI_TIMEOUT_MS = 90_000;
+
+export interface AiAuthContext {
+  authSession: AuthSession | null;
+}
+
+export interface AiTextOutcome {
+  text: string;
+  authSession: AuthSession | null;
+}
+
+export interface AiAnswerOutcome extends StructuredAiAnswer {
+  authSession: AuthSession | null;
+}
 
 type OpenAiCompatibleProviderConfig = {
   name: string;
@@ -481,7 +505,13 @@ export async function fetchAiModelOptions(
 }
 
 export function hasUsableAiSettings(settings: Partial<AiSettings> | undefined) {
-  if (!settings || !settings.apiKey?.trim()) return false;
+  if (!settings) return false;
+
+  if (settings.accessMode === "official") {
+    return true;
+  }
+
+  if (!settings.apiKey?.trim()) return false;
 
   if (settings.provider === "custom") {
     return Boolean(
@@ -1247,63 +1277,248 @@ interface AiCompletionOptions {
   imageParts: GoogleAiImagePart[];
 }
 
-async function requestAiCompletion(settings: AiSettings, options: AiCompletionOptions) {
+async function generateOfficialAiText(
+  prompt: string,
+  options: {
+    responseMimeType?: "text/plain" | "application/json";
+    maxOutputTokens?: number;
+    temperature?: number;
+    imageParts?: GoogleAiImagePart[];
+  },
+  context: AiAuthContext | undefined,
+): Promise<AiTextOutcome> {
+  const authSession = context?.authSession ?? null;
+
+  if (!authSession?.accessToken) {
+    throw new I18nError("errors.aiOfficialUnauthorized");
+  }
+
+  const endpoint = getPocketBaseUrl() + OFFICIAL_AI_CHAT_PATH;
+
+  const { authSession: nextAuthSession, result: text } = await withPocketBaseSessionRetry(
+    authSession,
+    async (_pb, session) => {
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            model: OFFICIAL_AI_MODEL,
+            messages: [
+              {
+                role: "user",
+                content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? []),
+              },
+            ],
+            max_tokens: options.maxOutputTokens ?? 1024,
+            temperature: options.temperature ?? 0.2,
+          }),
+        },
+        OFFICIAL_AI_TIMEOUT_MS,
+      );
+
+      const body = await readGeminiResponseBody(response);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new I18nError("errors.aiQuotaExceeded");
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          throw new ClientResponseError({ status: response.status, url: endpoint, data: body });
+        }
+
+        throw new Error(
+          getAiErrorMessage(body) ?? `Official AI request failed with status ${response.status}.`,
+        );
+      }
+
+      const text = extractOpenAiCompatibleText(body);
+
+      if (!text) {
+        throw new Error("Official AI returned an empty response.");
+      }
+
+      return text;
+    },
+  );
+
+  return { text, authSession: nextAuthSession };
+}
+
+function normalizeOfficialAiUsage(body: unknown): OfficialAiUsageState {
+  const source = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const readNumber = (key: string, fallback: number) => {
+    const value = source[key];
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+  };
+
+  return {
+    minuteUsed: readNumber("minuteUsed", DEFAULT_OFFICIAL_AI_USAGE.minuteUsed),
+    minuteLimit: readNumber("minuteLimit", DEFAULT_OFFICIAL_AI_USAGE.minuteLimit),
+    dayUsed: readNumber("dayUsed", DEFAULT_OFFICIAL_AI_USAGE.dayUsed),
+    dayLimit: readNumber("dayLimit", DEFAULT_OFFICIAL_AI_USAGE.dayLimit),
+  };
+}
+
+export async function fetchOfficialAiUsage(
+  authSession: AuthSession,
+): Promise<{ usage: OfficialAiUsageState; authSession: AuthSession }> {
+  const endpoint = getPocketBaseUrl() + OFFICIAL_AI_USAGE_PATH;
+
+  const { authSession: nextAuthSession, result: usage } = await withPocketBaseSessionRetry(
+    authSession,
+    async (_pb, session) => {
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+        },
+        AI_MODEL_LIST_TIMEOUT_MS,
+      );
+
+      const body = await readGeminiResponseBody(response);
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new ClientResponseError({ status: response.status, url: endpoint, data: body });
+        }
+
+        throw new Error(`Official AI usage request failed with status ${response.status}.`);
+      }
+
+      return normalizeOfficialAiUsage(body);
+    },
+  );
+
+  return { usage, authSession: nextAuthSession };
+}
+
+async function requestAiCompletion(
+  settings: AiSettings,
+  options: AiCompletionOptions,
+  context?: AiAuthContext,
+): Promise<AiTextOutcome> {
+  if (settings.accessMode === "official") {
+    return generateOfficialAiText(options.prompt, options, context);
+  }
+
   if (settings.provider === "custom") {
-    return generateCustomAiText(settings, options.prompt, options);
+    return {
+      text: await generateCustomAiText(settings, options.prompt, options),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "google") {
-    return generateGoogleAiText(settings, options.prompt, options);
+    return {
+      text: await generateGoogleAiText(settings, options.prompt, options),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "anthropic") {
-    return generateAnthropicAiText(settings, options.prompt, options);
+    return {
+      text: await generateAnthropicAiText(settings, options.prompt, options),
+      authSession: null,
+    };
   }
 
-  return generateOpenAiCompatibleAiText(settings, options.prompt, options);
+  return {
+    text: await generateOpenAiCompatibleAiText(settings, options.prompt, options),
+    authSession: null,
+  };
 }
 
-export async function generateAiAnswer(settings: AiSettings, payload: GenerateAiAnswerPayload) {
+export async function generateAiAnswer(
+  settings: AiSettings,
+  payload: GenerateAiAnswerPayload,
+  context?: AiAuthContext,
+): Promise<AiAnswerOutcome> {
   const imageParts = payload.images?.length ? await buildGoogleAiImageParts(payload) : [];
 
   if (payload.mode === "explain") {
-    const explanationText = await requestAiCompletion(settings, {
-      prompt: buildQuizExplanationPrompt(payload),
-      responseMimeType: "text/plain",
-      maxOutputTokens: 2048,
-      temperature: 0.3,
-      imageParts,
-    });
+    const outcome = await requestAiCompletion(
+      settings,
+      {
+        prompt: buildQuizExplanationPrompt(payload),
+        responseMimeType: "text/plain",
+        maxOutputTokens: 2048,
+        temperature: 0.3,
+        imageParts,
+      },
+      context,
+    );
 
-    return { answer: explanationText.trim(), confidence: 0, actions: [], rawText: explanationText };
+    return {
+      answer: outcome.text.trim(),
+      confidence: 0,
+      actions: [],
+      rawText: outcome.text,
+      authSession: outcome.authSession,
+    };
   }
 
-  const text = await requestAiCompletion(settings, {
-    prompt: buildQuizAnswerPrompt(payload),
-    responseMimeType: "application/json",
-    maxOutputTokens: payload.questionType === "essay" ? 4096 : 1536,
-    temperature: payload.questionType === "essay" ? 0.35 : 0.15,
-    imageParts,
-  });
+  const outcome = await requestAiCompletion(
+    settings,
+    {
+      prompt: buildQuizAnswerPrompt(payload),
+      responseMimeType: "application/json",
+      maxOutputTokens: payload.questionType === "essay" ? 4096 : 1536,
+      temperature: payload.questionType === "essay" ? 0.35 : 0.15,
+      imageParts,
+    },
+    context,
+  );
 
-  return normalizeStructuredAiAnswerForPayload(parseStructuredAiAnswer(text), payload);
+  return {
+    ...normalizeStructuredAiAnswerForPayload(parseStructuredAiAnswer(outcome.text), payload),
+    authSession: outcome.authSession,
+  };
 }
 
-export async function testAiConnection(settings: AiSettings) {
+export async function testAiConnection(
+  settings: AiSettings,
+  context?: AiAuthContext,
+): Promise<AiTextOutcome> {
+  if (settings.accessMode === "official") {
+    return generateOfficialAiText("Reply with exactly: OK", {}, context);
+  }
+
   if (settings.provider === "custom") {
     if (!settings.customEndpoint?.trim()) {
       throw new Error("Custom endpoint is missing.");
     }
-    return generateCustomAiText(settings, "Reply with exactly: OK");
+    return {
+      text: await generateCustomAiText(settings, "Reply with exactly: OK"),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "google") {
-    return generateGoogleAiText(settings, "Reply with exactly: OK");
+    return {
+      text: await generateGoogleAiText(settings, "Reply with exactly: OK"),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "anthropic") {
-    return generateAnthropicAiText(settings, "Reply with exactly: OK");
+    return {
+      text: await generateAnthropicAiText(settings, "Reply with exactly: OK"),
+      authSession: null,
+    };
   }
 
-  return generateOpenAiCompatibleAiText(settings, "Reply with exactly: OK");
+  return {
+    text: await generateOpenAiCompatibleAiText(settings, "Reply with exactly: OK"),
+    authSession: null,
+  };
 }

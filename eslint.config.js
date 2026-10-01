@@ -56,6 +56,28 @@ export default tseslint.config(
     },
   },
   {
+    files: ["pocketbase/pb_hooks/*.js"],
+    languageOptions: {
+      globals: {
+        routerAdd: "readonly",
+        cronAdd: "readonly",
+        $app: "readonly",
+        $apis: "readonly",
+        $http: "readonly",
+        $security: "readonly",
+        Record: "readonly",
+        Collection: "readonly",
+        ApiError: "readonly",
+        BadRequestError: "readonly",
+        NotFoundError: "readonly",
+        ForbiddenError: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/triple-slash-reference": "off",
+    },
+  },
+  {
     languageOptions: {
       globals: {
         ...globals.browser,

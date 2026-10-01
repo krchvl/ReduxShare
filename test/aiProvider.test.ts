@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildQuizExplanationPrompt,
   fetchAiModelOptions,
+  fetchOfficialAiUsage,
   generateAiAnswer,
+  hasUsableAiSettings,
   testAiConnection,
 } from "../src/lib/aiProvider";
 import type { GenerateAiAnswerPayload } from "../src/lib/ai";
-import type { AiSettings } from "../src/types";
+import type { AiSettings, AuthSession } from "../src/types";
+import { setActivePocketBaseUrl } from "../src/lib/pocketbase";
 
 function baseSettings(overrides: Partial<AiSettings> = {}): AiSettings {
   return {
@@ -174,7 +177,7 @@ describe("AI provider integration", () => {
       }),
     );
 
-    expect(result).toBe("OK");
+    expect(result.text).toBe("OK");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.openai.com/v1/chat/completions",
       expect.objectContaining({
@@ -212,7 +215,7 @@ describe("AI provider integration", () => {
       }),
     );
 
-    expect(result).toBe("OK");
+    expect(result.text).toBe("OK");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://example.com/v1/chat/completions",
       expect.objectContaining({
@@ -246,7 +249,7 @@ describe("AI provider integration", () => {
       }),
     );
 
-    expect(result).toBe("OK");
+    expect(result.text).toBe("OK");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.anthropic.com/v1/messages",
       expect.objectContaining({
@@ -421,5 +424,136 @@ describe("AI explain mode", () => {
     expect(result.answer).toBe("Because 2 + 2 = 4.\nСумма двух двоек равна четырём.");
     expect(result.actions).toEqual([]);
     expect(result.confidence).toBe(0);
+  });
+});
+
+function officialSession(token: string): AuthSession {
+  return {
+    accessToken: token,
+    refreshToken: token,
+    expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: "user_1", email: "user@example.com" },
+  };
+}
+
+function fakeJwt(payload: Record<string, unknown>): string {
+  const encode = (value: object) =>
+    btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode(payload)}.sig`;
+}
+
+describe("Official AI access", () => {
+  afterEach(() => {
+    setActivePocketBaseUrl(null);
+  });
+
+  it("routes test connection through the PocketBase gate with the session token", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ choices: [{ message: { content: "OK" } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const outcome = await testAiConnection(baseSettings({ accessMode: "official" }), {
+      authSession: officialSession("token-1"),
+    });
+
+    expect(outcome.text).toBe("OK");
+    expect(outcome.authSession?.accessToken).toBe("token-1");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://pb.example.com/api/rpx-ai/v1/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-1",
+        }),
+      }),
+    );
+    const requestBody = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string) as {
+      model: string;
+      messages: Array<{ role: string }>;
+    };
+    expect(requestBody.model).toBe("auto");
+    expect(requestBody.messages[0]!.role).toBe("user");
+  });
+
+  it("translates gate 429 responses into the quota error", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse(
+        { error: { message: "Official AI daily quota exceeded." } },
+        { status: 429 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      testAiConnection(baseSettings({ accessMode: "official" }), {
+        authSession: officialSession("token-1"),
+      }),
+    ).rejects.toMatchObject({ i18nKey: "errors.aiQuotaExceeded" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes the session and retries once after a gate 401", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (String(init?.url ?? _url).includes("/api/rpx-ai/")) {
+        if (fetchMock.mock.calls.length === 1) {
+          return mockJsonResponse(
+            { message: "The request requires valid auth token." },
+            { status: 401 },
+          );
+        }
+        return mockJsonResponse({ choices: [{ message: { content: "OK" } }] });
+      }
+      return mockJsonResponse({
+        token: fakeJwt({ id: "user_1", type: "auth", exp: Math.floor(Date.now() / 1000) + 3600 }),
+        record: {
+          id: "user_1",
+          email: "user@example.com",
+          collectionId: "pbc_users",
+          collectionName: "users",
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const outcome = await testAiConnection(baseSettings({ accessMode: "official" }), {
+      authSession: officialSession("stale-token"),
+    });
+
+    expect(outcome.text).toBe("OK");
+    expect(outcome.authSession?.accessToken).not.toBe("stale-token");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("fetches official usage counters through the gate", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ minuteUsed: 1, minuteLimit: 5, dayUsed: 7, dayLimit: 30 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { usage, authSession } = await fetchOfficialAiUsage(officialSession("token-1"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://pb.example.com/api/rpx-ai/usage",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-1",
+        }),
+      }),
+    );
+    expect(usage).toEqual({ minuteUsed: 1, minuteLimit: 5, dayUsed: 7, dayLimit: 30 });
+    expect(authSession.accessToken).toBe("token-1");
+  });
+
+  it("treats official mode as usable without an API key", () => {
+    expect(hasUsableAiSettings({ accessMode: "official" })).toBe(true);
+    expect(hasUsableAiSettings({ accessMode: "custom", apiKey: "" })).toBe(false);
   });
 });

@@ -1,6 +1,8 @@
 import type { AiModelOption, AiSettings } from "../types";
+import type { OfficialAiUsageState } from "../shared/aiOfficial";
 import {
   FETCH_AI_MODELS_MESSAGE,
+  FETCH_AI_USAGE_MESSAGE,
   GENERATE_AI_ANSWER_MESSAGE,
   TEST_AI_CONNECTION_MESSAGE,
 } from "../shared/messages";
@@ -26,6 +28,16 @@ export interface TestAiConnectionMessage {
 export interface FetchAiModelsMessage {
   type: typeof FETCH_AI_MODELS_MESSAGE;
   payload: AiSettings;
+}
+
+export interface FetchAiUsageMessage {
+  type: typeof FETCH_AI_USAGE_MESSAGE;
+}
+
+export interface AiUsageResponse {
+  ok: boolean;
+  usage?: OfficialAiUsageState;
+  error?: string;
 }
 
 export type AiAnswerRequestMode = "answer" | "explain";
@@ -80,6 +92,14 @@ export function isGenerateAiAnswerMessage(message: unknown): message is Generate
   );
 }
 
+export function isFetchAiUsageMessage(message: unknown): message is FetchAiUsageMessage {
+  return Boolean(
+    message &&
+    typeof message === "object" &&
+    (message as Partial<FetchAiUsageMessage>).type === FETCH_AI_USAGE_MESSAGE,
+  );
+}
+
 export function requestAiModels(settings: AiSettings): Promise<AiModelsResponse> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
@@ -113,6 +133,24 @@ export function requestAiConnectionTest(settings: AiSettings): Promise<AiRespons
 
         if (runtimeError) {
           reject(new Error(runtimeError.message));
+          return;
+        }
+
+        resolve(response ?? { ok: false, error: "Background script did not return a response." });
+      },
+    );
+  });
+}
+
+export function requestOfficialAiUsage(): Promise<AiUsageResponse> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: FETCH_AI_USAGE_MESSAGE },
+      (response: AiUsageResponse | undefined) => {
+        const runtimeError = chrome.runtime.lastError;
+
+        if (runtimeError) {
+          resolve({ ok: false, error: runtimeError.message });
           return;
         }
 

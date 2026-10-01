@@ -4,7 +4,6 @@
   "language.en": "Американский",
   "language.select.label": "Язык расширения",
   "language.select.list": "Выберите язык расширения",
-
   "auth.email": "Электронная почта",
   "auth.password": "Пароль",
   "auth.username": "Имя пользователя",
@@ -18,7 +17,6 @@
   "auth.validation.register": "Введите почту, имя пользователя и пароль.",
   "auth.register.created": "Регистрация создана. Теперь войдите в аккаунт.",
   "auth.register.confirmEmail": "Регистрация создана. Если включено подтверждение почты, проверьте письмо для входа.",
-
   "main.tabs.basic": "Основные",
   "main.tabs.ui": "Интерфейс",
   "main.tabs.security": "Безопасность",
@@ -27,7 +25,6 @@
   "main.tabs.extra": "Дополнительно",
   "main.tabs.aria": "Разделы настроек",
   "main.panel.aria": "Настройки ReduxShare",
-
   "settings.theme.title": "Тема оформления",
   "settings.theme.line1": "Светлая, тёмная или как в системе",
   "settings.theme.line2": "Применяется к окну расширения",
@@ -85,13 +82,11 @@
   "settings.ai.mode.title": "Режим доступа",
   "settings.ai.mode.official": "Официальный",
   "settings.ai.mode.custom": "Пользовательский",
-  "settings.ai.official.badge": "Скоро",
   "settings.ai.official.title": "Официальный доступ",
   "settings.ai.official.line1": "Единый доступ к нейросетям через сервер ReduxShare — без своего API-ключа.",
   "settings.ai.official.quotaTitle": "Доступные запросы",
-  "settings.ai.official.quotaValue": "0 из 100",
-  "settings.ai.official.quotaHint": "Лимит будет начисляться после запуска официального сервера",
-  "settings.ai.official.connect": "Подключить",
+  "settings.ai.official.quotaValue": "{used} из {limit}",
+  "settings.ai.official.quotaHint": "Не более {minute} запросов в минуту. Лимит обновляется каждый день.",
   "settings.extension.title": "Статус расширения",
   "settings.extension.on.line1": "Полный функционал расширения включён",
   "settings.extension.on.line2": "Расширение отслеживает действия пользователя в Moodle",
@@ -140,7 +135,6 @@
   "settings.actions.logout": "Выход из аккаунта",
   "settings.social.github": "GitHub автора",
   "settings.social.telegram": "Telegram автора",
-
   "updates.title": "Обновления",
   "updates.date.never": "ещё не проверялись",
   "updates.checking.line1": "Проверяем наличие новой версии",
@@ -161,7 +155,6 @@
   "updates.toast.body": "Вышла версия {version}",
   "updates.toast.open": "Скачать",
   "updates.toast.later": "Позже",
-
   "quiz.menu.internalSources": "Внутренние источники",
   "quiz.menu.externalSources": "Внешние источники",
   "quiz.menu.aiTools": "Инструменты ИИ",
@@ -179,7 +172,6 @@
   "quiz.menu.voteDown": "Ответ неверный",
   "quiz.menu.votesLine": "Голоса: {up} за · {down} против",
   "quiz.ordering.position": "Позиция {position}",
-
   "stats.tiles.solved": "Решено тестов",
   "stats.tiles.accuracy": "Точность",
   "stats.tiles.accuracyHint": "из проверенных ответов",
@@ -203,7 +195,6 @@
   "stats.history.colAnswers": "Ответов",
   "stats.history.quizLabel": "Тест #{id}",
   "stats.history.empty": "Пока нет импортированных попыток — история заполнится после импорта ответов со страниц review",
-
   "errors.generic": "Не удалось выполнить действие.",
   "errors.loginGeneric": "Не удалось выполнить вход.",
   "errors.sessionExpired": "Сессия истекла. Войдите заново.",
@@ -239,7 +230,6 @@
   "errors.essaySaveFailed": "Не удалось сохранить пример эссе: {message}",
   "errors.essayExamplesFetchFailed": "Не удалось загрузить примеры эссе: {message}",
   "errors.essayVoteFailed": "Не удалось сохранить голос за пример: {message}",
-
   "tour.welcome.title": "Добро пожаловать в ReduxShare!",
   "tour.welcome.text": "Перед вами демонстрационная страница Moodle с настоящими вопросами. Всё работает по-настоящему, сеть замокана — никто не увидит ваши клики. Пройдите короткий тур и посмотрите, что умеет расширение.",
   "tour.welcome.start": "Начать тур",
@@ -274,5 +264,8 @@
   "tour.finished.title": "Тур завершён!",
   "tour.finished.text": "Теперь вы знаете, как ReduxShare работает на настоящей Moodle-странице.",
   "tour.finished.restart": "Пройти тур заново",
-  "tour.finished.close": "Закрыть вкладку"
+  "tour.finished.close": "Закрыть вкладку",
+  "settings.ai.official.modelLine": "Сервер сам выбирает случайную доступную модель на каждый запрос.",
+  "errors.aiOfficialUnauthorized": "Войдите в аккаунт расширения, чтобы пользоваться официальным доступом.",
+  "errors.aiQuotaExceeded": "Лимит официального доступа исчерпан. Попробуйте позже."
 }
