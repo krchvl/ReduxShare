@@ -1,15 +1,12 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// TODO: fill before deploy; each group.model must exist in a matching gpt-load group bound to the AccessKey
-const GPTLOAD_BASE_URL = "http://127.0.0.1:3001";
-const GPTLOAD_ACCESS_KEY = "SET_ME";
+// TODO: fill before deploy; each group.name must exist in gpt-load and group.model must be a valid model id of that group
+const GPTLOAD_BASE_URL = "http://127.0.0.1:3011";
+const GPTLOAD_ACCESS_KEY = "SET_ME_PROXY_KEY";
 const GPTLOAD_TIMEOUT_SECONDS = 90;
 const USAGE_COLLECTION = "reduxshare_ai_usage";
 const LIMITS = { minute: 5, day: 30 };
-const GROUPS = [
-  { model: "SET_ME_PROVIDER_1_MODEL", weight: 1 },
-  { model: "SET_ME_PROVIDER_2_MODEL", weight: 1 },
-];
+const GROUPS = [{ name: "groq", model: "openai/gpt-oss-20b", weight: 1 }];
 
 function toPocketDateString(date) {
   return date.toISOString().replace("T", " ");
@@ -89,8 +86,8 @@ function consumeQuota(app, userId) {
   return { minuteCount: minuteCount, dayCount: dayCount };
 }
 
-function pickWeightedRandomGroup(excludedModels) {
-  const pool = GROUPS.filter((group) => !excludedModels.includes(group.model));
+function pickWeightedRandomGroup(excludedNames) {
+  const pool = GROUPS.filter((group) => !excludedNames.includes(group.name));
   const candidates = pool.length > 0 ? pool : GROUPS;
   const totalWeight = candidates.reduce((sum, group) => sum + Math.max(1, group.weight || 1), 0);
   let roll = Math.random() * totalWeight;
@@ -105,13 +102,13 @@ function pickWeightedRandomGroup(excludedModels) {
   return candidates[candidates.length - 1];
 }
 
-function findGroupByModel(model) {
+function pickGroupByModel(model) {
   if (!model || typeof model !== "string") {
     return null;
   }
 
-  const normalized = model.trim().toLowerCase();
-  return GROUPS.find((group) => group.model.toLowerCase() === normalized) || null;
+  const normalized = model.trim();
+  return GROUPS.find((group) => group.model.toLowerCase() === normalized.toLowerCase()) || null;
 }
 
 function pickAttemptGroups() {
@@ -120,12 +117,12 @@ function pickAttemptGroups() {
     return [first];
   }
 
-  return [first, pickWeightedRandomGroup([first.model])];
+  return [first, pickWeightedRandomGroup([first.name])];
 }
 
-function forwardToGateway(requestBody) {
+function forwardToGateway(group, requestBody) {
   return $http.send({
-    url: GPTLOAD_BASE_URL + "/v1/chat/completions",
+    url: GPTLOAD_BASE_URL + "/proxy/" + group.name + "/v1/chat/completions",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -157,7 +154,7 @@ routerAdd(
 
     consumeQuota(e.app, e.auth.id);
 
-    const explicitGroup = findGroupByModel(body.model);
+    const explicitGroup = pickGroupByModel(body.model);
     const attempts = explicitGroup ? [explicitGroup] : pickAttemptGroups();
     let lastResponse = null;
     let transportError = null;
@@ -167,7 +164,7 @@ routerAdd(
 
       let response;
       try {
-        response = forwardToGateway(request);
+        response = forwardToGateway(group, request);
       } catch {
         transportError = "transport failure";
         continue;
