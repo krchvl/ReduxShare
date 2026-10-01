@@ -602,7 +602,7 @@ function watchQuizPreviewButtonMount() {
   observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-export async function initializeQuizPreviewFeatures() {
+export async function initializeQuizPreviewFeatures(options: { withButton?: boolean } = {}) {
   const storedState = await loadStoredState();
   setCurrentStoredState(storedState);
   syncLanguage(storedState);
@@ -626,11 +626,20 @@ export async function initializeQuizPreviewFeatures() {
       cancelQuizIdScan();
     },
   });
+
+  if (options.withButton === false) {
+    return;
+  }
+
   watchQuizPreviewButtonMount();
 
   if (!ensureQuizPreviewButton()) {
     logReduxShareInfo("ReduxShare: quiz view detected, start button not found yet");
   }
+}
+
+export function openQuizPreviewPanelForTour() {
+  void openQuizPreview();
 }
 
 export function syncQuizPreviewFeatures(storedState: StoredStateLike | undefined) {

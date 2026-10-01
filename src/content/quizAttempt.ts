@@ -177,6 +177,7 @@ import {
   renderAttemptStatusPanel,
   resetAttemptStatusPanelState,
   setAttemptStatusPanelClosedInSession,
+  setAttemptStatusPanelCollapsed,
   setAttemptStatusPanelTourMode,
 } from "./quizAttempt/attemptStatusPanel";
 import {
@@ -316,6 +317,8 @@ declare global {
         getAnswerMenuMarkup: typeof getAnswerMenuMarkup;
         mountAttemptStatusPanelForTour: typeof mountAttemptStatusPanelForTour;
         openAnswerMenuForQuestion: typeof openAnswerMenuForQuestion;
+        setAnswerMenuSticky: typeof setAnswerMenuSticky;
+        setAttemptStatusPanelCollapsed: typeof setAttemptStatusPanelCollapsed;
         syncStealthMode: typeof syncStealthMode;
         computeAutoSelectDelayMs: typeof computeAutoSelectDelayMs;
         estimateQuestionReadingSeconds: typeof estimateQuestionReadingSeconds;
@@ -344,6 +347,7 @@ declare global {
         startAutoPassForCurrentAttempt: typeof startAutoPassForCurrentAttempt;
         startAutoPassFromViewPage: typeof startAutoPassFromViewPage;
         stopAutoPass: typeof stopAutoPass;
+        syncAutoPassViewFeatures: typeof syncAutoPassViewFeatures;
         watchAutoPassStartButtonMount: typeof watchAutoPassStartButtonMount;
       }
     | undefined;
@@ -431,6 +435,12 @@ async function saveQuizAttemptContext(context: QuizAttemptContext) {
   await chrome.storage.local.set({
     [QUIZ_CONTEXT_STORAGE_KEY]: context,
   });
+}
+
+let isAnswerMenuSticky = false;
+
+function setAnswerMenuSticky(sticky: boolean) {
+  isAnswerMenuSticky = sticky;
 }
 
 function closeActiveAnswerWidgetMenu() {
@@ -810,19 +820,31 @@ function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement)
   const preferredRightAlignedLeft = Math.round(triggerRect.right - menuWidth);
   const flyoutOverlap = 4;
 
-  let left = Math.max(horizontalBounds.left, Math.min(preferredLeft, maxMenuLeft));
-  const rightSpace = horizontalBounds.right - (left + menuWidth);
-  const leftSpace = left - horizontalBounds.left;
-  const flyoutSide = chooseAnswerMenuFlyoutSide(leftSpace, rightSpace, flyoutWidth - flyoutOverlap);
+  let left: number;
+  let flyoutSide: "left" | "right";
+  const rightOfTriggerLeft = Math.round(triggerRect.right + gap);
+  const rightOfTriggerFits = rightOfTriggerLeft + menuWidth <= horizontalBounds.right;
 
-  if (flyoutSide === "left") {
-    left = Math.min(
-      maxMenuLeft,
-      Math.max(
-        horizontalBounds.left + flyoutWidth - flyoutOverlap,
-        Math.min(preferredRightAlignedLeft, maxMenuLeft),
-      ),
-    );
+  if (rightOfTriggerFits) {
+    left = rightOfTriggerLeft;
+    const rightSpace = horizontalBounds.right - (left + menuWidth);
+    const leftSpace = left - horizontalBounds.left;
+    flyoutSide = chooseAnswerMenuFlyoutSide(leftSpace, rightSpace, flyoutWidth - flyoutOverlap);
+  } else {
+    left = Math.max(horizontalBounds.left, Math.min(preferredLeft, maxMenuLeft));
+    const rightSpace = horizontalBounds.right - (left + menuWidth);
+    const leftSpace = left - horizontalBounds.left;
+    flyoutSide = chooseAnswerMenuFlyoutSide(leftSpace, rightSpace, flyoutWidth - flyoutOverlap);
+
+    if (flyoutSide === "left") {
+      left = Math.min(
+        maxMenuLeft,
+        Math.max(
+          horizontalBounds.left + flyoutWidth - flyoutOverlap,
+          Math.min(preferredRightAlignedLeft, maxMenuLeft),
+        ),
+      );
+    }
   }
 
   const preferredBelowTop = Math.round(triggerRect.bottom + gap);
@@ -1069,6 +1091,7 @@ function openAnswerMenuPortal(
   closeActiveAnswerWidgetMenu();
 
   const menuPortal = document.createElement("div");
+  menuPortal.style.zIndex = "2147483647";
   const shadowRoot = menuPortal.attachShadow({ mode: "open" });
   let closePortal = () => undefined;
   const initialQuestionNode = findQuestionNodeForTrigger(trigger);
@@ -1653,6 +1676,10 @@ function openAnswerMenuPortal(
   }
 
   const handleDocumentClick = (event: MouseEvent) => {
+    if (isAnswerMenuSticky) {
+      return;
+    }
+
     const eventPath = event.composedPath();
 
     if (!eventPath.includes(menuPortal) && !eventPath.includes(trigger)) {
@@ -1660,7 +1687,7 @@ function openAnswerMenuPortal(
     }
   };
   const handleEscape = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
+    if (event.key === "Escape" && !isAnswerMenuSticky) {
       closePortal();
     }
   };
@@ -1743,7 +1770,10 @@ function createAnswerWidgetHost(
     event.stopPropagation();
 
     if (trigger.getAttribute("aria-expanded") === "true") {
-      closeActiveAnswerWidgetMenu();
+      if (!isAnswerMenuSticky) {
+        closeActiveAnswerWidgetMenu();
+      }
+
       return;
     }
 
@@ -1835,6 +1865,22 @@ function removeAnswerWidgetsFromQuestion(questionNode: Element) {
 
   for (const host of hosts) {
     answerWidgetCleanups.get(host)?.();
+    host.remove();
+  }
+}
+
+function removeShadowlessAnswerWidgetHosts(questionNode: Element) {
+  const hosts = Array.from(
+    questionNode.querySelectorAll<HTMLElement>(`[${ANSWER_WIDGET_ATTR}="true"]`),
+  );
+
+  for (const host of hosts) {
+    if (host.shadowRoot) {
+      continue;
+    }
+
+    answerWidgetCleanups.get(host)?.();
+    answerWidgetCleanups.delete(host);
     host.remove();
   }
 }
@@ -2320,6 +2366,8 @@ function mountCompoundAnswerWidgets(entry: AnswerEntry, accentColor: string) {
 function mountAnswerWidgets(accentColor: string) {
   for (const entry of getAnswerEntries()) {
     const { answerNode, questionId, questionNode } = entry;
+
+    removeShadowlessAnswerWidgetHosts(questionNode);
 
     if (!shouldMountAnswerWidgetForQuestion(entry)) {
       removeAnswerWidgetsFromQuestion(questionNode);
@@ -2987,6 +3035,8 @@ function installQuizAttemptTestApi() {
     getAnswerMenuMarkup,
     mountAttemptStatusPanelForTour,
     openAnswerMenuForQuestion,
+    setAnswerMenuSticky,
+    setAttemptStatusPanelCollapsed,
     syncStealthMode,
     computeAutoSelectDelayMs,
     parseQuizTimeLeftSeconds,
@@ -3015,6 +3065,7 @@ function installQuizAttemptTestApi() {
     startAutoPassForCurrentAttempt,
     startAutoPassFromViewPage,
     stopAutoPass,
+    syncAutoPassViewFeatures,
     watchAutoPassStartButtonMount,
   };
   resetQuizAttemptTestState();
