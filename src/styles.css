@@ -898,7 +898,7 @@ button:focus-visible {
 
 .switch {
   position: relative;
-  width: 52px;
+  width: 64px;
   height: 30px;
   flex: 0 0 auto;
   border-radius: 999px;
@@ -933,11 +933,11 @@ button:focus-visible {
 }
 
 .switch--checked .switch-handle {
-  left: 25px;
+  left: 37px;
 }
 
 .switch--small {
-  width: 44px;
+  width: 56px;
   height: 26px;
 }
 
@@ -947,7 +947,7 @@ button:focus-visible {
 }
 
 .switch--small.switch--checked .switch-handle {
-  left: 21px;
+  left: 33px;
 }
 
 .hotkey-button {
