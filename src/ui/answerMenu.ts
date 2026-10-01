@@ -426,7 +426,15 @@ function renderEmptyFlyout(message = currentT("quiz.menu.empty")) {
 export function isAiSettingsSaved(settings: StoredStateLike["settings"] | undefined) {
   const ai = settings?.ai;
 
-  if (!ai || !ai.connectionVerified || !ai.apiKey?.trim()) {
+  if (!ai) {
+    return false;
+  }
+
+  if (ai.accessMode === "official") {
+    return true;
+  }
+
+  if (!ai.connectionVerified || !ai.apiKey?.trim()) {
     return false;
   }
 
