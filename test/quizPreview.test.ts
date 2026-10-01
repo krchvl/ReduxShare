@@ -167,14 +167,8 @@ describe("quiz preview panel", () => {
 
     expect(internalCard.querySelector(".reduxshare-preview-answer-slot")).toBeNull();
 
-    const options = internalCard.querySelectorAll(".reduxshare-preview-option");
-    expect(options).toHaveLength(3);
-    expect(internalCard.querySelector(".reduxshare-preview-options")?.textContent).toContain(
-      "Варианты ответов",
-    );
-    expect(internalCard.querySelector(".reduxshare-preview-option--exact")?.textContent).toBe(
-      "Верно",
-    );
+    expect(internalCard.querySelector(".reduxshare-preview-options")).toBeNull();
+    expect(internalCard.querySelector(".reduxshare-preview-option")).toBeNull();
 
     tabs[1].click();
     const externalModal = getPreviewModal();
@@ -193,6 +187,9 @@ describe("quiz preview panel", () => {
     );
 
     expect(externalCard.querySelector(".reduxshare-preview-options")).toBeNull();
+    expect(externalCard.querySelector(".reduxshare-preview-answer--exact")?.textContent).toContain(
+      "Yandex",
+    );
   });
 
   it("defaults to the external tab when the internal database has nothing", () => {

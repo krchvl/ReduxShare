@@ -1,4 +1,4 @@
-import { hasAnswerData, getPreferredSuggestionLabels } from "../data/answerData";
+import { hasAnswerData } from "../data/answerData";
 import { currentStoredState, currentT } from "../state";
 import { canUseQuizFeatures } from "../logic/settings";
 import { EXTERNAL_TYPE_PROBE_ORDER } from "../lib/externalProvider";
@@ -417,45 +417,6 @@ const PREVIEW_STYLES = `
     margin: 0;
     font-size: 12.5px;
     color: rgba(246, 247, 251, 0.5);
-  }
-
-  .reduxshare-preview-options {
-    margin-top: 11px;
-    padding-top: 11px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.1);
-  }
-
-  .reduxshare-preview-external-header {
-    font-size: 10.5px;
-    font-weight: 650;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(246, 247, 251, 0.5);
-    margin-bottom: 7px;
-  }
-
-  .reduxshare-preview-option-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
-  .reduxshare-preview-option {
-    display: inline-block;
-    padding: 3px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.13);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.045);
-    font-size: 12px;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-  }
-
-  .reduxshare-preview-option--exact {
-    border-color: rgba(74, 222, 128, 0.5);
-    background: rgba(74, 222, 128, 0.1);
-    color: #4ade80;
-    font-weight: 700;
   }
 
   .reduxshare-preview-scan {
@@ -949,25 +910,6 @@ const PREVIEW_STYLES = `
     color: rgba(20, 23, 29, 0.5);
   }
 
-  :host([data-theme="light"]) .reduxshare-preview-options {
-    border-top-color: rgba(15, 20, 35, 0.1);
-  }
-
-  :host([data-theme="light"]) .reduxshare-preview-external-header {
-    color: rgba(20, 23, 29, 0.5);
-  }
-
-  :host([data-theme="light"]) .reduxshare-preview-option {
-    border-color: rgba(15, 20, 35, 0.14);
-    background: rgba(15, 20, 35, 0.03);
-  }
-
-  :host([data-theme="light"]) .reduxshare-preview-option--exact {
-    border-color: rgba(31, 157, 77, 0.45);
-    background: rgba(31, 157, 77, 0.08);
-    color: #1f9d4d;
-  }
-
   :host([data-theme="light"]) .reduxshare-preview-scan {
     border-color: rgba(15, 20, 35, 0.12);
     background: linear-gradient(
@@ -1377,39 +1319,6 @@ function renderQuestionCard(
       <div class="rpx-card-body">
         ${conditionMarkup}
         ${renderAnswerRows(answers)}
-        ${tab === "internal" ? renderAnswerOptionsSection(question) : ""}
-      </div>
-    </div>
-  `;
-}
-
-function renderAnswerOptionsSection(question: QuizPreviewQuestion) {
-  const options = question.answerOptions ?? [];
-
-  if (options.length === 0) {
-    return "";
-  }
-
-  const exactLabels = new Set<string>(
-    [
-      question.reduxshare.suggestions,
-      ...question.reduxshare.slots.map((slot) => slot.suggestions),
-    ].flatMap((suggestions) =>
-      getPreferredSuggestionLabels(suggestions).map((label) => label.toLowerCase()),
-    ),
-  );
-
-  return `
-    <div class="reduxshare-preview-options">
-      <div class="reduxshare-preview-external-header">${escapeHtml(currentT("quiz.preview.options"))}</div>
-      <div class="reduxshare-preview-option-list">
-        ${options
-          .map((option) => {
-            const isExact = exactLabels.has(option.trim().toLowerCase());
-
-            return `<span class="reduxshare-preview-option${isExact ? " reduxshare-preview-option--exact" : ""}">${escapeHtml(option)}</span>`;
-          })
-          .join("")}
       </div>
     </div>
   `;
