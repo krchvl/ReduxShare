@@ -88,6 +88,8 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "preview",
+    targetSelector: "#reduxshare-quiz-preview-modal",
+    placement: "left",
     titleKey: "tour.preview.title",
     textKey: "tour.preview.text",
   },

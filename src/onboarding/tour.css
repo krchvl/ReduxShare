@@ -169,3 +169,61 @@
     transform: translateX(-50%) translateY(0);
   }
 }
+
+.reduxshare-tour-finish {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 28px 28px 24px;
+  border-radius: 16px;
+  background: rgba(24, 26, 31, 0.96);
+  border: 1px solid rgba(156, 185, 246, 0.28);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  color: #f2f4f8;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.reduxshare-tour-finish__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #9cb9f6;
+  color: #10121a;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.reduxshare-tour-finish__title {
+  margin: 14px 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.reduxshare-tour-finish__text {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(242, 244, 248, 0.85);
+}
+
+.reduxshare-tour-finish__actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}

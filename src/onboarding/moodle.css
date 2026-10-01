@@ -1,15 +1,15 @@
 :root {
   --moodle-primary: #0f6cbf;
-  --moodle-primary-dark: #0a5aa3;
-  --moodle-navbar-bg: #1f2c38;
-  --moodle-body-bg: #f4f5f6;
-  --moodle-surface: #ffffff;
+  --moodle-body-color: #336;
+  --moodle-qtext-color: #001a1e;
   --moodle-border: #dee2e6;
-  --moodle-text: #1d2125;
-  --moodle-muted: #6a737b;
-  --moodle-success-bg: #d1e7dd;
-  --moodle-success-text: #0a3622;
-  --moodle-timer-bg: #20262d;
+  --moodle-info-border: #cad0d7;
+  --moodle-muted-bg: #f8f9fa;
+  --moodle-formulation-bg: #e6f2f5;
+  --moodle-secondary-btn: #ced4da;
+  --moodle-timer-border: #ca3120;
+  --moodle-navbar-height: 61px;
+  --moodle-blocks-width: 340px;
 }
 
 html,
@@ -19,16 +19,9 @@ body {
 }
 
 body {
-  background: var(--moodle-body-bg);
-  color: var(--moodle-text);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
+  background: #fff;
+  color: var(--moodle-body-color);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -43,6 +36,17 @@ body {
   text-decoration: underline;
 }
 
+#reduxshare-demo-page .moodle-navbar__brand,
+#reduxshare-demo-page .moodle-navbar__nav .nav-link {
+  color: #1d2125;
+}
+
+#reduxshare-demo-page .moodle-navbar__brand:hover,
+#reduxshare-demo-page .moodle-navbar__nav .nav-link:hover {
+  text-decoration: none;
+  color: #1d2125;
+}
+
 .accesshide {
   position: absolute;
   width: 1px;
@@ -53,23 +57,28 @@ body {
 }
 
 .moodle-navbar {
+  background: #fff;
+  border-bottom: 1px solid var(--moodle-border);
+  height: var(--moodle-navbar-height);
+  z-index: 1030;
+}
+
+.moodle-navbar__inner {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 24px;
-  height: 56px;
-  background: var(--moodle-navbar-bg);
-  color: #fff;
+  height: 100%;
+  padding: 0 16px;
+  gap: 8px;
 }
 
 .moodle-navbar__brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
+  margin-right: 16px;
+  color: var(--moodle-body-color);
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
-  letter-spacing: -0.2px;
 }
 
 .moodle-navbar__logo {
@@ -78,147 +87,295 @@ body {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #f98012, #ff5f2e);
+  border-radius: 7px;
+  background: #f98012;
   color: #fff;
-  font-weight: 800;
-  font-size: 18px;
   font-family: Georgia, serif;
   font-style: italic;
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1;
+  padding-bottom: 3px;
 }
 
-.moodle-navbar__course {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 15px;
-  border-left: 1px solid rgba(255, 255, 255, 0.25);
-  padding-left: 20px;
+.moodle-navbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.moodle-navbar__spacer {
-  flex: 1;
+.moodle-navbar__nav .nav-link {
+  display: inline-block;
+  padding: 8px 12px;
+  color: #1d2125;
+  font-size: 16px;
 }
 
-.moodle-navbar__user {
+.moodle-navbar__right {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
+}
+
+.moodle-navbar__iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #336;
+  cursor: pointer;
+  padding: 0;
+}
+
+.moodle-navbar__iconbtn:hover {
+  background: var(--moodle-muted-bg);
+}
+
+.moodle-navbar__divider {
+  width: 1px;
+  height: 75%;
+  background: var(--moodle-border);
+}
+
+.moodle-navbar__editmode {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  color: #1d2125;
+  white-space: nowrap;
+}
+
+.moodle-switch__track {
+  display: inline-flex;
+  align-items: center;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(51, 51, 102, 0.25);
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.moodle-switch__thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: margin-left 0.15s ease;
+}
+
+.moodle-navbar__usermenu {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #336;
+  cursor: pointer;
 }
 
 .moodle-navbar__avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
-  background: #4a5c6d;
+  background: #6a737b;
   color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  overflow: hidden;
 }
 
-.moodle-breadcrumb {
+.moodle-navbar__avatar svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+#page.drawers {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 24px;
-  background: #fff;
-  border-bottom: 1px solid var(--moodle-border);
-  color: var(--moodle-muted);
-  font-size: 14px;
+  align-items: stretch;
+  justify-content: center;
+  padding-top: var(--moodle-navbar-height);
+  min-height: calc(100vh - var(--moodle-navbar-height));
+  box-sizing: border-box;
 }
 
-.moodle-breadcrumb a {
-  color: var(--moodle-primary);
-}
-
-.moodle-breadcrumb__sep {
-  color: #adb5bd;
-}
-
-.moodle-breadcrumb__current {
-  color: var(--moodle-text);
-  font-weight: 500;
-}
-
-.moodle-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 28px;
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: 24px 24px 64px;
-}
-
-.moodle-main {
+.moodle-main-inner {
+  position: relative;
+  width: 100%;
+  max-width: 830px;
+  padding: 8px 15px 48px;
+  box-sizing: border-box;
   min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .moodle-page {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.moodle-drawer-toggler {
+  position: absolute;
+  top: calc(var(--moodle-navbar-height) + 8px);
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: #e9ecef;
+  color: #336;
+  cursor: pointer;
+}
+
+.moodle-drawer-toggler:hover {
+  background: #dee2e6;
+}
+
+.header-maxwidth {
+  max-width: 830px;
+  margin: 0 auto;
+}
+
+#page-header {
+  padding: 8px 15px 0;
+  box-sizing: border-box;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 8px 0 4px;
+  list-style: none;
+  font-size: 16px;
+}
+
+.breadcrumb-item {
+  color: var(--moodle-body-color);
+}
+
+.breadcrumb-item + .breadcrumb-item {
+  padding-left: 8px;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  content: "/";
+  float: left;
+  padding-right: 8px;
+  color: rgba(51, 51, 102, 0.75);
+}
+
+.breadcrumb-item > span {
+  color: rgba(51, 51, 102, 0.75);
+}
+
+.page-context-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.activityiconcontainer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+}
+
+.page-header-headings {
+  margin-top: 4px;
 }
 
 .page-header-headings h1 {
-  margin: 8px 0 4px;
-  font-size: 26px;
+  margin: 0;
+  color: var(--moodle-body-color);
+  font-size: 32px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
-.moodle-quiz-meta {
-  margin: 0 0 16px;
-  color: var(--moodle-muted);
-  font-size: 14px;
+.secondary-navigation {
+  padding: 0 15px 15px;
+  box-sizing: border-box;
 }
 
-.moodle-quiz-info {
-  background: var(--moodle-surface);
-  border: 1px solid var(--moodle-border);
-  border-radius: 0.5rem;
-  padding: 16px 20px;
-  margin-bottom: 24px;
+.moremenu .nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--moodle-border);
 }
 
-.moodle-quiz-info table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 15px;
+.nav-tabs .nav-link {
+  display: inline-block;
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  color: var(--moodle-primary);
+  font-size: 16px;
 }
 
-.moodle-quiz-info th {
-  text-align: left;
-  font-weight: 600;
-  padding: 6px 24px 6px 0;
-  white-space: nowrap;
+.nav-tabs .nav-link:hover {
+  border-color: var(--moodle-border) var(--moodle-border) var(--moodle-border);
 }
 
-.moodle-quiz-info td {
-  padding: 6px 0;
-  color: var(--moodle-text);
+.nav-tabs .nav-link.active {
+  border-bottom: 3px solid var(--moodle-primary);
+  color: #000;
+  font-weight: 500;
+}
+
+#page-content {
+  padding: 0 15px 16px;
+  box-sizing: border-box;
 }
 
 .tertiary-navigation {
-  margin-bottom: 20px;
-}
-
-.quizstartbuttondiv .btn {
-  margin-right: 8px;
+  margin-bottom: 24px;
 }
 
 .btn {
   display: inline-block;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: 1px solid transparent;
-  border-radius: 0.375rem;
-  font-size: 15px;
-  line-height: 1.4;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.5;
   font-family: inherit;
-  cursor: pointer;
   text-align: center;
+  cursor: pointer;
+}
+
+.btn-small {
+  padding: 2px 8px;
+  font-size: 14px;
+}
+
+.btn-secondary {
+  background: var(--moodle-secondary-btn);
+  border-color: var(--moodle-secondary-btn);
+  color: #000;
+}
+
+.btn-secondary:hover {
+  background: #c1c8ce;
+  border-color: #c1c8ce;
+  text-decoration: none;
 }
 
 .btn-primary {
@@ -228,85 +385,110 @@ body {
 }
 
 .btn-primary:hover {
-  background: var(--moodle-primary-dark);
-  border-color: var(--moodle-primary-dark);
+  background: #0d5ca2;
+  border-color: #0c5699;
 }
 
-.btn-secondary {
+#quiz-timer-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+#quiz-timer {
+  padding: 4px 8px;
   background: #fff;
-  border-color: #8f959e;
-  color: var(--moodle-text);
-}
-
-.btn-secondary:hover {
-  background: #f8f9fa;
+  border: 1px solid var(--moodle-timer-border);
+  color: var(--moodle-body-color);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
 .que {
-  background: var(--moodle-surface);
-  border: 1px solid var(--moodle-border);
-  border-radius: 0.5rem;
-  margin-bottom: 20px;
-  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 0 0 1.8em;
+  text-align: left;
 }
 
 .que .info {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  padding: 10px 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid var(--moodle-border);
-  font-size: 14px;
-  color: var(--moodle-muted);
+  flex-shrink: 0;
+  width: 112px;
+  box-sizing: border-box;
+  padding: 8px;
+  background: var(--moodle-muted-bg);
+  border: 1px solid var(--moodle-info-border);
+  border-radius: 2px;
+  font-size: 12.8px;
 }
 
 .que .info h3.no {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--moodle-text);
+  font-size: 12.8px;
+  font-weight: 500;
+  color: var(--moodle-body-color);
 }
 
-.que .info .state {
-  color: var(--moodle-muted);
+.que .info h3.no .qno {
+  font-size: 1.5em;
+  font-weight: 700;
 }
 
-.que .info .grade {
-  color: var(--moodle-muted);
+.que .info > div {
+  margin-top: 0.7em;
+  font-size: 1em;
+  color: var(--moodle-body-color);
 }
 
-.que .info .questionflag {
+.que .info .questionflag,
+.que .info .editquestion {
+  margin-top: 0.7em;
+}
+
+.que .info .questionflag a,
+.que .info .editquestion a {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  color: var(--moodle-primary);
+  font-size: 12.8px;
 }
 
-.que .info .questionflag .aabtn {
-  display: none;
+.que .info .questionflag .questionflagimage {
+  width: 12px;
+  height: 12px;
 }
 
-.que .info .badge.bg-primary {
-  display: none;
-}
-
-.que .info .editquestion {
-  display: none;
+.que .info .badge {
+  display: inline-block;
+  margin-top: 0.7em;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--moodle-primary);
+  color: #fff;
+  font-size: 11.2px;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 .que .content {
-  padding: 18px 20px 20px;
+  flex-grow: 1;
+  min-width: 0;
 }
 
 .que .formulation {
-  font-size: 16px;
+  padding: 16px;
+  background: var(--moodle-formulation-bg);
+  border-radius: 8px;
+  color: var(--moodle-qtext-color);
 }
 
 .que .qtext {
-  margin-bottom: 14px;
-  font-size: 17px;
-  line-height: 1.55;
+  margin-bottom: 8px;
+  font-size: 16px;
 }
 
 .que .qtext p {
@@ -315,35 +497,26 @@ body {
 
 .que fieldset.ablock {
   border: 0;
-  margin: 0;
+  margin: 11.2px 0 4.8px;
   padding: 0;
   min-inline-size: auto;
 }
 
-.que .answer > div.r0,
-.que .answer > div.r1 {
+.que .answer div.r0,
+.que .answer div.r1 {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  border: 2px solid #8f959e;
-  border-radius: 10px;
-  padding: 9px 12px;
-  margin: 0 0 10px;
-  background: #fff;
-}
-
-.que .answer > div.r0:last-child,
-.que .answer > div.r1:last-child {
-  margin-bottom: 0;
+  margin: 4px 0;
+  padding: 0;
 }
 
 .que .answer input[type="checkbox"],
 .que .answer input[type="radio"] {
-  margin: 4px 0 0;
   width: 16px;
   height: 16px;
-  accent-color: var(--moodle-primary);
+  margin: 4.8px 8px;
   flex-shrink: 0;
+  accent-color: var(--moodle-primary);
 }
 
 .que .answer [data-region="answer-label"] p {
@@ -351,12 +524,14 @@ body {
 }
 
 .que .answer input[type="text"] {
-  width: min(420px, 100%);
-  padding: 8px 12px;
+  width: 30%;
+  min-width: 200px;
+  padding: 6px 12px;
   border: 1px solid #8f959e;
-  border-radius: 0.375rem;
+  border-radius: 8px;
   font-size: 16px;
   font-family: inherit;
+  color: var(--moodle-qtext-color);
 }
 
 .que .answer input[type="text"]:focus {
@@ -365,20 +540,16 @@ body {
   border-color: var(--moodle-primary);
 }
 
-.que .answer .control {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-}
-
-.que .answer select.form-select {
+.que .answer select.form-select,
+.que .answer select {
   padding: 6px 34px 6px 12px;
   border: 1px solid #8f959e;
-  border-radius: 0.375rem;
+  border-radius: 8px;
   font-size: 15px;
   font-family: inherit;
+  color: var(--moodle-qtext-color);
   background: #fff
-    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231d2125' stroke-width='2'/%3E%3C/svg%3E")
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23336' stroke-width='2'/%3E%3C/svg%3E")
     no-repeat right 12px center;
   appearance: none;
 }
@@ -389,85 +560,123 @@ body {
   min-height: 140px;
   padding: 10px 12px;
   border: 1px solid #8f959e;
-  border-radius: 0.375rem;
+  border-radius: 8px;
   font-size: 15px;
   font-family: inherit;
   line-height: 1.5;
   background: #fff;
+  color: var(--moodle-qtext-color);
   resize: vertical;
 }
 
-.moodle-quiz-nav {
-  align-self: start;
-  position: sticky;
-  top: 16px;
-  background: var(--moodle-surface);
-  border: 1px solid var(--moodle-border);
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.moodle-quiz-nav__timer {
-  background: var(--moodle-timer-bg);
-  color: #fff;
-  padding: 12px 16px;
-  font-size: 14px;
-}
-
-.moodle-quiz-nav__timer strong {
-  display: block;
-  font-size: 20px;
-  font-variant-numeric: tabular-nums;
-}
-
-.moodle-quiz-nav__body {
-  padding: 16px;
-}
-
-.moodle-quiz-nav__title {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.moodle-quiz-nav__buttons {
+.submitbtns {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.moodle-blocks-drawer {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: var(--moodle-blocks-width);
+  box-sizing: border-box;
+  padding: 12px 12px 48px;
+  background: var(--moodle-muted-bg);
+  border-left: 1px solid var(--moodle-border);
+  overflow-y: auto;
+}
+
+.block.card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.176);
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 
+.block.card .card-body {
+  padding: 16px;
+}
+
+.block.card .card-title {
+  margin: 0;
+  color: var(--moodle-body-color);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.block.card .content {
+  margin-top: 12px;
+}
+
+.qn_buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .qnbutton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: 32px;
   height: 40px;
-  border-radius: 6px;
-  border: 2px solid #8f959e;
+  box-sizing: border-box;
+  border: 2px solid var(--moodle-body-color);
+  border-radius: 3px;
   background: #fff;
-  color: var(--moodle-text);
-  font-size: 15px;
-  font-weight: 600;
+  color: var(--moodle-body-color);
+  font-size: 14px;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  font-family: inherit;
 }
 
-.qnbutton--active {
-  border-color: var(--moodle-primary);
-  background: #e7f1fa;
+.qnbutton:hover {
+  text-decoration: underline;
 }
 
-.moodle-quiz-nav .btn {
-  width: 100%;
+.othernav {
+  margin-top: 16px;
+}
+
+.othernav .endtestlink {
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.othernav .singlebutton {
+  display: inline-block;
+  margin-right: 8px;
 }
 
 .moodle-footer {
   border-top: 1px solid var(--moodle-border);
   padding: 16px 24px;
   text-align: center;
-  color: var(--moodle-muted);
+  color: rgba(51, 51, 102, 0.75);
   font-size: 13px;
   background: #fff;
+}
+
+@media (max-width: 1100px) {
+  .moodle-blocks-drawer {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .moodle-navbar__sitename,
+  .moodle-navbar__editmode {
+    display: none;
+  }
+
+  .que {
+    flex-direction: column;
+  }
+
+  .que .info {
+    width: 100%;
+  }
 }

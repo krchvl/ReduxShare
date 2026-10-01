@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
 import { essayExamplesByQuestionId } from "../state";
 import { getTranslator } from "../i18n";
-import { I18nProvider } from "../i18n/react";
+import { I18nProvider, useI18n } from "../i18n/react";
 import {
   DEMO_ACCENT_COLOR,
   buildStoredState,
@@ -15,6 +15,7 @@ import {
   seedEssayExamples,
   shortanswerAnswerData,
 } from "./demoBackend";
+import { initializeQuizPreviewFeatures, openQuizPreviewPanelForTour } from "../content/quizPreview";
 import { injectDemoPage } from "./pageShell";
 import { TourApp, dispatchTourToast } from "./TourApp";
 import "./moodle.css";
@@ -50,20 +51,6 @@ function installNavigationGuards() {
     },
     true,
   );
-
-  document.addEventListener(
-    "click",
-    (event) => {
-      const target = event.target;
-
-      if (target instanceof Element && target.closest("#reduxshare-auto-pass-button")) {
-        event.preventDefault();
-        event.stopPropagation();
-        blocked();
-      }
-    },
-    true,
-  );
 }
 
 async function boot() {
@@ -92,10 +79,9 @@ async function boot() {
   essayExamplesByQuestionId.set("2101", getEssayExamplesForQuestion("2101"));
 
   api.mountAttemptStatusPanelForTour();
-  api.ensureAutoPassStartButton();
+  api.setAttemptStatusPanelCollapsed(true);
 
-  const { initializeQuizPreviewFeatures } = await import("../content/quizPreview");
-  await initializeQuizPreviewFeatures();
+  await initializeQuizPreviewFeatures({ withButton: false });
 
   const container = document.getElementById("root");
 
@@ -107,17 +93,61 @@ async function boot() {
     <I18nProvider language={buildStoredState().settings?.language ?? "ru"}>
       <OnboardingRoot
         openAnswerMenu={(questionId, tab) => api.openAnswerMenuForQuestion(questionId, tab)}
+        openPreviewPanel={openQuizPreviewPanelForTour}
+        setAnswerMenuSticky={(sticky) => api.setAnswerMenuSticky(sticky)}
+        setPanelCollapsed={(collapsed) => api.setAttemptStatusPanelCollapsed(collapsed)}
       />
     </I18nProvider>,
   );
 }
 
+function FinishedCard() {
+  const { t } = useI18n();
+
+  return (
+    <div className="reduxshare-tour-finish" role="dialog" aria-modal="true">
+      <span className="reduxshare-tour-finish__mark" aria-hidden="true">
+        R
+      </span>
+      <h2 className="reduxshare-tour-finish__title">{t("tour.finished.title")}</h2>
+      <p className="reduxshare-tour-finish__text">{t("tour.finished.text")}</p>
+      <div className="reduxshare-tour-finish__actions">
+        <button
+          type="button"
+          className="reduxshare-tour-button"
+          onClick={() => window.location.reload()}
+        >
+          {t("tour.finished.restart")}
+        </button>
+        <button
+          type="button"
+          className="reduxshare-tour-button reduxshare-tour-button--primary"
+          onClick={() => window.close()}
+        >
+          {t("tour.finished.close")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function OnboardingRoot({
   openAnswerMenu,
+  openPreviewPanel,
+  setAnswerMenuSticky,
+  setPanelCollapsed,
 }: {
   openAnswerMenu: (questionId: string, tab?: "internal" | "external" | "ai") => boolean;
+  openPreviewPanel: () => void;
+  setAnswerMenuSticky: (sticky: boolean) => void;
+  setPanelCollapsed: (collapsed: boolean) => void;
 }) {
   const [visible, setVisible] = useState(true);
+  const [finished, setFinished] = useState(false);
+
+  if (finished) {
+    return <FinishedCard />;
+  }
 
   if (!visible) {
     return null;
@@ -126,9 +156,13 @@ function OnboardingRoot({
   return (
     <TourApp
       openAnswerMenu={openAnswerMenu}
+      openPreviewPanel={openPreviewPanel}
+      setAnswerMenuSticky={setAnswerMenuSticky}
+      setPanelCollapsed={setPanelCollapsed}
       onFinish={() => {
         setVisible(false);
         window.close();
+        window.setTimeout(() => setFinished(true), 400);
       }}
     />
   );

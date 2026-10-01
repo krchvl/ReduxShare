@@ -8,6 +8,8 @@ const CARD_GAP = 14;
 const VIEWPORT_MARGIN = 10;
 const TOAST_EVENT = "reduxshare-tour-toast";
 const TOAST_VISIBLE_MS = 2600;
+const PREVIEW_MODAL_SELECTOR = "#reduxshare-quiz-preview-modal";
+const MEASURE_SETTLE_DELAY = 320;
 
 export const dispatchTourToast = (message: string) => {
   document.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: message }));
@@ -24,6 +26,9 @@ interface Rect {
 
 export interface TourAppProps {
   openAnswerMenu: (questionId: string, tab?: "internal" | "external" | "ai") => boolean;
+  openPreviewPanel: () => void;
+  setAnswerMenuSticky: (sticky: boolean) => void;
+  setPanelCollapsed: (collapsed: boolean) => void;
   onFinish: () => void;
 }
 
@@ -47,13 +52,6 @@ function clickAiSendButton() {
     ?.click();
 }
 
-function openPreviewPanel() {
-  document
-    .getElementById("reduxshare-quiz-preview-button")
-    ?.shadowRoot?.querySelector<HTMLButtonElement>("button")
-    ?.click();
-}
-
 function closePreviewPanel() {
   document
     .getElementById("reduxshare-quiz-preview-modal")
@@ -61,50 +59,18 @@ function closePreviewPanel() {
     ?.click();
 }
 
+function moveTourRootAfter(host: Element | null) {
+  const tourContainer = document.getElementById("root");
+
+  if (host && tourContainer) {
+    host.after(tourContainer);
+  }
+}
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), Math.max(max, min));
 
-function resolveTargetRect(target: Element): Rect {
-  const box = target.getBoundingClientRect();
-
-  if (box.width === 0 && box.height === 0) {
-    const menu = target.shadowRoot?.querySelector(".menu");
-
-    if (menu) {
-      const menuBox = menu.getBoundingClientRect();
-
-      if (menuBox.width > 0 || menuBox.height > 0) {
-        const union = (current: Rect, extra: DOMRect): Rect => ({
-          left: Math.min(current.left, extra.left),
-          top: Math.min(current.top, extra.top),
-          width: Math.max(current.right, extra.right) - Math.min(current.left, extra.left),
-          height: Math.max(current.bottom, extra.bottom) - Math.min(current.top, extra.top),
-          bottom: Math.max(current.bottom, extra.bottom),
-          right: Math.max(current.right, extra.right),
-        });
-
-        let result: Rect = {
-          left: menuBox.left,
-          top: menuBox.top,
-          width: menuBox.width,
-          height: menuBox.height,
-          bottom: menuBox.bottom,
-          right: menuBox.right,
-        };
-
-        for (const flyout of menu.querySelectorAll(".flyout")) {
-          const flyoutBox = flyout.getBoundingClientRect();
-
-          if (flyoutBox.width > 0 || flyoutBox.height > 0) {
-            result = union(result, flyoutBox);
-          }
-        }
-
-        return result;
-      }
-    }
-  }
-
+function toRect(box: DOMRect): Rect {
   return {
     left: box.left,
     top: box.top,
@@ -113,6 +79,55 @@ function resolveTargetRect(target: Element): Rect {
     bottom: box.bottom,
     right: box.right,
   };
+}
+
+function unionRects(current: Rect, extra: DOMRect): Rect {
+  return {
+    left: Math.min(current.left, extra.left),
+    top: Math.min(current.top, extra.top),
+    width: Math.max(current.right, extra.right) - Math.min(current.left, extra.left),
+    height: Math.max(current.bottom, extra.bottom) - Math.min(current.top, extra.top),
+    bottom: Math.max(current.bottom, extra.bottom),
+    right: Math.max(current.right, extra.right),
+  };
+}
+
+function resolveTargetRect(target: Element): Rect {
+  const shadow = target.shadowRoot;
+
+  if (shadow) {
+    const menu = shadow.querySelector<HTMLElement>(".menu");
+
+    if (menu) {
+      const menuBox = menu.getBoundingClientRect();
+
+      if (menuBox.width > 0 || menuBox.height > 0) {
+        let result = toRect(menuBox);
+
+        for (const flyout of menu.querySelectorAll(".flyout")) {
+          const flyoutBox = flyout.getBoundingClientRect();
+
+          if (flyoutBox.width > 0 || flyoutBox.height > 0) {
+            result = unionRects(result, flyoutBox);
+          }
+        }
+
+        return result;
+      }
+    }
+
+    const dialog = shadow.querySelector<HTMLElement>(".rpx-dialog");
+
+    if (dialog) {
+      const dialogBox = dialog.getBoundingClientRect();
+
+      if (dialogBox.width > 0 || dialogBox.height > 0) {
+        return toRect(dialogBox);
+      }
+    }
+  }
+
+  return toRect(target.getBoundingClientRect());
 }
 
 function placeCard(
@@ -141,15 +156,45 @@ function placeCard(
   } else if (placement === "top" ? fitsTop : !fitsBottom && fitsTop) {
     left = centeredLeft;
     top = rect.top - CARD_GAP - cardHeight;
-  } else {
+  } else if (fitsTop || fitsBottom) {
     left = centeredLeft;
     top = rect.bottom + CARD_GAP;
+  } else {
+    const freeSpace = {
+      left: rect.left - VIEWPORT_MARGIN,
+      right: viewportWidth - VIEWPORT_MARGIN - rect.right,
+      top: rect.top - VIEWPORT_MARGIN,
+      bottom: viewportHeight - VIEWPORT_MARGIN - rect.bottom,
+    };
+    const best = (["left", "right", "top", "bottom"] as const).reduce((a, b) =>
+      freeSpace[a] >= freeSpace[b] ? a : b,
+    );
+
+    if (best === "left") {
+      left = rect.left - CARD_GAP - CARD_WIDTH;
+      top = rect.top + rect.height / 2 - cardHeight / 2;
+    } else if (best === "right") {
+      left = rect.right + CARD_GAP;
+      top = rect.top + rect.height / 2 - cardHeight / 2;
+    } else if (best === "top") {
+      left = centeredLeft;
+      top = rect.top - CARD_GAP - cardHeight;
+    } else {
+      left = centeredLeft;
+      top = rect.bottom + CARD_GAP;
+    }
   }
 
   return { left: clamp(left, VIEWPORT_MARGIN, maxLeft), top: clamp(top, VIEWPORT_MARGIN, maxTop) };
 }
 
-export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
+export function TourApp({
+  openAnswerMenu,
+  openPreviewPanel,
+  setAnswerMenuSticky,
+  setPanelCollapsed,
+  onFinish,
+}: TourAppProps) {
   const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -164,42 +209,87 @@ export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
   const stepActions: Partial<Record<TourStepId, () => void>> = {
     menu: () => {
       openAnswerMenu("1385", "internal");
+      moveTourRootAfter(getMenuPortal());
+      setAnswerMenuSticky(true);
     },
     stats: () => {
       openAnswerMenu("2011", "internal");
       openMenuFlyout('[data-answer-menu$="-stats"]');
+      moveTourRootAfter(getMenuPortal());
+      setAnswerMenuSticky(true);
     },
     ai: () => {
       openAnswerMenu("1385", "ai");
       clickAiSendButton();
       openMenuFlyout('[data-answer-menu="ai-answer"]');
+      moveTourRootAfter(getMenuPortal());
+      setAnswerMenuSticky(true);
     },
     essay: () => {
       openAnswerMenu("2101", "internal");
       openMenuFlyout('[data-answer-menu="essay-examples"]');
+      moveTourRootAfter(getMenuPortal());
+      setAnswerMenuSticky(true);
     },
     preview: () => {
       openPreviewPanel();
-      const modalHost = document.getElementById("reduxshare-quiz-preview-modal");
-      const tourContainer = document.getElementById("root");
-
-      if (modalHost && tourContainer) {
-        modalHost.after(tourContainer);
-      }
+      moveTourRootAfter(document.getElementById("reduxshare-quiz-preview-modal"));
+    },
+    statusPanel: () => {
+      setPanelCollapsed(false);
     },
   };
 
+  const closeTourAnswerMenu = () => {
+    setAnswerMenuSticky(false);
+    closeAnswerMenu();
+  };
+
   const stepCleanups: Partial<Record<TourStepId, () => void>> = {
-    menu: closeAnswerMenu,
-    stats: closeAnswerMenu,
-    ai: closeAnswerMenu,
-    essay: closeAnswerMenu,
+    menu: closeTourAnswerMenu,
+    stats: closeTourAnswerMenu,
+    ai: closeTourAnswerMenu,
+    essay: closeTourAnswerMenu,
     preview: closePreviewPanel,
   };
 
   useLayoutEffect(() => {
     const action = stepActions[step.id];
     const cleanup = stepCleanups[step.id];
+    const observedRoots = new Set<ShadowRoot>();
+    const settleTimeouts = new Set<number>();
+
+    const scheduleSettledMeasure = () => {
+      const timeout = window.setTimeout(() => {
+        settleTimeouts.delete(timeout);
+        measure();
+      }, MEASURE_SETTLE_DELAY);
+      settleTimeouts.add(timeout);
+    };
+
+    const observer = new MutationObserver(() => {
+      window.requestAnimationFrame(() => {
+        measure();
+        observeHosts();
+      });
+      scheduleSettledMeasure();
+    });
+
+    const observeHosts = () => {
+      for (const hostSelector of [MENU_PORTAL_SELECTOR, PREVIEW_MODAL_SELECTOR]) {
+        const root = document.querySelector<HTMLElement>(hostSelector)?.shadowRoot;
+
+        if (root && !observedRoots.has(root)) {
+          observedRoots.add(root);
+          observer.observe(root, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ["class", "hidden", "style"],
+          });
+        }
+      }
+    };
 
     const scrollSelector = step.scrollSelector ?? step.targetSelector;
 
@@ -228,6 +318,8 @@ export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
     const frame = window.requestAnimationFrame(() => {
       action?.();
       measure();
+      observeHosts();
+      scheduleSettledMeasure();
     });
 
     window.addEventListener("resize", measure);
@@ -235,11 +327,17 @@ export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
 
     return () => {
       window.cancelAnimationFrame(frame);
+      observer.disconnect();
+
+      for (const timeout of settleTimeouts) {
+        window.clearTimeout(timeout);
+      }
+
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
       cleanup?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- действие зависит только от шага
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
   const cardStyle: CSSProperties = rect
