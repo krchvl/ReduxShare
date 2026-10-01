@@ -10,7 +10,8 @@ dist/
 *.log
 coverage/
 agents/
-docs/
 AGENTS.md
+.agents/
+tmp/
 
 .zcode/
