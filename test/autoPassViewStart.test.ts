@@ -129,12 +129,16 @@ describe("auto pass start button on the quiz view page", () => {
     expect(getStartButtonHost().hidden).toBe(true);
   });
 
-  it("ignores a repeated start click while the session is active", async () => {
+  it("restarts the session when the start button is clicked while a session is already active", async () => {
     const api = await setupViewPage();
 
     expect(api.ensureAutoPassStartButton()).toBe(true);
 
-    const session = makeSession({ status: "running" });
+    const session = makeSession({
+      status: "running",
+      startedAt: "2020-01-01T00:00:00.000Z",
+      updatedAt: "2020-01-01T00:00:00.000Z",
+    });
     await chrome.storage.local.set({ [AUTO_PASS_SESSION_STORAGE_KEY]: session });
     api.applyAutoPassStorageChanges({
       [AUTO_PASS_SESSION_STORAGE_KEY]: { newValue: session },
@@ -146,7 +150,14 @@ describe("auto pass start button on the quiz view page", () => {
     getStartButtonHost().click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(submitClickSpy).not.toHaveBeenCalled();
+    expect(submitClickSpy).toHaveBeenCalledTimes(1);
+
+    const stored = (await chrome.storage.local.get(AUTO_PASS_SESSION_STORAGE_KEY))[
+      AUTO_PASS_SESSION_STORAGE_KEY
+    ] as AutoPassSession;
+
+    expect(stored.status).toBe("running");
+    expect(stored.startedAt).not.toBe(session.startedAt);
   });
 });
 

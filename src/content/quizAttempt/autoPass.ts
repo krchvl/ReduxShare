@@ -54,6 +54,10 @@ const AUTO_PASS_PAGE_POLL_MS = 400;
 const AUTO_PASS_READY_TIMEOUT_MS = 8000;
 const AUTO_PASS_PAGE_TIMEOUT_MS = 600000;
 const AUTO_PASS_CONFIRM_SUBMIT_DELAY_MS = 800;
+const AUTO_PASS_PREFLIGHT_MODAL_SELECTOR = ".mod_quiz_preflight_popup";
+const AUTO_PASS_PREFLIGHT_CONFIRM_SELECTOR = "#id_submitbutton";
+const AUTO_PASS_PREFLIGHT_TIMEOUT_MS = 8000;
+const AUTO_PASS_PREFLIGHT_POLL_MS = 200;
 const AUTO_PASS_SUMMARY_NOTICE_VISIBLE_MS = 12000;
 const AUTO_PASS_QUESTION_EXCERPT_MAX_LENGTH = 160;
 
@@ -514,8 +518,12 @@ function parseStartFormCmid(): number | null {
 export async function startAutoPassFromViewPage(): Promise<void> {
   const form = document.querySelector<HTMLFormElement>(AUTO_PASS_START_FORM_SELECTOR);
 
-  if (!form || autoPassSession?.status === "running" || autoPassSession?.status === "paused") {
+  if (!form) {
     return;
+  }
+
+  if (autoPassSession?.status === "running" || autoPassSession?.status === "paused") {
+    await stopAutoPass();
   }
 
   const cmid = parseStartFormCmid();
@@ -543,11 +551,47 @@ export async function startAutoPassFromViewPage(): Promise<void> {
 
   if (submitButton) {
     submitButton.click();
+    void confirmAutoPassPreflightModal();
     return;
   }
 
   if (typeof form.requestSubmit === "function") {
     form.requestSubmit();
+    void confirmAutoPassPreflightModal();
+  }
+}
+
+async function confirmAutoPassPreflightModal(): Promise<void> {
+  const deadline =
+    Date.now() + (IS_TEST_MODE ? AUTO_PASS_PREFLIGHT_POLL_MS * 3 : AUTO_PASS_PREFLIGHT_TIMEOUT_MS);
+  let modalSeen = false;
+
+  for (;;) {
+    if (autoPassSession?.status !== "running") {
+      return;
+    }
+
+    const modal = document.querySelector<HTMLElement>(AUTO_PASS_PREFLIGHT_MODAL_SELECTOR);
+    const confirmButton = modal?.querySelector<HTMLElement>(AUTO_PASS_PREFLIGHT_CONFIRM_SELECTOR);
+
+    if (modal && confirmButton) {
+      confirmButton.click();
+      logReduxShareInfo("ReduxShare auto-pass: confirmed the quiz preflight dialog");
+      return;
+    }
+
+    if (modal) {
+      modalSeen = true;
+    } else if (modalSeen) {
+      void stopAutoPass();
+      return;
+    }
+
+    if (Date.now() >= deadline) {
+      return;
+    }
+
+    await sleep(AUTO_PASS_PREFLIGHT_POLL_MS);
   }
 }
 
@@ -735,16 +779,31 @@ export function syncAutoPassViewFeatures(): void {
   }
 
   if (!autoPassSession) {
-    void loadAutoPassSessionState().then(() => {
-      const host = document.getElementById(AUTO_PASS_START_BUTTON_ID);
-
-      if (host instanceof HTMLElement) {
-        updateAutoPassStartButton(host);
-      }
+    void loadAutoPassSessionState().then(async () => {
+      await resetStaleAutoPassSessionOnViewPage();
+      updateAutoPassStartButtonHost();
     });
     return;
   }
 
+  void resetStaleAutoPassSessionOnViewPage().then(() => {
+    updateAutoPassStartButtonHost();
+  });
+}
+
+async function resetStaleAutoPassSessionOnViewPage(): Promise<void> {
+  const cmid = parseStartFormCmid();
+
+  if (
+    autoPassSession?.status === "running" &&
+    cmid !== null &&
+    doesAutoPassSessionMatchPage(autoPassSession, window.location.hostname, cmid)
+  ) {
+    await stopAutoPass();
+  }
+}
+
+function updateAutoPassStartButtonHost(): void {
   const host = document.getElementById(AUTO_PASS_START_BUTTON_ID);
 
   if (host instanceof HTMLElement) {
