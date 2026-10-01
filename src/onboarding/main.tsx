@@ -1,8 +1,3 @@
-// Онбординг-тур ReduxShare: открывается вкладкой при первой установке
-// (chrome.runtime.onInstalled, reason=install). Страница — имитация Moodle
-// attempt.php с реальными фикстурами вопросов; все данные демо замоканы
-// (demoBackend), реальный chrome.storage не затрагивается. Content-скрипт
-// загружается в тестовом режиме и управляется через test API.
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
@@ -30,8 +25,6 @@ interface RealChrome {
   i18n?: { getUILanguage?: () => string };
 }
 
-// Реальный chrome захватываем до подмены: getURL нужен для иконок статус-панели,
-// getUILanguage — для выбора языка тура.
 const realChrome = (window as unknown as { chrome?: RealChrome }).chrome;
 
 (window as unknown as { __REDUXSHARE_TEST_MODE__?: boolean }).__REDUXSHARE_TEST_MODE__ = true;
@@ -45,8 +38,6 @@ installChromeMock({
 
 const translateTourString = getTranslator(buildStoredState().settings?.language);
 
-// Демо-страница не должна навигировать: сабмиты и запуск автопрогона блокируются
-// с тостом-подсказкой.
 function installNavigationGuards() {
   const blocked = () => dispatchTourToast(translateTourString("tour.toast.navigationBlocked"));
 
@@ -91,8 +82,6 @@ async function boot() {
   }
 
   api.setStoredState(buildStoredState());
-  // В тестовом режиме syncAllFeatures не запускается — стелс-флаг в state.ts
-  // по умолчанию true; синхронизируем его с демо-настройками вручную.
   api.syncStealthMode(buildStoredState());
   api.setSourceAnswerData("1385", "reduxshare", multichoiceAnswerData());
   api.setSourceAnswerData("1385", "external", multichoiceExternalAnswerData());
@@ -100,7 +89,6 @@ async function boot() {
   api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
   api.mountAnswerWidgets(DEMO_ACCENT_COLOR);
 
-  // loadQuizAnswers в демо не вызывается — примеры эссе сеем в карту напрямую.
   essayExamplesByQuestionId.set("2101", getEssayExamplesForQuestion("2101"));
 
   api.mountAttemptStatusPanelForTour();

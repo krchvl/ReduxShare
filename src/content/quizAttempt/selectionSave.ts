@@ -87,9 +87,6 @@ function handleSelectionChangeEvent(event: Event) {
   pendingSelectionFlushTimers.set(questionNode, timerId);
 }
 
-// Один document-level change-слушатель покрывает и ручные клики, и установки
-// расширения: setAnswerInputChecked/setSelectValue сами диспатчат bubbling
-// change. Повторные события того же ответа отсекает трекинг.
 export async function flushQuestionSelections(questionNode: Element) {
   try {
     const storedState = await loadStoredState();
@@ -253,9 +250,6 @@ export async function clearSelectionSavesForAttempt(attemptKey: string) {
   await chrome.storage.local.set({ [SELECTION_SAVES_STORAGE_KEY]: store });
 }
 
-// Трекинг пишется оптимистично до отправки: потерянный ack при доставленной
-// записи не должен привести к двойному учёту на review-переносе. Выбор,
-// который так и не долёт до БД, безопасно съедается клампом переносимых дельт.
 async function trackSelectionEntries(
   attemptKey: string,
   questionId: string,

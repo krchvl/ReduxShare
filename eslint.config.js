@@ -19,6 +19,7 @@ export default tseslint.config(
     },
     rules: {
       "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-empty": ["error", { allowEmptyCatch: true }],
       "@typescript-eslint/consistent-type-imports": "error",
       "react-hooks/exhaustive-deps": "error",
 

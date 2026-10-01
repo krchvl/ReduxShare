@@ -1,6 +1,3 @@
-// Реакция на первую установку расширения: открываем вкладку с онбординг-туром
-// (моковая страница Moodle с демо всех функций). Вынесено в отдельный модуль,
-// чтобы предикат покрывался юнит-тестами без загрузки всего service worker.
 const ONBOARDING_PAGE_PATH = "onboarding.html";
 
 export function shouldOpenOnboardingTour(reason: string | undefined): boolean {

@@ -517,8 +517,6 @@ function buildQuestionData(slots: AggregatedSlot[]) {
 
 const VOTES_QUERY_CHUNK = 80;
 
-// Строка проверена сообществом: есть импортированные данные о верности или неверности.
-// Голосовать можно только за непроверенные варианты.
 function isTaskRowVerified(
   row: Pick<TaskRecord, "correct_count" | "selected_correct_count" | "selected_incorrect_count">,
 ) {
@@ -740,8 +738,6 @@ export async function voteTaskAnswer(
               throw error;
             }
 
-            // Гонка на уникальном индексе: голос уже создан параллельным запросом
-            // и его счётчик применён победителем — доводим запись до желаемого значения.
             const winner = await findOwnTaskVote(pb, session.user.id, payload.taskId);
 
             if (!winner) {
@@ -879,7 +875,6 @@ export async function fetchReduxShareQuizPreviewTasks(
         continue;
       }
 
-      // Превью-панель не голосует: карта голосов не запрашивается.
       const slots = aggregateSlotRows(bestRows, new Map());
       const data = buildQuestionData(slots);
 
@@ -1156,9 +1151,6 @@ function getReviewQuestionContentHash(question: NormalizedReviewQuestion) {
   return fnv1aHex(`${question.questionId}\n${question.questionHash}\n${fingerprint}`);
 }
 
-// Выбор, учтённый при установке ответа (pre-counted), переносится на вердикт
-// review: старый тик снимается (клампится по текущему значению строки), новый
-// ставится. Один выбор пользователя = один итоговый тик в verified-счётчике.
 function getSelectionTransitionDeltas(
   previous: SelectionVerdict,
   current: SelectionVerdict | null,
@@ -1568,9 +1560,6 @@ export async function saveReduxShareReviewAnswers(
           });
         }
 
-        // Счётчики персональной статистики применяются последними: после записи
-        // хэшей повторный сохранённый импорт дедуплицируется и не задваивает
-        // общие счётчики задач, поэтому ретрай здесь безопасен.
         const userStatsPatch: Record<string, unknown> = {};
 
         if (importedQuestions > 0) {
@@ -1666,9 +1655,6 @@ function normalizeUserAnswerSelectionQuestion(
   };
 }
 
-// Мгновенное сохранение выбора пользователя на attempt.php: только счётчики
-// selected_* по вердикту. Без review_imports, user stats и correct_count —
-// верификация остаётся за review-импортом после сдачи попытки.
 export async function saveUserAnswerSelection(
   authSession: AuthSession,
   payload: SaveUserAnswerPayload,

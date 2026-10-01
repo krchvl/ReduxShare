@@ -61,8 +61,6 @@ let attemptStatusPanelTrayOpen = false;
 let attemptStatusPanelSolveAllResult: string | null = null;
 let attemptStatusPanelSolveAllResultTimeoutId: number | null = null;
 
-// Тур онбординга рендерит панель на демо-странице вне attempt-URL; флаг снимает
-// только URL-гейт — остальные гейты (stealth, сессия) работают как обычно.
 let attemptStatusPanelTourMode = false;
 
 export function setAttemptStatusPanelTourMode(enabled: boolean) {
@@ -2270,9 +2268,7 @@ export async function loadAttemptStatusPanelPositionState() {
       };
       return;
     }
-  } catch {
-    // Ignore invalid saved UI position and fall back to default placement.
-  }
+  } catch {}
 
   attemptStatusPanelPosition = null;
 }
@@ -2282,9 +2278,7 @@ export async function saveAttemptStatusPanelCollapsedState(collapsed: boolean) {
     await chrome.storage.local.set({
       [ATTEMPT_STATUS_PANEL_COLLAPSED_STORAGE_KEY]: collapsed,
     });
-  } catch {
-    // Persisted UI state must not block quiz behavior.
-  }
+  } catch {}
 }
 
 export function applyAttemptStatusPanelStorageChanges(

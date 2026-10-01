@@ -108,8 +108,30 @@
   border-bottom-color: rgba(15, 20, 35, 0.09);
 }
 
+:root[data-theme="light"] .switch--unchecked {
+  background: #ccd2db;
+}
+
 :root[data-theme="light"] .switch-handle {
   background: #ffffff;
+}
+
+:root[data-theme="light"] .cselect__trigger {
+  background: #ffffff;
+  border-color: rgba(15, 20, 35, 0.14);
+}
+
+:root[data-theme="light"] .cselect__trigger:hover {
+  background: color-mix(in srgb, var(--accent) 6%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 45%, rgba(15, 20, 35, 0.2));
+}
+
+:root[data-theme="light"] .cselect__listbox {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .cselect__option--active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 :root[data-theme="light"] .accent-picker__preset {
@@ -876,8 +898,8 @@ button:focus-visible {
 
 .switch {
   position: relative;
-  width: 94px;
-  height: 44px;
+  width: 52px;
+  height: 30px;
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 0;
@@ -900,32 +922,32 @@ button:focus-visible {
 
 .switch-handle {
   position: absolute;
-  top: 5px;
-  left: 6px;
-  width: 34px;
-  height: 34px;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: var(--white);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
   transition: left 140ms ease;
 }
 
 .switch--checked .switch-handle {
-  left: 54px;
+  left: 25px;
 }
 
 .switch--small {
-  width: 82px;
-  height: 42px;
+  width: 44px;
+  height: 26px;
 }
 
 .switch--small .switch-handle {
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 20px;
 }
 
 .switch--small.switch--checked .switch-handle {
-  left: 45px;
+  left: 21px;
 }
 
 .hotkey-button {

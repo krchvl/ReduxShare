@@ -313,10 +313,7 @@ export function MainScreen({
   const aiModelsStateRef = useRef(aiModelsState);
 
   useEffect(() => {
-    refreshBroadPermissionCache().catch(() => {
-      // Ignore errors; the permission cache will fall back to `null`,
-      // which behaves as "not granted" until the user grants it explicitly.
-    });
+    refreshBroadPermissionCache().catch(() => {});
   }, []);
 
   const prevAiSettingsRef = useRef<AiSettings>(settings.ai);
@@ -953,8 +950,6 @@ export function MainScreen({
     if (activeTab === "extra") {
       const releaseUrl = updateState.status === "available" ? updateState.releaseUrl : null;
       const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
-      // On the `npm run dev` page there is no real update check, so preview
-      // the toast with demo data when nothing is actually available.
       const previewUpdateState: UpdateState =
         isDevBuild && updateState.status !== "available"
           ? {
@@ -1165,8 +1160,6 @@ export function MainScreen({
                     <div className="autoselect-timing__scale" aria-hidden="true">
                       {(
                         [
-                          // Тики стоят по той же формуле, что и центр ползунка:
-                          // margin(2px) + половина ширины ползунка (8px) + f * (100% - 16px).
                           ["brisk", "10px"],
                           ["balanced", "calc(10px + (100% - 16px) * 0.5)"],
                           ["realistic", "calc(100% - 6px)"],

@@ -14,8 +14,6 @@ export const REVIEW_IMPORTS_COLLECTION = "reduxshare_review_imports";
 export const ESSAY_EXAMPLES_COLLECTION = "reduxshare_essay_examples";
 export const ESSAY_VOTES_COLLECTION = "reduxshare_essay_votes";
 
-// Активный сервер переопределяется из настроек в каждом контексте, который
-// строит PB-клиенты (background-воркер и popup). До инициализации используется env-URL.
 let activeServerUrlOverride: string | null = null;
 
 export function setActivePocketBaseUrl(url: string | null): void {
@@ -57,8 +55,6 @@ function resolveActiveServerUrlFromSettings(storedState: Partial<StoredState> | 
   return active?.url ?? null;
 }
 
-// Синхронизирует активный сервер PB с chrome.storage: разовое чтение + живая
-// подписка на изменения настроек. Вызывается при старте background и popup.
 export async function initActivePocketBaseServerSync(): Promise<void> {
   const storedState = await loadStoredState();
   setActivePocketBaseUrl(resolveActiveServerUrlFromSettings(storedState));

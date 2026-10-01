@@ -359,8 +359,6 @@ function findNavButtonForPage(targetPage: number): HTMLElement | null {
 }
 
 function getAutoPassScheduleState(storedState: StoredStateLike | undefined): StoredStateLike {
-  // Auto-pass must answer even when the standalone auto-select setting is off;
-  // the schedule engine still provides humanized delays and progress rings.
   return {
     ...(storedState as StoredStateLike),
     settings: {
@@ -497,8 +495,6 @@ export async function resumeAutoPassOnAttemptPage(): Promise<void> {
     renderAttemptStatusPanel();
   }
 }
-
-// --- view.php start button -------------------------------------------------
 
 function parseStartFormCmid(): number | null {
   const form = document.querySelector<HTMLFormElement>(AUTO_PASS_START_FORM_SELECTOR);
@@ -756,8 +752,6 @@ export function syncAutoPassViewFeatures(): void {
   }
 }
 
-// --- startattempt.php confirmation page ------------------------------------
-
 export async function runAutoPassOnConfirmationPage(): Promise<void> {
   if (!isQuizStartAttemptUrl(window.location)) {
     return;
@@ -803,8 +797,6 @@ export async function runAutoPassOnConfirmationPage(): Promise<void> {
 
   window.setTimeout(submitConfirmation, AUTO_PASS_CONFIRM_SUBMIT_DELAY_MS);
 }
-
-// --- summary.php ------------------------------------------------------------
 
 const AUTO_PASS_SUMMARY_NOTICE_MARKUP = `
   <style>

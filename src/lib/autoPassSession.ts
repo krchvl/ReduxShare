@@ -124,9 +124,7 @@ export async function loadAutoPassSession(): Promise<AutoPassSession | null> {
 export async function saveAutoPassSession(session: AutoPassSession): Promise<void> {
   try {
     await chrome.storage.local.set({ [AUTO_PASS_SESSION_STORAGE_KEY]: session });
-  } catch {
-    // Persisting the session is best-effort; the local state stays authoritative.
-  }
+  } catch {}
 }
 
 export async function patchAutoPassSession(
@@ -151,9 +149,7 @@ export async function patchAutoPassSession(
 export async function clearAutoPassSession(): Promise<void> {
   try {
     await chrome.storage.local.remove(AUTO_PASS_SESSION_STORAGE_KEY);
-  } catch {
-    // Removal is best-effort; the missing key reads back as "no session".
-  }
+  } catch {}
 }
 
 export function doesAutoPassSessionMatchPage(

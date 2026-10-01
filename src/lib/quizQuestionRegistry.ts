@@ -78,10 +78,7 @@ export async function recordQuizQuestions(
       .slice(0, REGISTRY_MAX_QUESTIONS_PER_QUIZ);
 
     await chrome.storage.local.set({ [storageKey]: stubs });
-  } catch {
-    // The registry is an optimization: a storage failure must never break the
-    // answer flow that triggered the recording.
-  }
+  } catch {}
 }
 
 export async function getQuizQuestionStubs(

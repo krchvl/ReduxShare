@@ -44,7 +44,6 @@ export function shouldShowUpdateNotice(
     return false;
   }
 
-  // "Later" snoozes exactly one check: a new checkedAt re-arms the notice.
   if (dismissedCheckId !== null && dismissedCheckId === updateState.checkedAt) {
     return false;
   }
@@ -109,9 +108,7 @@ export async function dismissUpdateNotice(): Promise<void> {
     await chrome.storage.local.set({
       [UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]: checkedAt,
     });
-  } catch {
-    // Dismissal is best-effort; the toast is already gone for this page view.
-  }
+  } catch {}
 }
 
 function clampUpdateNoticeToViewport(host: HTMLDivElement): void {
@@ -162,9 +159,7 @@ function finishUpdateNoticeDrag(event: PointerEvent | null): void {
         void chrome.storage.local.set({
           [UPDATE_NOTICE_POSITION_STORAGE_KEY]: updateNoticePosition,
         });
-      } catch {
-        // Position persistence is best-effort.
-      }
+      } catch {}
     }
   }
 
@@ -530,7 +525,6 @@ export function renderUpdateNotice(): void {
   }
 
   if (header) {
-    // Property assignment keeps re-renders from stacking listeners.
     header.onpointerdown = handleUpdateNoticePointerDown;
   }
 

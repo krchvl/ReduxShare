@@ -1,7 +1,3 @@
-// Демо-бэкенд для онбординг-тура (onboarding.html) и dev-плейграунда (dev.html):
-// мок chrome API (хранилище в памяти), мок-роутер сообщений (голосование, эссе,
-// превью, ИИ) и фикстуры ответов. Ни тур, ни плейграунд не обращаются к сети
-// и не трогают реальный chrome.storage.
 import multichoiceAttemptHtml from "../../test/fixtures/multichoice/attempt.html?raw";
 import matchAttemptHtml from "../../test/fixtures/match/attempt.html?raw";
 import shortanswerAttemptHtml from "../../test/fixtures/shortanswer/attempt.html?raw";
@@ -36,7 +32,6 @@ export interface QuizAttemptDemoApi {
 
 export const DEMO_ACCENT_COLOR = "#9cb9f6";
 
-// Реальная разметка Moodle-вопросов из тестовых фикстур.
 export const DEMO_QUESTION_FIXTURES: readonly string[] = [
   multichoiceAttemptHtml,
   matchAttemptHtml,
@@ -56,7 +51,6 @@ function seedVoteTally(taskId: string, up: number, down: number, mine: 1 | -1 | 
   voteTallies.set(taskId, { up, down, mine });
 }
 
-// Голоса по общему реестру: ключом служит и id варианта, и id примера эссе.
 function applyVoteTally(key: string, value: 1 | -1) {
   const tally = voteTallies.get(key) ?? { up: 0, down: 0, mine: 0 as 1 | -1 | 0 };
   let { up, down, mine } = tally;
@@ -101,7 +95,6 @@ function handleMockVote(payload: { taskId?: unknown; value?: unknown }) {
   return applyVoteTally(taskId, value);
 }
 
-// Ин-мемори база примеров эссе для демо-режимов.
 const essayExamplesStore: EssayExampleEntry[] = [];
 let essayExampleIdSeq = 1;
 
@@ -272,11 +265,7 @@ export function handleMockMessage(message: unknown): unknown {
 }
 
 export interface ChromeMockOptions {
-  // Резолвер путей до ресурсов внутри пакета; по умолчанию возвращает путь
-  // как есть (плейграунд вне расширения). Онбординг делегирует реальному
-  // chrome.runtime.getURL, чтобы иконки статус-панели загружались.
   getURL?: (path: string) => string;
-  // Язык браузера для i18n; по умолчанию "ru".
   uiLanguage?: () => string;
   runtimeId?: string;
 }
@@ -546,7 +535,6 @@ export function seedEssayExamples() {
   seedVoteTally(`essay:${dubiousId}`, 0, 3, 0);
 }
 
-// Отсортированные примеры эссе для вопроса; вызывается после seedEssayExamples.
 export function getEssayExamplesForQuestion(questionId: string): EssayExampleEntry[] {
   return sortEssayExamples(essayExamplesStore.filter((item) => item.questionId === questionId));
 }

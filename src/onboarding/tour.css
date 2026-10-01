@@ -1,10 +1,6 @@
-/* Тур-оверлей онбординга: затемнение со «вырезом» spotlight вокруг цели
-   (box-shadow трюк) и стеклянная плашка с описанием шага. */
-
 .reduxshare-tour-root {
   position: fixed;
   inset: 0;
-  /* Выше любых fixed-элементов расширения (статус-панель: 2147483646). */
   z-index: 2147483647;
   font-family:
     Inter,
@@ -35,8 +31,6 @@
   pointer-events: none;
   transition: all 0.25s ease;
 }
-
-/* ── Плашка ─────────────────────────────────────────────────────────── */
 
 .reduxshare-tour-card {
   position: fixed;
@@ -149,8 +143,6 @@
   background: rgba(156, 185, 246, 0.1);
   color: rgba(242, 244, 248, 0.85);
 }
-
-/* ── Тост про отключённые переходы ──────────────────────────────────── */
 
 .reduxshare-tour-toast {
   position: fixed;

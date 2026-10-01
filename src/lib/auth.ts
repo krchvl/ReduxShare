@@ -237,7 +237,5 @@ export async function logoutFromPocketBase(authSession: AuthSession | null): Pro
 
   try {
     getPocketBase(authSession).authStore.clear();
-  } catch {
-    // Logout must never fail the UI flow.
-  }
+  } catch {}
 }

@@ -1472,7 +1472,6 @@ function renderModalBody() {
       ? currentT("quiz.preview.externalDiscovery")
       : currentT("quiz.menu.empty");
 
-  // Скан ID относится только к внешним источникам — на внутренних вкладке он не нужен.
   const scanBlock = panelState.activeTab === "external" ? renderQuizPreviewScanBlock() : "";
 
   return `

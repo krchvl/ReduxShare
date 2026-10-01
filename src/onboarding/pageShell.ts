@@ -1,6 +1,3 @@
-// Разметка демо-страницы Moodle для онбординг-тура: шапка с навбаром и крошками,
-// информационный блок теста с кнопкой «Начать попытку» (здесь якорятся кнопки
-// предпросмотра и автопрогона), контейнер вопросов и блок навигации.
 import { DEMO_QUESTION_FIXTURES } from "./demoBackend";
 
 const DEMO_QUIZ_NAME = "Демо-тест ReduxShare";
@@ -102,8 +99,6 @@ export function injectDemoPage(): void {
 
   host.innerHTML = buildPageMarkup();
 
-  // M.cfg нужен определению контекста теста внутри content-скрипта
-  // (как на реальной Moodle-странице).
   const moodleConfigScript = document.createElement("script");
   moodleConfigScript.textContent = `M.cfg = {"courseId":66,"contextInstanceId":789,"sesskey":"demo"};`;
   document.body.append(moodleConfigScript);

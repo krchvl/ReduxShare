@@ -1,6 +1,3 @@
-// Тур-оверлей онбординга: плашка с описанием шага и spotlight-вырез вокруг цели.
-// Действия автодемо (открытие R-меню, флаутов, превью) выполняются при входе
-// на шаг; при выходе меню закрываются, чтобы не мешать следующим шагам.
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useI18n } from "../i18n/react";
 import { MENU_PORTAL_SELECTOR, TOUR_STEPS, type TourPlacement, type TourStepId } from "./tourSteps";
@@ -26,7 +23,6 @@ interface Rect {
 }
 
 export interface TourAppProps {
-  // Тест-API quizAttempt: программное открытие R-меню (автодемо).
   openAnswerMenu: (questionId: string, tab?: "internal" | "external" | "ai") => boolean;
   onFinish: () => void;
 }
@@ -39,7 +35,6 @@ function closeAnswerMenu() {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 }
 
-// Пункты меню раскрывают флаут по mouseenter (behavior), а не по клику.
 function openMenuFlyout(itemSelector: string) {
   getMenuPortal()
     ?.shadowRoot?.querySelector<HTMLElement>(itemSelector)
@@ -69,8 +64,6 @@ function closePreviewPanel() {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), Math.max(max, min));
 
-// Портал R-меню — хост 0×0, само меню живёт в его shadow root; для spotlight
-// берём rect корневого элемента меню вместе с раскрытыми флаутами.
 function resolveTargetRect(target: Element): Rect {
   const box = target.getBoundingClientRect();
 
@@ -139,7 +132,6 @@ function placeCard(
   let left: number;
   let top: number;
 
-  // Просимую сторону используем если она влезает, иначе фолбэк: выше → ниже.
   if (placement === "left" && fitsLeft) {
     left = rect.left - CARD_GAP - CARD_WIDTH;
     top = rect.top + rect.height / 2 - cardHeight / 2;
@@ -174,29 +166,20 @@ export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
       openAnswerMenu("1385", "internal");
     },
     stats: () => {
-      // Короткий ответ (2011): в статистике видны варианты с голосами и
-      // сомнительный ответ — нагляднее, чем boolean-вариант у multichoice.
       openAnswerMenu("2011", "internal");
       openMenuFlyout('[data-answer-menu$="-stats"]');
     },
     ai: () => {
-      // Автодемо: запрос к ИИ с мок-ответом; после него становится доступна
-      // и кнопка «Объясни ответ» — пользователь может кликнуть сам.
       openAnswerMenu("1385", "ai");
       clickAiSendButton();
       openMenuFlyout('[data-answer-menu="ai-answer"]');
     },
     essay: () => {
-      // Примеры сообщества для эссе рендерятся на вкладке «Внутренние»;
-      // раскрываем флаут со списком примеров.
       openAnswerMenu("2101", "internal");
       openMenuFlyout('[data-answer-menu="essay-examples"]');
     },
     preview: () => {
       openPreviewPanel();
-      // Оверлей модалки несёт максимальный z-index, а хост добавляется в конец
-      // body позже #root — при равном z выше оказывается тот, кто позже в DOM.
-      // Переставляем #root после хоста, чтобы плашка тура осталась сверху.
       const modalHost = document.getElementById("reduxshare-quiz-preview-modal");
       const tourContainer = document.getElementById("root");
 
@@ -242,9 +225,6 @@ export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
       setCardHeight(cardRef.current?.offsetHeight ?? 200);
     };
 
-    // Действие и замер откладываются до rAF: эффект выполняется внутри
-    // диспетчеризации клика «Далее», и открытый в нём портал меню закрывался бы
-    // тем же кликом (document click listener портала срабатывает на bubble-фазе).
     const frame = window.requestAnimationFrame(() => {
       action?.();
       measure();
@@ -262,7 +242,6 @@ export function TourApp({ openAnswerMenu, onFinish }: TourAppProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- действие зависит только от шага
   }, [index]);
 
-  // Позиция плашки считается в рендере из rect + измеренной высоты карточки.
   const cardStyle: CSSProperties = rect
     ? placeCard(step.placement, rect, cardHeight)
     : { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };

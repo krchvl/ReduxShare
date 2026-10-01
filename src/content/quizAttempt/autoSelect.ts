@@ -156,9 +156,7 @@ export async function runHumanPrecursors(
     if (typeof element.scrollIntoView === "function") {
       element.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  } catch {
-    // scrollIntoView is best-effort (missing in some test DOMs).
-  }
+  } catch {}
 
   await sleep(
     HUMAN_SCROLL_SETTLE_MIN_MS +
@@ -169,9 +167,7 @@ export async function runHumanPrecursors(
     if (typeof element.focus === "function") {
       element.focus({ preventScroll: true });
     }
-  } catch {
-    // Focus is best-effort.
-  }
+  } catch {}
 
   await sleep(HUMAN_HOVER_MIN_MS + random() * (HUMAN_HOVER_MAX_MS - HUMAN_HOVER_MIN_MS));
 }

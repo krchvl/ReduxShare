@@ -64,9 +64,7 @@ export async function typeTextHumanLike(
     if (typeof control.focus === "function") {
       control.focus({ preventScroll: true });
     }
-  } catch {
-    // Focus is best-effort.
-  }
+  } catch {}
 
   const previousValue = control.value;
   const InputConstructor =

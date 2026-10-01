@@ -1009,8 +1009,6 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   clampAnswerMenuPortalToViewport(menuPortal);
 }
 
-// Сомнительные примеры (минусов больше, чем плюсов) — в конец списка,
-// далее по чистым голосам и свежести обновления.
 function compareEssayExamplesForDisplay(a: EssayExampleEntry, b: EssayExampleEntry): number {
   const aDubious = a.votesDown > a.votesUp ? 1 : 0;
   const bDubious = b.votesDown > b.votesUp ? 1 : 0;
@@ -1632,8 +1630,6 @@ function openAnswerMenuPortal(
     option.addEventListener("click", (event: MouseEvent) => {
       const clickTarget = event.target;
 
-      // Клик по кнопке голосования обрабатывается делегированным слушателем
-      // на shadowRoot — вариант ответа не применяется и меню не закрывается.
       if (clickTarget instanceof Element && clickTarget.closest("[data-vote-action]")) {
         return;
       }
@@ -2924,15 +2920,11 @@ function resetQuizAttemptTestState() {
   void syncAttemptStatusPanelClosedState(currentStoredState);
 }
 
-// Тур онбординга: статус-панель рендерится на демо-странице вне attempt-URL.
 function mountAttemptStatusPanelForTour() {
   setAttemptStatusPanelTourMode(true);
   renderAttemptStatusPanel();
 }
 
-// Тур онбординга: программное открытие R-меню у вопроса (для автодемо-шагов).
-// У multichoice все виджеты inline (по варианту) — берём первый хост вопроса
-// в порядке монтирования, как если бы пользователь кликнул сам.
 function openAnswerMenuForQuestion(
   questionId: string | null,
   tab?: "internal" | "external" | "ai",

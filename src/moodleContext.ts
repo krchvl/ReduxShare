@@ -113,9 +113,7 @@ export function findMoodleModuleIdFromPage() {
     if (urlModuleId !== null) {
       return urlModuleId;
     }
-  } catch {
-    // Continue with DOM fallback.
-  }
+  } catch {}
 
   for (const link of Array.from(
     document.querySelectorAll<HTMLAnchorElement>('a[href*="cmid="], a[href*="/mod/quiz/"]'),
@@ -144,9 +142,7 @@ export function findMoodleAttemptIdFromPage(pageUrl: string = window.location.hr
     if (attemptId !== null && parseMoodleNumericId(attemptId) !== null) {
       return attemptId;
     }
-  } catch {
-    // Fall through to null below.
-  }
+  } catch {}
 
   return null;
 }
@@ -171,9 +167,7 @@ export function findMoodleUserIdFromPage(root: ParentNode = document) {
       if (userId !== null) {
         return userId;
       }
-    } catch {
-      // Continue with DOM fallbacks.
-    }
+    } catch {}
   }
 
   for (const attribute of ["data-userid", "data-user-id"] as const) {
@@ -193,9 +187,7 @@ export function findMoodleUserIdFromPage(root: ParentNode = document) {
       if (userId !== null) {
         return userId;
       }
-    } catch {
-      // Fall through to null below.
-    }
+    } catch {}
   }
 
   return null;

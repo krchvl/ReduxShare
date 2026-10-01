@@ -12,14 +12,10 @@ export interface EssayExampleQuestionRef {
   questionHash: string | null;
 }
 
-// Ключ примеров в essayExamplesByQuestionId: вопрос без ID (старый Moodle)
-// индексируется по хешу вопроса.
 export function getEssayExampleMapKey(question: EssayExampleQuestionRef) {
   return question.questionId ? question.questionId : `hash:${question.questionHash ?? ""}`;
 }
 
-// Rich-редакторы и показанный на review ответ хранят HTML — превращаем его
-// обратно в plain text с сохранением абзацев.
 export function htmlToPlainText(html: string) {
   const trimmed = html.trim();
 
@@ -38,8 +34,6 @@ export function htmlToPlainText(html: string) {
     .trim();
 }
 
-// Текущий текст эссе: на attempt-странице — из редактора/textarea,
-// на review — из показанного сохранённого ответа.
 export function getCurrentEssayText(questionNode: Element) {
   const textarea = getEssayAnswerTextareas(questionNode)[0];
   const editorValue = textarea && textarea.value.trim() ? textarea.value : "";

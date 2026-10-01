@@ -1,5 +1,3 @@
-// Общие inline-SVG-иконки (сетка 48px, stroke задаётся CSS) для shadow-DOM виджетов.
-
 export function getCheckIconMarkup() {
   return `<svg viewBox="0 0 48 48"><path d="M7 24.5 18.3 35.8 41 13.2" /></svg>`;
 }
@@ -34,7 +32,6 @@ export function getSourceTabIconMarkup(kind: "internal" | "external" | "ai") {
   `;
 }
 
-// Иконки для карточек типов заданий в скане ID (группируются по механике ответа).
 function getChoiceTypeIconMarkup() {
   return `
     <svg viewBox="0 0 48 48">

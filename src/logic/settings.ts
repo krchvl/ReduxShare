@@ -30,10 +30,6 @@ export function getContentLocale(language: "auto" | "ru" | "en" | undefined) {
   return typeof navigator !== "undefined" ? navigator.language : "ru-RU";
 }
 
-// Шкала слайдера «Время авто-ответа» нелинейная: пресеты темпа сидят ровно
-// на 0% / 50% / 100% (Быстро / Баланс / Реализм), между ними — линейная
-// интерполяция. Нативный input работает в позициях 0–100, секунды получаются
-// двусторонним отображением.
 const TEMPO_SCALE_ANCHORS = [
   { position: 0, seconds: AUTO_SELECT_TEMPO_PRESETS.brisk },
   { position: 50, seconds: AUTO_SELECT_TEMPO_PRESETS.balanced },
@@ -75,7 +71,6 @@ export function autoSelectTempoPositionToSeconds(position: number): number {
     if (clamped <= to.position) {
       const ratio = (clamped - from.position) / (to.position - from.position);
       const raw = from.seconds + ratio * (to.seconds - from.seconds);
-      // Шаг 0.5 с — как у прежнего слайдера.
       return Math.round(raw * 2) / 2;
     }
   }

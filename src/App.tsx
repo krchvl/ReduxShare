@@ -69,8 +69,6 @@ export function App() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [registerMessage, setRegisterMessage] = useState<string | null>(null);
   const [, setSystemSchemeTick] = useState(0);
-  // Stable translator identity: a fresh closure every render would retrigger
-  // every effect that (correctly) lists `t` in its dependencies.
   const t = useMemo(() => getTranslator(settings.language), [settings.language]);
   const colorScheme = resolveColorScheme(settings.colorScheme);
 
@@ -140,7 +138,6 @@ export function App() {
     void saveStoredState({ settings, authSession, userProfile });
   }, [authSession, hydrated, settings, userProfile]);
 
-  // Активный сервер для PB-клиентов, создаваемых в popup (login/register/logout).
   useEffect(() => {
     const activeServer =
       settings.servers.find((server) => server.id === settings.activeServerId) ??

@@ -1483,9 +1483,7 @@ export async function saveQuizReviewSaveDiagnostics(
         details,
       },
     });
-  } catch {
-    // Diagnostics must not block quiz behavior.
-  }
+  } catch {}
 }
 
 type ReviewMatchToken = {

@@ -206,7 +206,6 @@ function renderSubmissionFlyout(submissions: SubmissionItem[]): string {
   return submissions
     .map((s) => {
       const wrongClass = s.correctness <= 0 ? " flyout-label--wrong" : "";
-      // Голосовать можно только за непроверенные варианты: нет данных о верности/неверности.
       const canVote = Boolean(s.taskId) && s.correctness === 1;
       const dubiousClass = canVote && isDownvotedAnswerItem(s) ? " flyout-label--dubious" : "";
       return `
@@ -551,8 +550,6 @@ function getVisibleAnswerMenuTabs(
   const tabs: AnswerMenuTabKey[] = [];
 
   if (essayMenu) {
-    // Эссе: внутренние данные ответов не запрашиваются, но таб «Примеры»
-    // показывается всегда (список примеров + кнопка сохранения).
     if (!externalOnly) {
       tabs.push("internal");
     }
@@ -634,8 +631,6 @@ function renderEssayVoteCluster(example: EssayExampleEntry): string {
 }
 
 function renderEssayExampleRow(example: EssayExampleEntry): string {
-  // Сомнительные примеры (минусов больше, чем плюсов) остаются в списке,
-  // но помечаются — как непроверенные ответы в статистике.
   const dubiousClass = example.votesDown > example.votesUp ? " flyout-label--dubious" : "";
   const meta = getAnswerMetaParts({
     contributor: example.authorName,

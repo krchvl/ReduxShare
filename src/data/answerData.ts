@@ -248,8 +248,6 @@ export function getAnswerData(result: QuizVariantResult): AnswerData {
           continue;
         }
 
-        // Вариант с перевесом 👎 сомнителен: в «Точный ответ» не попадает
-        // (и не автоподставляется), в статистике остаётся через серверные submissions.
         if (suggestion.correctness === 2 && !isDownvotedAnswerItem(suggestion)) {
           data.suggestions.push(suggestion);
           slot.suggestions.push(suggestion);

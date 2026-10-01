@@ -368,8 +368,6 @@ function requestQuizPreview(payload: QuizPreviewRequestPayload): Promise<QuizPre
 }
 
 function findQuizTitleFromPage() {
-  // Порядок приоритета важен: querySelector с union-селектором вернул бы первый
-  // h1 в порядке документа, а не самый специфичный.
   for (const selector of [".page-header-headings h1", "#region-main h1", "#region-main h2", "h1"]) {
     const heading = document.querySelector<HTMLElement>(selector);
     const title = heading?.textContent?.trim();

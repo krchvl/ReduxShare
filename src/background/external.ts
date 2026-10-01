@@ -475,9 +475,7 @@ async function saveReviewSaveDiagnostics(stage: string, details: Record<string, 
         details,
       },
     });
-  } catch {
-    // Diagnostics must not break background message handling.
-  }
+  } catch {}
 }
 
 const pendingSaveFlushDeps: PendingSaveFlushDeps = {

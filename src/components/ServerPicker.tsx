@@ -72,8 +72,6 @@ export function ServerPicker({ settings, onSettingsChange, onLogout }: ServerPic
     onSettingsChange({ ...settings, ...patch });
   }
 
-  // Сессия привязана к серверу, поэтому logout выполняется до смены активного
-  // сервера — запрос на выход уходит на старый сервер с его токеном.
   function handleSelectServer(serverId: string) {
     if (serverId === settings.activeServerId) {
       return;
@@ -122,8 +120,6 @@ export function ServerPicker({ settings, onSettingsChange, onLogout }: ServerPic
       return;
     }
 
-    // Грант не блокирует добавление: PocketBase обычно отдаёт CORS-заголовки,
-    // а недоступность покажет пинг.
     const granted = await requestBroadHostPermission();
 
     if (!granted) {

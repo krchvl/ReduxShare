@@ -145,8 +145,6 @@ function netVotes(item: Pick<EssayExampleItem, "votesUp" | "votesDown">) {
   return (item.votesUp ?? 0) - (item.votesDown ?? 0);
 }
 
-// Сомнительные (минусов больше, чем плюсов) опускаются в конец списка,
-// но остаются видимыми — по аналогии с ответами в статистике.
 function compareEssayExamples(a: EssayExampleItem, b: EssayExampleItem): number {
   const aDubious = isDownvotedEssayExample(a) ? 1 : 0;
   const bDubious = isDownvotedEssayExample(b) ? 1 : 0;
@@ -320,8 +318,6 @@ export async function saveEssayExample(
             throw error;
           }
 
-          // Гонка на уникальном индексе: пример уже создан параллельным
-          // запросом — обновляем найденную строку вместо создания новой.
           const winner = await findOwnEssayExample(pb, session.user.id, payload);
 
           if (!winner) {
@@ -376,7 +372,6 @@ export async function fetchEssayExamples(
             questionIdTerms.push(`question_id = {:qid${termIndex}}`);
             termIndex += 1;
           } else if (question.questionHash) {
-            // Вопрос без ID (старый Moodle): ищем по пустому question_id и хешу.
             queryParams[`qhash${termIndex}`] = question.questionHash;
             questionIdTerms.push(`question_id = '' && question_hash = {:qhash${termIndex}}`);
             termIndex += 1;
@@ -463,9 +458,6 @@ export async function voteEssayExample(
               throw error;
             }
 
-            // Гонка на уникальном индексе: голос уже создан параллельным
-            // запросом и его счётчик применён победителем — доводим запись
-            // до желаемого значения.
             const winner = await findOwnEssayVote(pb, session.user.id, payload.exampleId);
 
             if (!winner) {

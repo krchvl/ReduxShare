@@ -31,8 +31,6 @@ export function Shell({
 }: ShellProps) {
   const effectiveAccentColor = extensionEnabled ? accentColor : DISABLED_ACCENT_COLOR;
 
-  // --accent-strong in styles.css lives on :root[data-theme="light"], so the
-  // accent variables must be set on the document element for it to resolve.
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--accent", effectiveAccentColor);

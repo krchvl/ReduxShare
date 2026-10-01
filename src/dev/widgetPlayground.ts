@@ -1,8 +1,3 @@
-// Dev-only playground: живёт только под `npm run dev` на /dev.html.
-// Ставит мок chrome API до импорта content-скрипта, подкладывает Moodle-фикстуры
-// и мок-ответы с голосами (общий демо-бэкенд в src/onboarding/demoBackend.ts),
-// затем монтирует R-виджеты через test API quizAttempt и панель предпросмотра
-// через initializeQuizPreviewFeatures (вью-фикстура ниже).
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
 import { essayExamplesByQuestionId } from "../state";
 import {
@@ -80,7 +75,6 @@ async function boot() {
   api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
   api.mountAnswerWidgets("#9cb9f6");
 
-  // loadQuizAnswers в плейграунде не вызывается — сеем примеры в карту напрямую.
   essayExamplesByQuestionId.set("2101", getEssayExamplesForQuestion("2101"));
 
   const { initializeQuizPreviewFeatures } = await import("../content/quizPreview");

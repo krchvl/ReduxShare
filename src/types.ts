@@ -336,7 +336,6 @@ export function normalizeAutoSelectAvgSeconds(value: unknown) {
     return DEFAULT_SETTINGS.autoSelectAvgSeconds;
   }
 
-  // Диапазон слайдера темпа: от «Быстро» до «Реализм».
   return Math.min(
     AUTO_SELECT_TEMPO_PRESETS.realistic,
     Math.max(AUTO_SELECT_TEMPO_PRESETS.brisk, Math.round(value * 10) / 10),

@@ -1,5 +1,3 @@
-// Шаги онбординг-тура: цель подсветки (селектор в light DOM демо-страницы),
-// сторона плашки и i18n-ключи. Действия автодемо живут в TourApp.
 import type { TranslationKey } from "../i18n";
 
 export type TourPlacement = "bottom" | "top" | "left" | "right";
@@ -20,10 +18,7 @@ export type TourStepId =
 
 export interface TourStep {
   id: TourStepId;
-  // Селектор цели spotlight; без цели плашка центрируется на экране.
   targetSelector?: string;
-  // Отдельный селектор для прокрутки, когда spotlight цель появляется позже
-  // автодемо-действия (например, портал меню у вопроса-эссе).
   scrollSelector?: string;
   placement?: TourPlacement;
   titleKey: TranslationKey;

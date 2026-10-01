@@ -1,8 +1,3 @@
-/* Имитация темы Moodle 4.x Boost для онбординг-тура ReduxShare.
-   Страница должна выглядеть как настоящая attempt.php: тёмный навбар,
-   хлебные крошки, белые боксы вопросов с фирменными рамками вариантов,
-   кнопки btn-primary в фирменном синем. */
-
 :root {
   --moodle-primary: #0f6cbf;
   --moodle-primary-dark: #0a5aa3;
@@ -56,8 +51,6 @@ body {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-
-/* ── Навбар ─────────────────────────────────────────────────────────── */
 
 .moodle-navbar {
   display: flex;
@@ -126,8 +119,6 @@ body {
   font-weight: 600;
 }
 
-/* ── Хлебные крошки ─────────────────────────────────────────────────── */
-
 .moodle-breadcrumb {
   display: flex;
   align-items: center;
@@ -152,8 +143,6 @@ body {
   font-weight: 500;
 }
 
-/* ── Каркас страницы: контент + блок навигации ──────────────────────── */
-
 .moodle-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -172,8 +161,6 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-
-/* ── Заголовок и информационный блок теста (view-часть) ─────────────── */
 
 .page-header-headings h1 {
   margin: 8px 0 4px;
@@ -222,8 +209,6 @@ body {
   margin-right: 8px;
 }
 
-/* ── Кнопки Bootstrap/Moodle ────────────────────────────────────────── */
-
 .btn {
   display: inline-block;
   padding: 8px 16px;
@@ -256,8 +241,6 @@ body {
 .btn-secondary:hover {
   background: #f8f9fa;
 }
-
-/* ── Боксы вопросов ─────────────────────────────────────────────────── */
 
 .que {
   background: var(--moodle-surface);
@@ -337,7 +320,6 @@ body {
   min-inline-size: auto;
 }
 
-/* Фирменные рамки вариантов ответа Moodle 4 */
 .que .answer > div.r0,
 .que .answer > div.r1 {
   display: flex;
@@ -368,7 +350,6 @@ body {
   margin: 0;
 }
 
-/* Короткий ответ */
 .que .answer input[type="text"] {
   width: min(420px, 100%);
   padding: 8px 12px;
@@ -384,7 +365,6 @@ body {
   border-color: var(--moodle-primary);
 }
 
-/* Соответствие: строки с селектами */
 .que .answer .control {
   display: inline-flex;
   align-items: center;
@@ -403,7 +383,6 @@ body {
   appearance: none;
 }
 
-/* Эссе */
 .que .qtype_essay_editor textarea {
   width: 100%;
   box-sizing: border-box;
@@ -417,8 +396,6 @@ body {
   background: #fff;
   resize: vertical;
 }
-
-/* ── Панель навигации по вопросам ───────────────────────────────────── */
 
 .moodle-quiz-nav {
   align-self: start;
@@ -485,8 +462,6 @@ body {
 .moodle-quiz-nav .btn {
   width: 100%;
 }
-
-/* ── Подвал ─────────────────────────────────────────────────────────── */
 
 .moodle-footer {
   border-top: 1px solid var(--moodle-border);
