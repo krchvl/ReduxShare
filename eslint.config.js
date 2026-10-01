@@ -71,6 +71,7 @@ export default tseslint.config(
         BadRequestError: "readonly",
         NotFoundError: "readonly",
         ForbiddenError: "readonly",
+        RPX: "readonly",
       },
     },
     rules: {
