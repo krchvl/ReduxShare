@@ -79,6 +79,7 @@
   "settings.ai.summary.title": "AI settings status",
   "settings.ai.summary.keySaved": "API key saved",
   "settings.ai.summary.keyMissing": "API key not saved",
+  "settings.ai.summary.officialActive": "Official access is active",
   "settings.ai.mode.title": "Access mode",
   "settings.ai.mode.official": "Official",
   "settings.ai.mode.custom": "Custom",

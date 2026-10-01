@@ -430,6 +430,8 @@ export function MainScreen({
   const canTestAiConnection =
     Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
   const hasSavedAiKey = settings.ai.connectionVerified && Boolean(settings.ai.apiKey.trim());
+  const aiSummaryState =
+    settings.ai.accessMode === "official" ? "official" : hasSavedAiKey ? "saved" : "missing";
 
   function updateAiDraft(patch: Partial<AiSettings>) {
     setAiDraft((draft) => ({
@@ -768,14 +770,18 @@ export function MainScreen({
               <div className="ai-settings-summary" aria-label={t("settings.ai.summary.title")}>
                 <span
                   className={
-                    hasSavedAiKey ? "ai-settings-summary__ok" : "ai-settings-summary__not-stated"
+                    aiSummaryState === "missing"
+                      ? "ai-settings-summary__not-stated"
+                      : "ai-settings-summary__ok"
                   }
                 >
-                  {hasSavedAiKey
-                    ? t("settings.ai.summary.keySaved")
-                    : t("settings.ai.summary.keyMissing")}
+                  {aiSummaryState === "official"
+                    ? t("settings.ai.summary.officialActive")
+                    : aiSummaryState === "saved"
+                      ? t("settings.ai.summary.keySaved")
+                      : t("settings.ai.summary.keyMissing")}
                 </span>
-                {hasSavedAiKey && (
+                {aiSummaryState === "saved" && (
                   <>
                     <span>
                       {t("settings.ai.provider")}:{" "}

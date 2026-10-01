@@ -79,6 +79,7 @@
   "settings.ai.summary.title": "Статус настроек ИИ",
   "settings.ai.summary.keySaved": "API ключ сохранён",
   "settings.ai.summary.keyMissing": "API ключ не сохранён",
+  "settings.ai.summary.officialActive": "Официальный доступ активен",
   "settings.ai.mode.title": "Режим доступа",
   "settings.ai.mode.official": "Официальный",
   "settings.ai.mode.custom": "Пользовательский",
