@@ -166,7 +166,7 @@ ReduxShare работает как расширение Manifest V3 на стр�
 - Node.js 20 или новее
 - npm
 - браузер на основе Chromium: Chrome, Edge, Brave или Chromium
-- URL самохост-PocketBase, если нужны внутренние источники ReduxShare (см. `docs/SELFHOST_POCKETBASE.md`)
+- URL самохост-PocketBase, если нужны внутренние источники ReduxShare (задаётся через `VITE_POCKETBASE_URL` в `.env`)
 
 Установите зависимости:
 
@@ -222,7 +222,7 @@ ReduxShare использует самохост-инстанс PocketBase дл�
 VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
-Описания коллекций находятся в `pocketbase/pb_migrations/`. Настройка VPS описана в `docs/SELFHOST_POCKETBASE.md`.
+Описания коллекций находятся в `pocketbase/pb_migrations/`. PocketBase выносится за реверс-прокси с TLS (например, Caddy), суперпользователь создаётся командой `pocketbase superuser upsert`.
 
 Коллекции создаются автоматически из `pocketbase/pb_migrations/` при первом запуске сервера после копирования миграций рядом с бинарником PocketBase.
 

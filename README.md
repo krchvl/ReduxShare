@@ -165,7 +165,7 @@ Requirements:
 - Node.js 20 or newer
 - npm
 - Chromium-based browser such as Chrome, Edge, Brave, or Chromium
-- Self-hosted PocketBase URL if you want internal ReduxShare sources to work (see `docs/SELFHOST_POCKETBASE.md`)
+- Self-hosted PocketBase URL if you want internal ReduxShare sources to work (set `VITE_POCKETBASE_URL` in `.env`)
 
 Install dependencies:
 
@@ -221,7 +221,7 @@ ReduxShare uses a self-hosted PocketBase instance for authentication and session
 VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
-Collection definitions live in `pocketbase/pb_migrations/`. See `docs/SELFHOST_POCKETBASE.md` for VPS setup.
+Collection definitions live in `pocketbase/pb_migrations/`. Serve PocketBase behind a reverse proxy with TLS (e.g. Caddy) and create a superuser with `pocketbase superuser upsert`.
 
 Collections are created automatically from `pocketbase/pb_migrations/` on the first server start after copying them next to the PocketBase binary.
 
