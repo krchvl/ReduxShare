@@ -16,13 +16,29 @@ routerAdd(
       return date.toISOString().replace("T", " ");
     }
 
+    const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1000;
+
     function periodStart(date, period) {
+      if (period === "day") {
+        const shifted = new Date(date.getTime() + MOSCOW_OFFSET_MS);
+        const utcMidnight = Date.UTC(
+          shifted.getUTCFullYear(),
+          shifted.getUTCMonth(),
+          shifted.getUTCDate(),
+          0,
+          0,
+          0,
+          0,
+        );
+        return toPocketDateString(new Date(utcMidnight - MOSCOW_OFFSET_MS));
+      }
+
       const utc = Date.UTC(
         date.getUTCFullYear(),
         date.getUTCMonth(),
         date.getUTCDate(),
-        period === "day" ? 0 : date.getUTCHours(),
-        period === "day" ? 0 : date.getUTCMinutes(),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
         0,
         0,
       );
@@ -193,13 +209,29 @@ routerAdd(
       return date.toISOString().replace("T", " ");
     }
 
+    const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1000;
+
     function periodStart(date, period) {
+      if (period === "day") {
+        const shifted = new Date(date.getTime() + MOSCOW_OFFSET_MS);
+        const utcMidnight = Date.UTC(
+          shifted.getUTCFullYear(),
+          shifted.getUTCMonth(),
+          shifted.getUTCDate(),
+          0,
+          0,
+          0,
+          0,
+        );
+        return toPocketDateString(new Date(utcMidnight - MOSCOW_OFFSET_MS));
+      }
+
       const utc = Date.UTC(
         date.getUTCFullYear(),
         date.getUTCMonth(),
         date.getUTCDate(),
-        period === "day" ? 0 : date.getUTCHours(),
-        period === "day" ? 0 : date.getUTCMinutes(),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
         0,
         0,
       );
