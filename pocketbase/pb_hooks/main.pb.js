@@ -9,8 +9,57 @@ routerAdd(
     const GPTLOAD_ACCESS_KEY = "SET_ME_PROXY_KEY";
     const GPTLOAD_TIMEOUT_SECONDS = 90;
     const USAGE_COLLECTION = "reduxshare_ai_usage";
-    const LIMITS = { minute: 5, day: 30 };
-    const GROUPS = [{ name: "groq", model: "openai/gpt-oss-20b", weight: 1 }];
+    const PLANS = {
+      free: {
+        groups: [
+          { name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 3 },
+          { name: "groq", model: "openai/gpt-oss-120b", label: "GPT-OSS 120B", weight: 2 },
+          { name: "groq", model: "qwen/qwen3.8-27b", label: "Qwen3.8 27B", weight: 2 },
+          {
+            name: "nararouter",
+            model: "nemotron-3-ultra-free",
+            label: "Nemotron 3 Ultra",
+            weight: 2,
+          },
+          {
+            name: "nararouter",
+            model: "nemotron-3.5-lightning-free",
+            label: "Nemotron 3.5 Lightning",
+            weight: 2,
+          },
+          {
+            name: "nararouter",
+            model: "ling-3.0-flash-sante-free",
+            label: "Ling 3.0 Flash",
+            weight: 1,
+          },
+          {
+            name: "nararouter",
+            model: "nemotron-3-super-free",
+            label: "Nemotron 3 Super",
+            weight: 1,
+          },
+        ],
+        limits: { minute: 5, day: 30 },
+      },
+      low: {
+        groups: [{ name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 1 }],
+        limits: { minute: 10, day: 50 },
+      },
+      medium: {
+        groups: [{ name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 1 }],
+        limits: { minute: 20, day: 75 },
+      },
+      high: {
+        groups: [{ name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 1 }],
+        limits: { minute: 30, day: 150 },
+      },
+    };
+
+    function getUserPlan(e) {
+      const raw = e.auth ? e.auth.getString("plan") : "";
+      return PLANS[raw] ? raw : "free";
+    }
 
     function toPocketDateString(date) {
       return date.toISOString().replace("T", " ");
@@ -71,7 +120,7 @@ routerAdd(
       return record.getInt("count", 0);
     }
 
-    function consumeQuota(app, userId) {
+    function consumeQuota(app, userId, limits) {
       const now = new Date();
       const minuteStart = periodStart(now, "minute");
       const dayStart = periodStart(now, "day");
@@ -80,12 +129,12 @@ routerAdd(
 
       app.runInTransaction((txApp) => {
         minuteCount = bumpUsage(txApp, userId, "minute", minuteStart);
-        if (minuteCount > LIMITS.minute) {
+        if (minuteCount > limits.minute) {
           throw new ApiError(429, "Official AI rate limit exceeded, retry within a minute.");
         }
 
         dayCount = bumpUsage(txApp, userId, "day", dayStart);
-        if (dayCount > LIMITS.day) {
+        if (dayCount > limits.day) {
           throw new ApiError(429, "Official AI daily quota exceeded.");
         }
       });
@@ -93,9 +142,9 @@ routerAdd(
       return { minuteCount: minuteCount, dayCount: dayCount };
     }
 
-    function pickWeightedRandomGroup(excludedNames) {
-      const pool = GROUPS.filter((group) => !excludedNames.includes(group.name));
-      const candidates = pool.length > 0 ? pool : GROUPS;
+    function pickWeightedRandomGroup(groups, excludedModels) {
+      const pool = groups.filter((group) => !excludedModels.includes(group.model));
+      const candidates = pool.length > 0 ? pool : groups;
       const totalWeight = candidates.reduce(
         (sum, group) => sum + Math.max(1, group.weight || 1),
         0,
@@ -112,22 +161,22 @@ routerAdd(
       return candidates[candidates.length - 1];
     }
 
-    function pickGroupByModel(model) {
+    function pickGroupByModel(groups, model) {
       if (!model || typeof model !== "string") {
         return null;
       }
 
       const normalized = model.trim();
-      return GROUPS.find((group) => group.model.toLowerCase() === normalized.toLowerCase()) || null;
+      return groups.find((group) => group.model.toLowerCase() === normalized.toLowerCase()) || null;
     }
 
-    function pickAttemptGroups() {
-      const first = pickWeightedRandomGroup([]);
-      if (GROUPS.length < 2) {
+    function pickAttemptGroups(groups) {
+      const first = pickWeightedRandomGroup(groups, []);
+      if (groups.length < 2) {
         return [first];
       }
 
-      return [first, pickWeightedRandomGroup([first.name])];
+      return [first, pickWeightedRandomGroup(groups, [first.model])];
     }
 
     function forwardToGateway(group, requestBody) {
@@ -162,10 +211,13 @@ routerAdd(
       throw new BadRequestError("Request body must be a JSON object.");
     }
 
-    consumeQuota($app, e.auth.id);
+    const plan = getUserPlan(e);
+    const groups = PLANS[plan].groups;
 
-    const explicitGroup = pickGroupByModel(body.model);
-    const attempts = explicitGroup ? [explicitGroup] : pickAttemptGroups();
+    consumeQuota($app, e.auth.id, PLANS[plan].limits);
+
+    const explicitGroup = pickGroupByModel(groups, body.model);
+    const attempts = explicitGroup ? [explicitGroup] : pickAttemptGroups(groups);
     let lastResponse = null;
     let transportError = null;
 
@@ -203,7 +255,57 @@ routerAdd(
   "/api/rpx-ai/usage",
   (e) => {
     const USAGE_COLLECTION = "reduxshare_ai_usage";
-    const LIMITS = { minute: 5, day: 30 };
+    const PLANS = {
+      free: {
+        groups: [
+          { name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 3 },
+          { name: "groq", model: "openai/gpt-oss-120b", label: "GPT-OSS 120B", weight: 2 },
+          { name: "groq", model: "qwen/qwen3.8-27b", label: "Qwen3.8 27B", weight: 2 },
+          {
+            name: "nararouter",
+            model: "nemotron-3-ultra-free",
+            label: "Nemotron 3 Ultra",
+            weight: 2,
+          },
+          {
+            name: "nararouter",
+            model: "nemotron-3.5-lightning-free",
+            label: "Nemotron 3.5 Lightning",
+            weight: 2,
+          },
+          {
+            name: "nararouter",
+            model: "ling-3.0-flash-sante-free",
+            label: "Ling 3.0 Flash",
+            weight: 1,
+          },
+          {
+            name: "nararouter",
+            model: "nemotron-3-super-free",
+            label: "Nemotron 3 Super",
+            weight: 1,
+          },
+        ],
+        limits: { minute: 5, day: 30 },
+      },
+      low: {
+        groups: [{ name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 1 }],
+        limits: { minute: 10, day: 50 },
+      },
+      medium: {
+        groups: [{ name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 1 }],
+        limits: { minute: 20, day: 75 },
+      },
+      high: {
+        groups: [{ name: "groq", model: "openai/gpt-oss-20b", label: "GPT-OSS 20B", weight: 1 }],
+        limits: { minute: 30, day: 150 },
+      },
+    };
+
+    function getUserPlan(e) {
+      const raw = e.auth ? e.auth.getString("plan") : "";
+      return PLANS[raw] ? raw : "free";
+    }
 
     function toPocketDateString(date) {
       return date.toISOString().replace("T", " ");
@@ -251,12 +353,27 @@ routerAdd(
       }
     }
 
+    const plan = getUserPlan(e);
     const now = new Date();
+    const seenModels = [];
+    const models = [];
+
+    for (const group of PLANS[plan].groups) {
+      if (seenModels.indexOf(group.model) !== -1) {
+        continue;
+      }
+
+      seenModels.push(group.model);
+      models.push({ model: group.model, label: group.label || group.model });
+    }
+
     return e.json(200, {
+      plan: plan,
+      models: models,
       minuteUsed: countUsage($app, e.auth.id, "minute", periodStart(now, "minute")),
-      minuteLimit: LIMITS.minute,
+      minuteLimit: PLANS[plan].limits.minute,
       dayUsed: countUsage($app, e.auth.id, "day", periodStart(now, "day")),
-      dayLimit: LIMITS.day,
+      dayLimit: PLANS[plan].limits.day,
     });
   },
   $apis.requireAuth(),
