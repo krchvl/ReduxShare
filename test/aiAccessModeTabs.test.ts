@@ -14,7 +14,10 @@ const baseSettings: Settings = {
   ai: { ...DEFAULT_SETTINGS.ai, provider: "google", apiKey: "test-key" },
 };
 
-function renderMainScreen(settings: Settings = baseSettings) {
+function renderMainScreen(
+  settings: Settings = baseSettings,
+  overrides: { onSettingsChange?: (settings: Settings) => void } = {},
+) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -37,7 +40,7 @@ function renderMainScreen(settings: Settings = baseSettings) {
             error: null,
           },
           isCheckingUpdates: false,
-          onSettingsChange: vi.fn(),
+          onSettingsChange: overrides.onSettingsChange ?? vi.fn(),
           onCheckUpdates: vi.fn(),
           onResetSettings: vi.fn(),
           onLogout: vi.fn(),
@@ -117,6 +120,26 @@ describe("MainScreen AI access mode tabs", () => {
     expect(official!.querySelector(".ai-official__head h3")?.textContent).toBe("Official access");
     expect(official!.querySelector(".ai-official__quota-value")?.textContent).toBe("—");
 
+    const planCards = Array.from(
+      official!.querySelectorAll<HTMLElement>(".ai-official__plan-card"),
+    );
+    expect(
+      planCards.map((card) => card.querySelector(".ai-official__plan-name")?.textContent),
+    ).toEqual(["Free", "Low", "Medium", "High"]);
+    const activePlan = official!.querySelector(".ai-official__plan-card--active");
+    expect(activePlan?.querySelector(".ai-official__plan-name")?.textContent).toBe("Free");
+    expect(activePlan?.querySelector(".ai-official__plan-limits")?.textContent).toBe(
+      "5/min · 30/day",
+    );
+    expect(activePlan?.querySelector(".ai-official__plan-current")?.textContent).toBe("Current");
+
+    expect(container!.querySelector(".ai-official__models-title")?.textContent).toBe(
+      "Selected models",
+    );
+    expect(container!.querySelector(".ai-official__model-item")).toBeNull();
+    expect(container!.querySelector(".ai-official__model-add")).toBeNull();
+    expect(container!.querySelector(".ai-official__models-empty")).toBeTruthy();
+
     const buttons = Array.from(official!.querySelectorAll<HTMLButtonElement>("button"));
     expect(buttons.map((button) => button.textContent)).toEqual(["Test"]);
     for (const button of buttons) {
@@ -136,5 +159,252 @@ describe("MainScreen AI access mode tabs", () => {
     ).toBe("true");
     expect(container!.querySelector(".ai-provider-tab")).toBeTruthy();
     expect(container!.querySelector(".ai-official")).toBeNull();
+    expect(container!.querySelector(".ai-official__models")).toBeNull();
+  });
+
+  it("edits selected official models in the anchored popover", async () => {
+    const onSettingsChange = vi.fn();
+    const usageSettings: Settings = {
+      ...baseSettings,
+      ai: {
+        ...baseSettings.ai,
+        accessMode: "official",
+        officialModels: ["model-a", "model-b"],
+      },
+    };
+    const usage = {
+      ok: true,
+      usage: {
+        plan: "free",
+        models: [
+          { model: "model-a", label: "Model A" },
+          { model: "model-b", label: "Model B" },
+          { model: "model-c", label: "Model C" },
+        ],
+        minuteUsed: 0,
+        minuteLimit: 5,
+        dayUsed: 0,
+        dayLimit: 30,
+      },
+    };
+
+    const originalSendMessage = chrome.runtime.sendMessage;
+    chrome.runtime.sendMessage = ((
+      message: { type?: string },
+      callback?: (response: unknown) => void,
+    ) => {
+      if (message?.type === "REDUXSHARE_FETCH_AI_USAGE") {
+        callback?.(usage);
+      }
+    }) as typeof chrome.runtime.sendMessage;
+
+    try {
+      renderMainScreen(usageSettings, { onSettingsChange });
+      openAiTab();
+      clickModeTab("Official");
+
+      await act(async () => {});
+
+      expect(container!.querySelector(".ai-official__models-title")?.textContent).toBe(
+        "Selected models",
+      );
+      const visibleCards = Array.from(
+        container!.querySelectorAll<HTMLButtonElement>(".ai-official__model-item"),
+      );
+      expect(visibleCards).toHaveLength(2);
+      expect(visibleCards[0]!.tagName).toBe("BUTTON");
+      expect(visibleCards[0]!.querySelector(".ai-official__model-name")?.textContent).toBe(
+        "Model A",
+      );
+      expect(visibleCards[0]!.querySelector(".ai-official__model-icon svg")).toBeTruthy();
+      expect(visibleCards[0]!.querySelector(".ai-official__model-trash svg")).toBeTruthy();
+      expect(visibleCards[0]!.getAttribute("aria-label")).toBe("Remove model “Model A”");
+      expect(visibleCards[0]!.disabled).toBe(false);
+
+      const settingsChange = onSettingsChange.mock.calls.length;
+      act(() => {
+        visibleCards[1]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      expect(onSettingsChange.mock.calls.length).toBe(settingsChange + 1);
+      const afterRemove = onSettingsChange.mock.calls.at(-1)?.[0] as Settings | undefined;
+      expect(afterRemove?.ai.officialModels).toEqual(["model-a"]);
+
+      const addButton = container!.querySelector<HTMLButtonElement>(".ai-official__model-add");
+      expect(addButton?.getAttribute("aria-haspopup")).toBe("dialog");
+      expect(addButton?.getAttribute("aria-expanded")).toBe("false");
+      expect(addButton?.closest(".ai-official__model-list")).toBeNull();
+      expect(addButton?.parentElement?.classList.contains("ai-official__models")).toBe(true);
+
+      act(() => {
+        addButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      const popover = document.querySelector("#reduxshare-official-models-popover");
+      expect(popover).toBeTruthy();
+      expect(popover!.getAttribute("role")).toBe("dialog");
+      expect(addButton?.getAttribute("aria-expanded")).toBe("true");
+      expect(popover!.querySelectorAll("input[type='checkbox']")).toHaveLength(3);
+
+      const checkboxes = Array.from(
+        popover!.querySelectorAll<HTMLInputElement>("input[type='checkbox']"),
+      );
+      expect(checkboxes.map((box) => box.checked)).toEqual([true, true, false]);
+      expect(checkboxes[0]!.disabled).toBe(false);
+
+      act(() => {
+        checkboxes[2]!.click();
+      });
+
+      const lastCall = onSettingsChange.mock.calls.at(-1)?.[0] as Settings | undefined;
+      expect(lastCall?.ai.officialModels).toEqual(["model-a", "model-b", "model-c"]);
+      expect(popover!.querySelectorAll("input[type='checkbox']")).toHaveLength(3);
+
+      const popoverKey = (key: string) =>
+        new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      const focusedCheckboxIndex = () =>
+        checkboxes.indexOf(document.activeElement as HTMLInputElement);
+
+      expect(popover!.querySelectorAll(".ai-official__model-option--active")).toHaveLength(1);
+
+      act(() => {
+        checkboxes[0]!.focus();
+      });
+
+      act(() => {
+        popover!.dispatchEvent(popoverKey("ArrowDown"));
+      });
+
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(focusedCheckboxIndex()).toBe(1);
+
+      act(() => {
+        popover!.dispatchEvent(popoverKey("End"));
+      });
+
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(focusedCheckboxIndex()).toBe(2);
+
+      act(() => {
+        popover!.dispatchEvent(popoverKey("ArrowDown"));
+      });
+
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(focusedCheckboxIndex()).toBe(2);
+
+      act(() => {
+        popover!.dispatchEvent(popoverKey("Home"));
+      });
+
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(focusedCheckboxIndex()).toBe(0);
+
+      act(() => {
+        popover!.dispatchEvent(popoverKey("ArrowUp"));
+      });
+
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(focusedCheckboxIndex()).toBe(0);
+
+      act(() => {
+        checkboxes[0]!.focus();
+      });
+
+      const spaceEvent = popoverKey(" ");
+      act(() => {
+        checkboxes[1]!.dispatchEvent(spaceEvent);
+      });
+
+      expect(spaceEvent.defaultPrevented).toBe(false);
+
+      act(() => {
+        checkboxes[0]!.focus();
+      });
+
+      act(() => {
+        popover!.dispatchEvent(popoverKey("Escape"));
+      });
+
+      expect(document.querySelector("#reduxshare-official-models-popover")).toBeNull();
+      expect(document.activeElement === addButton || addButton?.matches(":focus")).toBe(true);
+      expect(addButton?.getAttribute("aria-expanded")).toBe("false");
+    } finally {
+      chrome.runtime.sendMessage = originalSendMessage;
+    }
+  });
+
+  it("allows removing the last selected model and shows the empty selection state", async () => {
+    const onSettingsChange = vi.fn();
+    const singleModelSettings: Settings = {
+      ...baseSettings,
+      ai: {
+        ...baseSettings.ai,
+        accessMode: "official",
+        officialModels: ["model-a"],
+      },
+    };
+    const usage = {
+      ok: true,
+      usage: {
+        plan: "free",
+        models: [
+          { model: "model-a", label: "Model A" },
+          { model: "model-b", label: "Model B" },
+        ],
+        minuteUsed: 0,
+        minuteLimit: 5,
+        dayUsed: 0,
+        dayLimit: 30,
+      },
+    };
+    const originalSendMessage = chrome.runtime.sendMessage;
+    chrome.runtime.sendMessage = ((
+      message: { type?: string },
+      callback?: (response: unknown) => void,
+    ) => {
+      if (message?.type === "REDUXSHARE_FETCH_AI_USAGE") {
+        callback?.(usage);
+      }
+    }) as typeof chrome.runtime.sendMessage;
+
+    try {
+      renderMainScreen(singleModelSettings, { onSettingsChange });
+      openAiTab();
+      clickModeTab("Official");
+
+      await act(async () => {});
+
+      const cards = Array.from(
+        container!.querySelectorAll<HTMLButtonElement>(".ai-official__model-item"),
+      );
+      expect(cards).toHaveLength(1);
+      expect(cards[0]!.disabled).toBe(false);
+      expect(cards[0]!.getAttribute("aria-label")).toBe("Remove model “Model A”");
+
+      act(() => {
+        cards[0]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      expect(onSettingsChange).toHaveBeenCalledTimes(1);
+      const afterRemove = onSettingsChange.mock.calls.at(-1)?.[0] as Settings | undefined;
+      expect(afterRemove?.ai.officialModels).toEqual([]);
+    } finally {
+      chrome.runtime.sendMessage = originalSendMessage;
+    }
   });
 });

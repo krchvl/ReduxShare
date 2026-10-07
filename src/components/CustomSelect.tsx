@@ -39,6 +39,40 @@ const LISTBOX_GAP = 10;
 const LISTBOX_EDGE_PADDING = 10;
 const LISTBOX_MIN_WIDTH = 180;
 
+export function getAnchoredFloatingStyle(
+  anchorRect: DOMRect,
+  panelRect: DOMRect | null,
+  options?: { align?: "start" | "end"; gap?: number; minWidth?: number },
+): CSSProperties {
+  const align = options?.align ?? "start";
+  const gap = options?.gap ?? LISTBOX_GAP;
+  const minWidth = options?.minWidth ?? LISTBOX_MIN_WIDTH;
+  const width = Math.max(anchorRect.width, panelRect?.width ?? 0, minWidth);
+  const height = panelRect?.height ?? 0;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const alignedLeft = align === "end" ? anchorRect.right - width : anchorRect.left;
+  const maxLeft = viewportWidth - width - LISTBOX_EDGE_PADDING;
+  const left = Math.max(
+    LISTBOX_EDGE_PADDING,
+    Math.min(alignedLeft, Math.max(LISTBOX_EDGE_PADDING, maxLeft)),
+  );
+  const belowTop = anchorRect.bottom + gap;
+  const aboveTop = anchorRect.top - height - gap;
+  const top =
+    height > 0 && belowTop + height <= viewportHeight - LISTBOX_EDGE_PADDING
+      ? belowTop
+      : Math.max(LISTBOX_EDGE_PADDING, aboveTop);
+
+  return {
+    position: "fixed",
+    top,
+    left,
+    right: "auto",
+    width,
+  };
+}
+
 function getSelectedIndex(options: CustomSelectOption[], value: string) {
   const index = options.findIndex((option) => option.value === value);
   return index === -1 ? 0 : index;
@@ -140,35 +174,14 @@ export function CustomSelect({
       return undefined;
     }
 
-    const listboxRect = listboxRef.current?.getBoundingClientRect();
-    const width = Math.max(
-      triggerRect.width,
-      listboxRect?.width ?? 0,
-      listboxMinWidth ?? LISTBOX_MIN_WIDTH,
+    return getAnchoredFloatingStyle(
+      triggerRect,
+      listboxRef.current?.getBoundingClientRect() ?? null,
+      {
+        align,
+        minWidth: listboxMinWidth,
+      },
     );
-    const height = listboxRect?.height ?? 0;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const alignedLeft = align === "end" ? triggerRect.right - width : triggerRect.left;
-    const maxLeft = viewportWidth - width - LISTBOX_EDGE_PADDING;
-    const left = Math.max(
-      LISTBOX_EDGE_PADDING,
-      Math.min(alignedLeft, Math.max(LISTBOX_EDGE_PADDING, maxLeft)),
-    );
-    const belowTop = triggerRect.bottom + LISTBOX_GAP;
-    const aboveTop = triggerRect.top - height - LISTBOX_GAP;
-    const top =
-      height > 0 && belowTop + height <= viewportHeight - LISTBOX_EDGE_PADDING
-        ? belowTop
-        : Math.max(LISTBOX_EDGE_PADDING, aboveTop);
-
-    return {
-      position: "fixed",
-      top,
-      left,
-      right: "auto",
-      width,
-    };
   }
 
   const updateFloatingListboxPosition = useEffectEvent(() => {

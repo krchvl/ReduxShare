@@ -540,7 +540,17 @@ describe("Official AI access", () => {
   it("fetches official usage counters through the gate", async () => {
     setActivePocketBaseUrl("https://pb.example.com");
     const fetchMock = vi.fn(async () =>
-      mockJsonResponse({ minuteUsed: 1, minuteLimit: 5, dayUsed: 7, dayLimit: 30 }),
+      mockJsonResponse({
+        plan: "free",
+        models: [
+          { model: "openai/gpt-oss-20b", label: "GPT-OSS 20B" },
+          { model: "", label: "broken" },
+        ],
+        minuteUsed: 1,
+        minuteLimit: 5,
+        dayUsed: 7,
+        dayLimit: 30,
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -555,12 +565,75 @@ describe("Official AI access", () => {
         }),
       }),
     );
-    expect(usage).toEqual({ minuteUsed: 1, minuteLimit: 5, dayUsed: 7, dayLimit: 30 });
+    expect(usage).toEqual({
+      plan: "free",
+      models: [{ model: "openai/gpt-oss-20b", label: "GPT-OSS 20B" }],
+      minuteUsed: 1,
+      minuteLimit: 5,
+      dayUsed: 7,
+      dayLimit: 30,
+    });
     expect(authSession.accessToken).toBe("token-1");
+  });
+
+  it("falls back to the free plan when the gate omits the plan", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () => mockJsonResponse({ minuteUsed: 2, dayUsed: 3 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { usage } = await fetchOfficialAiUsage(officialSession("token-1"));
+
+    expect(usage.plan).toBe("free");
+    expect(usage.models).toEqual([]);
+    expect(usage.minuteLimit).toBe(5);
+    expect(usage.dayLimit).toBe(30);
   });
 
   it("treats official mode as usable without an API key", () => {
     expect(hasUsableAiSettings({ accessMode: "official" })).toBe(true);
     expect(hasUsableAiSettings({ accessMode: "custom", apiKey: "" })).toBe(false);
+  });
+});
+
+describe("Official AI model selection", () => {
+  afterEach(() => {
+    setActivePocketBaseUrl(null);
+  });
+
+  it("sends selected official models in the chat request", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ choices: [{ message: { content: "OK" } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await testAiConnection(baseSettings({ accessMode: "official" }), {
+      authSession: officialSession("token-1"),
+      officialModels: ["minimax-m2.7"],
+    });
+
+    const requestBody = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string) as {
+      model: string;
+      models: string[];
+    };
+    expect(requestBody.model).toBe("auto");
+    expect(requestBody.models).toEqual(["minimax-m2.7"]);
+  });
+
+  it("omits the models field when no selection is persisted", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ choices: [{ message: { content: "OK" } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await testAiConnection(baseSettings({ accessMode: "official" }), {
+      authSession: officialSession("token-1"),
+    });
+
+    const requestBody = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string) as {
+      models?: string[];
+    };
+    expect(requestBody.models).toBeUndefined();
   });
 });

@@ -4,10 +4,13 @@ import { ClientResponseError } from "pocketbase";
 import { I18nError } from "../i18n";
 import { getPocketBaseUrl, withPocketBaseSessionRetry } from "./pocketbase";
 import {
+  AI_PLANS,
   DEFAULT_OFFICIAL_AI_USAGE,
   OFFICIAL_AI_CHAT_PATH,
   OFFICIAL_AI_MODEL,
   OFFICIAL_AI_USAGE_PATH,
+  type AiPlan,
+  type OfficialAiPlanModel,
   type OfficialAiUsageState,
 } from "../shared/aiOfficial";
 import calculatedPrompt from "../aiPrompts/calculated.json";
@@ -43,6 +46,7 @@ const OFFICIAL_AI_TIMEOUT_MS = 90_000;
 
 export interface AiAuthContext {
   authSession: AuthSession | null;
+  officialModels?: string[];
 }
 
 export interface AiTextOutcome {
@@ -1300,6 +1304,10 @@ async function generateOfficialAiText(
   }
 
   const endpoint = getPocketBaseUrl() + OFFICIAL_AI_CHAT_PATH;
+  const selectedModels =
+    Array.isArray(context?.officialModels) && context.officialModels.length > 0
+      ? context.officialModels
+      : undefined;
 
   const { authSession: nextAuthSession, result: text } = await withPocketBaseSessionRetry(
     authSession,
@@ -1314,6 +1322,7 @@ async function generateOfficialAiText(
           },
           body: JSON.stringify({
             model: OFFICIAL_AI_MODEL,
+            ...(selectedModels ? { models: selectedModels } : {}),
             messages: [
               {
                 role: "user",
@@ -1356,14 +1365,48 @@ async function generateOfficialAiText(
   return { text, authSession: nextAuthSession };
 }
 
+function normalizeOfficialAiPlanModels(value: unknown): OfficialAiPlanModel[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const models: OfficialAiPlanModel[] = [];
+
+  for (const entry of value) {
+    const record = getRecord(entry);
+
+    if (!record) {
+      continue;
+    }
+
+    const model = typeof record.model === "string" ? record.model.trim() : "";
+
+    if (!model || seen.has(model)) {
+      continue;
+    }
+
+    seen.add(model);
+    models.push({
+      model,
+      label: typeof record.label === "string" && record.label.trim() ? record.label.trim() : model,
+    });
+  }
+
+  return models;
+}
+
 function normalizeOfficialAiUsage(body: unknown): OfficialAiUsageState {
   const source = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const readNumber = (key: string, fallback: number) => {
     const value = source[key];
     return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
   };
+  const plan: AiPlan = AI_PLANS.includes(source.plan as AiPlan) ? (source.plan as AiPlan) : "free";
 
   return {
+    plan,
+    models: normalizeOfficialAiPlanModels(source.models),
     minuteUsed: readNumber("minuteUsed", DEFAULT_OFFICIAL_AI_USAGE.minuteUsed),
     minuteLimit: readNumber("minuteLimit", DEFAULT_OFFICIAL_AI_USAGE.minuteLimit),
     dayUsed: readNumber("dayUsed", DEFAULT_OFFICIAL_AI_USAGE.dayUsed),

@@ -1318,7 +1318,10 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
   }
 
   try {
-    const outcome = await testAiConnection(aiSettings, { authSession: authSession ?? null });
+    const outcome = await testAiConnection(aiSettings, {
+      authSession: authSession ?? null,
+      officialModels: aiSettings.officialModels,
+    });
 
     if (outcome.authSession) {
       await saveStoredStatePatch({ authSession: outcome.authSession });
@@ -1396,7 +1399,10 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
       ...payload,
       language: payload.language ?? (resolvedLanguage === "en" ? "English" : "Russian"),
     };
-    const aiAnswer = await generateAiAnswer(aiSettings, payloadWithLanguage, { authSession });
+    const aiAnswer = await generateAiAnswer(aiSettings, payloadWithLanguage, {
+      authSession,
+      officialModels: aiSettings.officialModels,
+    });
 
     if (aiAnswer.authSession) {
       await saveStoredStatePatch({ authSession: aiAnswer.authSession });

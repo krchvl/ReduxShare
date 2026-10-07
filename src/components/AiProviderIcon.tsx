@@ -1,4 +1,5 @@
 import type { AiSettings } from "../types";
+import { detectOfficialModelProvider } from "../shared/aiOfficial";
 
 function Monogram({ letter }: { letter: string }) {
   return (
@@ -80,6 +81,48 @@ export function AiProviderIcon({ provider }: { provider: AiSettings["provider"] 
           <circle cx="17" cy="16" r="2" fill="currentColor" stroke="none" />
         </>
       )}
+    </svg>
+  );
+}
+
+export function TrashIcon() {
+  return (
+    <svg
+      className="ai-official__model-trash"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16" />
+      <path d="M10 4h4" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+export function OfficialModelIcon({ model, label }: { model: string; label: string }) {
+  const provider = detectOfficialModelProvider(model);
+
+  if (provider && provider !== "custom") {
+    return <AiProviderIcon provider={provider as AiSettings["provider"]} />;
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <Monogram letter={label.trim().charAt(0).toUpperCase() || "?"} />
     </svg>
   );
 }
