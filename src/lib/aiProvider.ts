@@ -637,12 +637,16 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
 export function buildQuizExplanationPrompt(payload: GenerateAiAnswerPayload) {
   const { questionData } = buildPromptPayloadSummary(payload);
   const answerToExplain = payload.answerToExplain?.trim();
+  const language = payload.language?.trim();
 
   return [
     "You help explain answers to Moodle quiz questions. Respond with plain text only.",
     "",
     `Question prompt profile: ${explainPrompt.title}`,
     ...explainPrompt.instructions.map((instruction) => `- ${instruction}`),
+    language
+      ? `Respond in the following language, regardless of the language of the question or the answer: ${language}.`
+      : null,
     "",
     answerToExplain
       ? `The final answer to explain:\n${answerToExplain}`
@@ -650,7 +654,9 @@ export function buildQuizExplanationPrompt(payload: GenerateAiAnswerPayload) {
     "",
     "Moodle question data:",
     JSON.stringify(questionData, null, 2),
-  ].join("\n");
+  ]
+    .filter((part): part is string => part !== null)
+    .join("\n");
 }
 
 interface GoogleAiImagePart {

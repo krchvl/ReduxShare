@@ -397,6 +397,13 @@ describe("AI explain mode", () => {
     expect(prompt).not.toContain("Return JSON with this schema");
   });
 
+  it("requests the explanation in the provided language", () => {
+    const prompt = buildQuizExplanationPrompt({ ...explainPayload, language: "Russian" });
+
+    expect(prompt).toContain("Respond in the following language");
+    expect(prompt).toContain("Russian");
+  });
+
   it("explains via plain-text generation and skips structured answer parsing", async () => {
     const fetchMock = vi.fn(async () =>
       mockJsonResponse({

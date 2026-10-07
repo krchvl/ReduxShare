@@ -23,7 +23,12 @@ import {
   isMatchingQuestionNode,
   isMatchingQuestionTypeName,
 } from "../../dom/questionTypes";
-import { aiAnswerStatesByQuestionKey, aiExplanationStatesByQuestionKey } from "../../state";
+import {
+  aiAnswerStatesByQuestionKey,
+  aiExplanationStatesByQuestionKey,
+  currentStoredState,
+} from "../../state";
+import { resolveLanguage } from "../../shared/i18nCore";
 import { applyOrderingOrder, getOrderingItemLabel, getOrderingItems } from "../../dom/ordering";
 import { createIdleAiAnswerState } from "../../ui/answerMenu";
 import { autoSelectChoiceQuestionAnswers, selectAnswerByLabel } from "./autoSelect";
@@ -646,6 +651,8 @@ export async function buildAiAnswerRequestPayload(
     questionType: getSecondQuestionClass(questionNode),
     questionText: getQuestionText(questionNode),
     answerLabels: getAiQuestionAnswerLabels(questionNode),
+    language:
+      resolveLanguage(currentStoredState?.settings?.language) === "en" ? "English" : "Russian",
     controls: buildAiQuestionControls(questionNode),
     images: await buildAiQuestionImages(questionNode),
     pageUrl: window.location.href,

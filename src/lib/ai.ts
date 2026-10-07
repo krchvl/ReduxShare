@@ -47,6 +47,7 @@ export interface GenerateAiAnswerPayload {
   questionType: string | null;
   questionText: string;
   answerLabels: string[];
+  language?: string;
   controls?: AiQuestionControl[];
   images?: AiQuestionImage[];
   pageUrl: string;

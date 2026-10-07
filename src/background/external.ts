@@ -56,6 +56,7 @@ import {
   type ExternalVariantsPayload,
 } from "../lib/externalProvider";
 import { getRequestErrorMessage, getTranslator, type TranslationKey } from "../i18n";
+import { resolveLanguage } from "../shared/i18nCore";
 import { handleRuntimeInstalled } from "./onboardingInstall";
 import {
   UPDATE_ALARM_NAME,
@@ -1390,7 +1391,12 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
   }
 
   try {
-    const aiAnswer = await generateAiAnswer(aiSettings, payload, { authSession });
+    const resolvedLanguage = resolveLanguage(storedState.settings?.language);
+    const payloadWithLanguage: GenerateAiAnswerPayload = {
+      ...payload,
+      language: payload.language ?? (resolvedLanguage === "en" ? "English" : "Russian"),
+    };
+    const aiAnswer = await generateAiAnswer(aiSettings, payloadWithLanguage, { authSession });
 
     if (aiAnswer.authSession) {
       await saveStoredStatePatch({ authSession: aiAnswer.authSession });
