@@ -421,6 +421,7 @@ export async function runAutoPassPage(): Promise<void> {
           entry.questionNode,
           getAnswerDataForQuestion(entry.questionId),
           isLoggedInToExtension(scheduleState),
+          entry.questionId,
         );
 
         if (hasExactAutoSelectData(answerData)) {
