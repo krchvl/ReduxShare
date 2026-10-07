@@ -1006,7 +1006,7 @@ button:focus-visible {
 .ai-settings-summary {
   display: grid;
   gap: 4px;
-  margin-top: 25px;
+  margin-top: 18px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 360;
@@ -1269,13 +1269,13 @@ button:focus-visible {
 .ai-official__models {
   display: grid;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 12px;
 }
 
 .ai-official__models-title {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 360;
+  font-weight: 500;
   line-height: 1.25;
 }
 
