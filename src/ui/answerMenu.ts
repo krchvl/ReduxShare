@@ -566,12 +566,12 @@ function getVisibleAnswerMenuTabs(
       tabs.push("ai");
     }
   } else {
-    if (!externalOnly && hasMenuAnswerData(answerData.reduxshare)) {
-      tabs.push("internal");
-    }
-
     if (hasMenuAnswerData(answerData.external)) {
       tabs.push("external");
+    }
+
+    if (!externalOnly && hasMenuAnswerData(answerData.reduxshare)) {
+      tabs.push("internal");
     }
 
     if (!externalOnly && aiToolsEnabled) {
