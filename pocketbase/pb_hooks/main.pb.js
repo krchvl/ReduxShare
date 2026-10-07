@@ -242,12 +242,22 @@ routerAdd(
     }
 
     const plan = getUserPlan(e);
-    const groups = PLANS[plan].groups;
+    const planGroups = PLANS[plan].groups;
+    const requestedModels = Array.isArray(body.models)
+      ? body.models
+          .filter((value) => typeof value === "string" && value.trim() !== "")
+          .map((value) => value.trim().toLowerCase())
+      : [];
+    const groups =
+      requestedModels.length > 0
+        ? planGroups.filter((group) => requestedModels.includes(group.model.toLowerCase()))
+        : planGroups;
+    const effectiveGroups = groups.length > 0 ? groups : planGroups;
 
     consumeQuota($app, e.auth.id, PLANS[plan].limits);
 
-    const explicitGroup = pickGroupByModel(groups, body.model);
-    const attempts = explicitGroup ? [explicitGroup] : pickAttemptGroups(groups);
+    const explicitGroup = pickGroupByModel(effectiveGroups, body.model);
+    const attempts = explicitGroup ? [explicitGroup] : pickAttemptGroups(effectiveGroups);
     let lastResponse = null;
     let transportError = null;
 
