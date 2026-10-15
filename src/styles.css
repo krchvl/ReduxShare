@@ -215,7 +215,7 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   width: var(--popup-width);
-  height: 100%;
+  height: auto;
   min-height: var(--popup-height);
   overflow-x: hidden;
   background:
@@ -497,25 +497,11 @@ button:focus-visible {
 
 .main-content {
   display: flex;
-  flex: 1 1 auto;
+  flex: none;
   flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
   margin-top: 16px;
   margin-inline: 30px;
-}
-
-.main-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.main-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.main-content::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--border-strong);
+  margin-bottom: 24px;
 }
 
 .settings-tabs {
@@ -641,32 +627,14 @@ button:focus-visible {
 }
 
 .settings-panel {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  flex: none;
+  overflow: visible;
   border: 1px solid var(--border);
   border-top: 0;
   border-radius: 0 0 8px 8px;
   padding: 6px 54px;
   background: rgba(37, 38, 38, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-}
-
-.settings-panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.settings-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.settings-panel::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--border-strong);
 }
 
 .settings-panel__rows {
