@@ -1,5 +1,18 @@
-import type { AiModelOption, AiProvider, AiSettings } from "../types";
+import type { AiModelOption, AiProvider, AiSettings, AuthSession } from "../types";
 import { isAbortError } from "./externalProvider";
+import { ClientResponseError } from "pocketbase";
+import { I18nError } from "../i18n";
+import { getPocketBaseUrl, withPocketBaseSessionRetry } from "./pocketbase";
+import {
+  AI_PLANS,
+  DEFAULT_OFFICIAL_AI_USAGE,
+  OFFICIAL_AI_CHAT_PATH,
+  OFFICIAL_AI_MODEL,
+  OFFICIAL_AI_USAGE_PATH,
+  type AiPlan,
+  type OfficialAiPlanModel,
+  type OfficialAiUsageState,
+} from "../shared/aiOfficial";
 import calculatedPrompt from "../aiPrompts/calculated.json";
 import calculatedMultiPrompt from "../aiPrompts/calculatedmulti.json";
 import calculatedSimplePrompt from "../aiPrompts/calculatedsimple.json";
@@ -29,6 +42,21 @@ const GEMINI_MODELS_MAX_PAGES = 5;
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const AI_MODEL_LIST_TIMEOUT_MS = 15_000;
+const OFFICIAL_AI_TIMEOUT_MS = 90_000;
+
+export interface AiAuthContext {
+  authSession: AuthSession | null;
+  officialModels?: string[];
+}
+
+export interface AiTextOutcome {
+  text: string;
+  authSession: AuthSession | null;
+}
+
+export interface AiAnswerOutcome extends StructuredAiAnswer {
+  authSession: AuthSession | null;
+}
 
 type OpenAiCompatibleProviderConfig = {
   name: string;
@@ -180,6 +208,21 @@ function getAiErrorMessage(body: unknown) {
   }
 
   return null;
+}
+
+function isOfficialAiQuotaResponse(body: unknown) {
+  const message = getAiErrorMessage(body) ?? "";
+  return /^Official AI .*\b(?:rate limit|quota)\b/i.test(message);
+}
+
+function isOfficialAiModelSelectionResponse(body: unknown) {
+  const message = getAiErrorMessage(body) ?? "";
+  return /^Official AI model selection\b/i.test(message);
+}
+
+function isPocketBaseErrorBody(body: unknown) {
+  const record = getRecord(body);
+  return record !== null && typeof record.status === "number" && typeof record.message === "string";
 }
 
 function extractGeminiText(body: unknown) {
@@ -481,7 +524,13 @@ export async function fetchAiModelOptions(
 }
 
 export function hasUsableAiSettings(settings: Partial<AiSettings> | undefined) {
-  if (!settings || !settings.apiKey?.trim()) return false;
+  if (!settings) return false;
+
+  if (settings.accessMode === "official") {
+    return true;
+  }
+
+  if (!settings.apiKey?.trim()) return false;
 
   if (settings.provider === "custom") {
     return Boolean(
@@ -550,6 +599,7 @@ function buildPromptPayloadSummary(payload: GenerateAiAnswerPayload) {
 export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
   const promptConfig = getPromptConfig(payload.questionType);
   const { questionData, controlOptionsSummary, imageSummary } = buildPromptPayloadSummary(payload);
+  const language = payload.language?.trim();
 
   return [
     "You help solve Moodle quiz questions. You must return ONLY valid JSON.",
@@ -557,6 +607,9 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
     "Be honest about confidence: 95-100 only when you are almost certain; 60-85 for plausible but not fully verified; below 60 for uncertain guesses.",
     "Use exact visible labels from the provided controls whenever the extension needs to click/select/fill an option.",
     "",
+    language
+      ? `Respond in the following language, regardless of the language of the question or the answer: ${language}.`
+      : null,
     `Question prompt profile: ${promptConfig.title}`,
     ...promptConfig.instructions.map((instruction) => `- ${instruction}`),
     "",
@@ -607,12 +660,16 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
 export function buildQuizExplanationPrompt(payload: GenerateAiAnswerPayload) {
   const { questionData } = buildPromptPayloadSummary(payload);
   const answerToExplain = payload.answerToExplain?.trim();
+  const language = payload.language?.trim();
 
   return [
     "You help explain answers to Moodle quiz questions. Respond with plain text only.",
     "",
     `Question prompt profile: ${explainPrompt.title}`,
     ...explainPrompt.instructions.map((instruction) => `- ${instruction}`),
+    language
+      ? `Respond in the following language, regardless of the language of the question or the answer: ${language}.`
+      : null,
     "",
     answerToExplain
       ? `The final answer to explain:\n${answerToExplain}`
@@ -620,7 +677,9 @@ export function buildQuizExplanationPrompt(payload: GenerateAiAnswerPayload) {
     "",
     "Moodle question data:",
     JSON.stringify(questionData, null, 2),
-  ].join("\n");
+  ]
+    .filter((part): part is string => part !== null)
+    .join("\n");
 }
 
 interface GoogleAiImagePart {
@@ -1247,63 +1306,297 @@ interface AiCompletionOptions {
   imageParts: GoogleAiImagePart[];
 }
 
-async function requestAiCompletion(settings: AiSettings, options: AiCompletionOptions) {
+async function generateOfficialAiText(
+  prompt: string,
+  options: {
+    responseMimeType?: "text/plain" | "application/json";
+    maxOutputTokens?: number;
+    temperature?: number;
+    imageParts?: GoogleAiImagePart[];
+  },
+  context: AiAuthContext | undefined,
+): Promise<AiTextOutcome> {
+  const authSession = context?.authSession ?? null;
+
+  if (!authSession?.accessToken) {
+    throw new I18nError("errors.aiOfficialUnauthorized");
+  }
+
+  const endpoint = getPocketBaseUrl() + OFFICIAL_AI_CHAT_PATH;
+  const selectedModels = Array.isArray(context?.officialModels)
+    ? context.officialModels
+    : undefined;
+
+  const { authSession: nextAuthSession, result: text } = await withPocketBaseSessionRetry(
+    authSession,
+    async (_pb, session) => {
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            model: OFFICIAL_AI_MODEL,
+            ...(selectedModels ? { models: selectedModels } : {}),
+            messages: [
+              {
+                role: "user",
+                content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? []),
+              },
+            ],
+            max_tokens: options.maxOutputTokens ?? 1024,
+            temperature: options.temperature ?? 0.2,
+          }),
+        },
+        OFFICIAL_AI_TIMEOUT_MS,
+      );
+
+      const body = await readGeminiResponseBody(response);
+
+      if (!response.ok) {
+        if (response.status === 400 && isOfficialAiModelSelectionResponse(body)) {
+          throw new I18nError("errors.aiOfficialNoModelsSelected");
+        }
+
+        if (response.status === 429 && isOfficialAiQuotaResponse(body)) {
+          throw new I18nError("errors.aiQuotaExceeded");
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          if (!isPocketBaseErrorBody(body)) {
+            throw new Error(
+              getAiErrorMessage(body) ??
+                `Official AI request failed with status ${response.status}.`,
+            );
+          }
+
+          throw new ClientResponseError({ status: response.status, url: endpoint, data: body });
+        }
+
+        throw new Error(
+          getAiErrorMessage(body) ?? `Official AI request failed with status ${response.status}.`,
+        );
+      }
+
+      const text = extractOpenAiCompatibleText(body);
+
+      if (!text) {
+        throw new Error("Official AI returned an empty response.");
+      }
+
+      return text;
+    },
+  );
+
+  return { text, authSession: nextAuthSession };
+}
+
+function normalizeOfficialAiPlanModels(value: unknown): OfficialAiPlanModel[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const models: OfficialAiPlanModel[] = [];
+
+  for (const entry of value) {
+    const record = getRecord(entry);
+
+    if (!record) {
+      continue;
+    }
+
+    const model = typeof record.model === "string" ? record.model.trim() : "";
+
+    if (!model || seen.has(model)) {
+      continue;
+    }
+
+    seen.add(model);
+    models.push({
+      model,
+      label: typeof record.label === "string" && record.label.trim() ? record.label.trim() : model,
+    });
+  }
+
+  return models;
+}
+
+function normalizeOfficialAiUsage(body: unknown): OfficialAiUsageState {
+  const source = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const readNumber = (key: string, fallback: number) => {
+    const value = source[key];
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+  };
+  const plan: AiPlan = AI_PLANS.includes(source.plan as AiPlan) ? (source.plan as AiPlan) : "free";
+
+  return {
+    plan,
+    models: normalizeOfficialAiPlanModels(source.models),
+    minuteUsed: readNumber("minuteUsed", DEFAULT_OFFICIAL_AI_USAGE.minuteUsed),
+    minuteLimit: readNumber("minuteLimit", DEFAULT_OFFICIAL_AI_USAGE.minuteLimit),
+    dayUsed: readNumber("dayUsed", DEFAULT_OFFICIAL_AI_USAGE.dayUsed),
+    dayLimit: readNumber("dayLimit", DEFAULT_OFFICIAL_AI_USAGE.dayLimit),
+  };
+}
+
+export async function fetchOfficialAiUsage(
+  authSession: AuthSession,
+): Promise<{ usage: OfficialAiUsageState; authSession: AuthSession }> {
+  const endpoint = getPocketBaseUrl() + OFFICIAL_AI_USAGE_PATH;
+
+  const { authSession: nextAuthSession, result: usage } = await withPocketBaseSessionRetry(
+    authSession,
+    async (_pb, session) => {
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+        },
+        AI_MODEL_LIST_TIMEOUT_MS,
+      );
+
+      const body = await readGeminiResponseBody(response);
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new ClientResponseError({ status: response.status, url: endpoint, data: body });
+        }
+
+        throw new Error(`Official AI usage request failed with status ${response.status}.`);
+      }
+
+      return normalizeOfficialAiUsage(body);
+    },
+  );
+
+  return { usage, authSession: nextAuthSession };
+}
+
+async function requestAiCompletion(
+  settings: AiSettings,
+  options: AiCompletionOptions,
+  context?: AiAuthContext,
+): Promise<AiTextOutcome> {
+  if (settings.accessMode === "official") {
+    return generateOfficialAiText(options.prompt, options, context);
+  }
+
   if (settings.provider === "custom") {
-    return generateCustomAiText(settings, options.prompt, options);
+    return {
+      text: await generateCustomAiText(settings, options.prompt, options),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "google") {
-    return generateGoogleAiText(settings, options.prompt, options);
+    return {
+      text: await generateGoogleAiText(settings, options.prompt, options),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "anthropic") {
-    return generateAnthropicAiText(settings, options.prompt, options);
+    return {
+      text: await generateAnthropicAiText(settings, options.prompt, options),
+      authSession: null,
+    };
   }
 
-  return generateOpenAiCompatibleAiText(settings, options.prompt, options);
+  return {
+    text: await generateOpenAiCompatibleAiText(settings, options.prompt, options),
+    authSession: null,
+  };
 }
 
-export async function generateAiAnswer(settings: AiSettings, payload: GenerateAiAnswerPayload) {
+export async function generateAiAnswer(
+  settings: AiSettings,
+  payload: GenerateAiAnswerPayload,
+  context?: AiAuthContext,
+): Promise<AiAnswerOutcome> {
   const imageParts = payload.images?.length ? await buildGoogleAiImageParts(payload) : [];
 
   if (payload.mode === "explain") {
-    const explanationText = await requestAiCompletion(settings, {
-      prompt: buildQuizExplanationPrompt(payload),
-      responseMimeType: "text/plain",
-      maxOutputTokens: 2048,
-      temperature: 0.3,
-      imageParts,
-    });
+    const outcome = await requestAiCompletion(
+      settings,
+      {
+        prompt: buildQuizExplanationPrompt(payload),
+        responseMimeType: "text/plain",
+        maxOutputTokens: 2048,
+        temperature: 0.3,
+        imageParts,
+      },
+      context,
+    );
 
-    return { answer: explanationText.trim(), confidence: 0, actions: [], rawText: explanationText };
+    return {
+      answer: outcome.text.trim(),
+      confidence: 0,
+      actions: [],
+      rawText: outcome.text,
+      authSession: outcome.authSession,
+    };
   }
 
-  const text = await requestAiCompletion(settings, {
-    prompt: buildQuizAnswerPrompt(payload),
-    responseMimeType: "application/json",
-    maxOutputTokens: payload.questionType === "essay" ? 4096 : 1536,
-    temperature: payload.questionType === "essay" ? 0.35 : 0.15,
-    imageParts,
-  });
+  const outcome = await requestAiCompletion(
+    settings,
+    {
+      prompt: buildQuizAnswerPrompt(payload),
+      responseMimeType: "application/json",
+      maxOutputTokens: payload.questionType === "essay" ? 4096 : 1536,
+      temperature: payload.questionType === "essay" ? 0.35 : 0.15,
+      imageParts,
+    },
+    context,
+  );
 
-  return normalizeStructuredAiAnswerForPayload(parseStructuredAiAnswer(text), payload);
+  return {
+    ...normalizeStructuredAiAnswerForPayload(parseStructuredAiAnswer(outcome.text), payload),
+    authSession: outcome.authSession,
+  };
 }
 
-export async function testAiConnection(settings: AiSettings) {
+export async function testAiConnection(
+  settings: AiSettings,
+  context?: AiAuthContext,
+): Promise<AiTextOutcome> {
+  if (settings.accessMode === "official") {
+    return generateOfficialAiText("Reply with exactly: OK", {}, context);
+  }
+
   if (settings.provider === "custom") {
     if (!settings.customEndpoint?.trim()) {
       throw new Error("Custom endpoint is missing.");
     }
-    return generateCustomAiText(settings, "Reply with exactly: OK");
+    return {
+      text: await generateCustomAiText(settings, "Reply with exactly: OK"),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "google") {
-    return generateGoogleAiText(settings, "Reply with exactly: OK");
+    return {
+      text: await generateGoogleAiText(settings, "Reply with exactly: OK"),
+      authSession: null,
+    };
   }
 
   if (settings.provider === "anthropic") {
-    return generateAnthropicAiText(settings, "Reply with exactly: OK");
+    return {
+      text: await generateAnthropicAiText(settings, "Reply with exactly: OK"),
+      authSession: null,
+    };
   }
 
-  return generateOpenAiCompatibleAiText(settings, "Reply with exactly: OK");
+  return {
+    text: await generateOpenAiCompatibleAiText(settings, "Reply with exactly: OK"),
+    authSession: null,
+  };
 }

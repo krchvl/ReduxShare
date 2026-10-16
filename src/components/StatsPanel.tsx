@@ -14,14 +14,15 @@ type StatsLoadStatus = "loading" | "ready" | "error";
 
 interface StatsPanelProps {
   userProfile?: UserProfile | null;
+  isAuthenticated?: boolean;
 }
 
-export function StatsPanel({ userProfile }: StatsPanelProps) {
+export function StatsPanel({ userProfile, isAuthenticated = true }: StatsPanelProps) {
   const { t, resolvedLanguage } = useI18n();
   const [profile, setProfile] = useState<UserProfile | null>(userProfile ?? null);
   const [leaderboard, setLeaderboard] = useState<UserLeaderboard | null>(null);
   const [history, setHistory] = useState<UserAttemptHistory | null>(null);
-  const [status, setStatus] = useState<StatsLoadStatus>("loading");
+  const [status, setStatus] = useState<StatsLoadStatus>(isAuthenticated ? "loading" : "ready");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -71,7 +72,13 @@ export function StatsPanel({ userProfile }: StatsPanelProps) {
     };
   }, []);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    return load();
+  }, [isAuthenticated, load]);
 
   const retry = () => {
     setErrorMessage(null);

@@ -75,6 +75,7 @@ export interface AiSettings {
   customEndpoint?: string;
   customModelName?: string;
   accessMode: AiAccessModeSetting;
+  officialModels?: string[];
 }
 
 export interface ServerConfig {
@@ -310,6 +311,12 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
 
   const accessMode: AiAccessModeSetting = settings?.accessMode === "custom" ? "custom" : "official";
 
+  const officialModelsRaw = Array.isArray(settings?.officialModels) ? settings.officialModels : [];
+  const officialModels = officialModelsRaw
+    .filter((value): value is string => typeof value === "string" && value.trim() !== "")
+    .map((value) => value.trim());
+  const officialModelsUnique = Array.from(new Set(officialModels));
+
   return {
     provider,
     model,
@@ -319,6 +326,7 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
     customEndpoint,
     customModelName,
     accessMode,
+    officialModels: Array.isArray(settings?.officialModels) ? officialModelsUnique : undefined,
   };
 }
 

@@ -4,7 +4,7 @@
     "Explain why the provided final answer is correct for this question.",
     "Base the explanation only on the question text, visible controls/options and the provided answer.",
     "Briefly walk through the reasoning: what the question asks, why the chosen answer fits, and why the key alternatives do not.",
-    "Write the explanation in the same language as the question text.",
+    "Write the explanation in the language explicitly requested below, regardless of the language of the question or the answer.",
     "Return plain text only: no markdown, no JSON, no list markup."
   ]
 }

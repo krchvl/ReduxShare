@@ -435,6 +435,7 @@ export function scheduleAutoSelectAnswer(
     questionNode,
     getAnswerDataForQuestion(questionId),
     isLoggedInToExtension(storedState),
+    questionId,
   );
 
   if (!hasExactAutoSelectData(answerData)) {
@@ -495,6 +496,7 @@ export function scheduleAutoSelectAnswer(
       questionNode,
       getAnswerDataForQuestion(questionId),
       isLoggedInToExtension(currentStoredState),
+      questionId,
     );
 
     if (await applyTextAnswerHumanLike(questionNode, questionId, freshAnswerData, settings)) {
@@ -772,6 +774,7 @@ export function applyAllExactAnswersNow(
       questionNode,
       getAnswerDataForQuestion(questionId),
       allowReduxShareSource,
+      questionId,
     );
 
     if (!hasExactAutoSelectData(answerData)) {
@@ -818,29 +821,38 @@ function getPreferredAutoSelectAnswerDataForQuestion(
   questionNode: Element,
   answerData: SourceAnswerData,
   allowReduxShareSource = true,
+  questionId: string | null = null,
 ): AnswerData {
+  let preferred: AnswerData;
+
   if (!allowReduxShareSource) {
-    return answerData.external;
-  }
-
-  if (isOrderingQuestionType(questionNode)) {
-    return getOrderingExactOrder(answerData.reduxshare, questionNode).length > 0
-      ? answerData.reduxshare
-      : answerData.external;
-  }
-
-  if (
+    preferred = answerData.external;
+  } else if (isOrderingQuestionType(questionNode)) {
+    preferred =
+      getOrderingExactOrder(answerData.reduxshare, questionNode).length > 0
+        ? answerData.reduxshare
+        : answerData.external;
+  } else if (
     isDragTextQuestionType(questionNode) ||
     isCompoundQuestionType(questionNode) ||
     isDragImageOrTextQuestionType(questionNode) ||
     isDragMarkerQuestionType(questionNode)
   ) {
-    return hasExactAutoSelectData(answerData.reduxshare)
+    preferred = hasExactAutoSelectData(answerData.reduxshare)
       ? answerData.reduxshare
       : answerData.external;
+  } else {
+    preferred = getPreferredAutoSelectAnswerData(answerData, allowReduxShareSource);
   }
 
-  return getPreferredAutoSelectAnswerData(answerData, allowReduxShareSource);
+  logReduxShareInfo("ReduxShare: auto-select source", {
+    questionId,
+    used: preferred === answerData.reduxshare ? "internal" : "external",
+    internalExact: getExactAnswerLabels(answerData.reduxshare).length,
+    externalExact: getExactAnswerLabels(answerData.external).length,
+  });
+
+  return preferred;
 }
 
 function autoSelectGapSelectAnswers(questionNode: Element, answerData: AnswerData): boolean {

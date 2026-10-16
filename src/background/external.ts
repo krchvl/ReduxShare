@@ -2,13 +2,16 @@ import {
   AI_DISABLED_QUESTION_TYPES,
   type GenerateAiAnswerPayload,
   isFetchAiModelsMessage,
+  isFetchAiUsageMessage,
   isGenerateAiAnswerMessage,
   isTestAiConnectionMessage,
   type AiModelsResponse,
   type AiResponse,
+  type AiUsageResponse,
 } from "../lib/ai";
 import {
   fetchAiModelOptions,
+  fetchOfficialAiUsage,
   generateAiAnswer,
   hasUsableAiSettings,
   testAiConnection,
@@ -53,6 +56,7 @@ import {
   type ExternalVariantsPayload,
 } from "../lib/externalProvider";
 import { getRequestErrorMessage, getTranslator, type TranslationKey } from "../i18n";
+import { resolveLanguage } from "../shared/i18nCore";
 import { handleRuntimeInstalled } from "./onboardingInstall";
 import {
   UPDATE_ALARM_NAME,
@@ -77,6 +81,7 @@ import {
   type UserLeaderboard,
 } from "../lib/userProfiles";
 import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../shared/storageKeys";
+import type { AuthSession } from "../types";
 import {
   CHECK_UPDATE_MESSAGE,
   FETCH_ATTEMPT_HISTORY_MESSAGE,
@@ -616,6 +621,15 @@ async function handleCheckUpdate(payload: CheckUpdatePayload = {}): Promise<Upda
 
 function getStoredAuthSession(storedState: Partial<StoredState>) {
   return storedState.authSession?.user.id ? storedState.authSession : null;
+}
+
+async function isSessionStillValid(originalSession: AuthSession | null): Promise<boolean> {
+  if (!originalSession) {
+    return true;
+  }
+  const currentStoredState = await loadStoredState();
+  const currentSession = getStoredAuthSession(currentStoredState);
+  return currentSession?.accessToken === originalSession.accessToken;
 }
 
 async function handleFetchQuizAnswers(
@@ -1297,8 +1311,16 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
     connectionVerified: true,
     verifiedAt: new Date().toISOString(),
   });
+  const authSession = getStoredAuthSession(storedState);
 
-  if (!aiSettings.apiKey) {
+  if (aiSettings.accessMode === "official") {
+    if (!authSession) {
+      return {
+        ok: false,
+        error: t("errors.aiOfficialUnauthorized"),
+      };
+    }
+  } else if (!aiSettings.apiKey) {
     return {
       ok: false,
       error: t("errors.aiApiKeyMissing"),
@@ -1306,11 +1328,18 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
   }
 
   try {
-    await testAiConnection(aiSettings);
+    const outcome = await testAiConnection(aiSettings, {
+      authSession: authSession ?? null,
+      officialModels: aiSettings.officialModels,
+    });
+
+    if (outcome.authSession && (await isSessionStillValid(authSession))) {
+      await saveStoredStatePatch({ authSession: outcome.authSession });
+    }
 
     return {
       ok: true,
-      answer: "OK",
+      answer: outcome.text,
     };
   } catch (error) {
     return {
@@ -1351,11 +1380,19 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
   const storedState = await loadStoredState();
   const t = getTranslator(storedState.settings?.language);
   const aiSettings = normalizeAiSettings(storedState.settings?.ai);
+  const authSession = getStoredAuthSession(storedState);
 
   if (payload.questionType && AI_DISABLED_QUESTION_TYPES.has(payload.questionType)) {
     return {
       ok: false,
       error: t("errors.aiQuestionTypeUnsupported"),
+    };
+  }
+
+  if (aiSettings.accessMode === "official" && !authSession) {
+    return {
+      ok: false,
+      error: t("errors.aiOfficialUnauthorized"),
     };
   }
 
@@ -1367,13 +1404,60 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
   }
 
   try {
-    const aiAnswer = await generateAiAnswer(aiSettings, payload);
+    const resolvedLanguage = resolveLanguage(storedState.settings?.language);
+    const payloadWithLanguage: GenerateAiAnswerPayload = {
+      ...payload,
+      language: payload.language ?? (resolvedLanguage === "en" ? "English" : "Russian"),
+    };
+    const aiAnswer = await generateAiAnswer(aiSettings, payloadWithLanguage, {
+      authSession,
+      officialModels: aiSettings.officialModels,
+    });
+
+    if (aiAnswer.authSession && (await isSessionStillValid(authSession))) {
+      await saveStoredStatePatch({ authSession: aiAnswer.authSession });
+    }
 
     return {
       ok: true,
       answer: aiAnswer.answer,
       confidence: aiAnswer.confidence,
       actions: aiAnswer.actions,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: getRequestErrorMessage(
+        error,
+        storedState.settings?.language,
+        "errors.aiRequestFailed",
+      ),
+    };
+  }
+}
+
+async function handleFetchAiUsage(): Promise<AiUsageResponse> {
+  const storedState = await loadStoredState();
+  const t = getTranslator(storedState.settings?.language);
+  const authSession = getStoredAuthSession(storedState);
+
+  if (!authSession) {
+    return {
+      ok: false,
+      error: t("errors.aiOfficialUnauthorized"),
+    };
+  }
+
+  try {
+    const { usage, authSession: nextAuthSession } = await fetchOfficialAiUsage(authSession);
+
+    if (nextAuthSession && (await isSessionStillValid(authSession))) {
+      await saveStoredStatePatch({ authSession: nextAuthSession });
+    }
+
+    return {
+      ok: true,
+      usage,
     };
   } catch (error) {
     return {
@@ -1430,6 +1514,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
 
   if (isGenerateAiAnswerMessage(message)) {
     void handleGenerateAiAnswer(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.aiRequestFailed");
+      });
+
+    return true;
+  }
+
+  if (isFetchAiUsageMessage(message)) {
+    void handleFetchAiUsage()
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.aiRequestFailed");

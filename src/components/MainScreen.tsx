@@ -1,5 +1,6 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { TranslateFn, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n/react";
 import {
@@ -17,22 +18,33 @@ import {
 } from "../types";
 import { AccentColorPicker } from "./AccentColorPicker";
 import { AiAccessModeIcon, type AiAccessMode } from "./AiAccessModeIcon";
-import { AiProviderIcon } from "./AiProviderIcon";
+import { AiProviderIcon, OfficialModelIcon, TrashIcon } from "./AiProviderIcon";
+import { AuthGateOverlay } from "./AuthGateOverlay";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
-import { CustomSelect } from "./CustomSelect";
+import { CustomSelect, getAnchoredFloatingStyle } from "./CustomSelect";
 import { ServerPicker } from "./ServerPicker";
 import { StatsPanel } from "./StatsPanel";
 import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
-import { requestAiConnectionTest, requestAiModels } from "../lib/ai";
+import { requestAiConnectionTest, requestAiModels, requestOfficialAiUsage } from "../lib/ai";
+import { AI_PLAN_LIMITS, AI_PLANS, type OfficialAiUsageState } from "../shared/aiOfficial";
+
+const AI_PLAN_LABEL_KEYS = {
+  free: "settings.ai.plan.free",
+  low: "settings.ai.plan.low",
+  medium: "settings.ai.plan.medium",
+  high: "settings.ai.plan.high",
+} as const;
 import {
   isBroadHostPermissionGrantedSync,
   needsBroadHostPermission,
   refreshBroadPermissionCache,
   requestBroadHostPermission,
+  requestOriginHostPermission,
+  toOriginPermission,
 } from "../lib/optionalPermissions";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import {
@@ -50,10 +62,12 @@ interface MainScreenProps {
   updateState: UpdateState;
   isCheckingUpdates: boolean;
   userProfile?: UserProfile | null;
+  isAuthenticated?: boolean;
   onSettingsChange: (settings: Settings) => void;
   onCheckUpdates: () => void;
   onResetSettings: () => void;
   onLogout: () => void;
+  onOpenLogin?: () => void;
 }
 
 type SettingsTab = "main" | "stats" | "ui" | "security" | "ai" | "extra";
@@ -285,10 +299,12 @@ export function MainScreen({
   updateState,
   isCheckingUpdates,
   userProfile,
+  isAuthenticated = true,
   onSettingsChange,
   onCheckUpdates,
   onResetSettings,
   onLogout,
+  onOpenLogin = () => {},
 }: MainScreenProps) {
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("main");
@@ -307,6 +323,16 @@ export function MainScreen({
     models: [],
     message: null,
   });
+  const [officialUsage, setOfficialUsage] = useState<OfficialAiUsageState | null>(null);
+  const [officialUsageError, setOfficialUsageError] = useState<string | null>(null);
+  const [modelsPopoverOpen, setModelsPopoverOpen] = useState(false);
+  const [modelsPopoverStyle, setModelsPopoverStyle] = useState<CSSProperties | undefined>(
+    undefined,
+  );
+  const [modelsPopoverTarget, setModelsPopoverTarget] = useState<HTMLElement | null>(null);
+  const [modelsActiveIndex, setModelsActiveIndex] = useState(0);
+  const modelsAddButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modelsPopoverRef = useRef<HTMLDivElement | null>(null);
   const [updateToastDismissed, setUpdateToastDismissed] = useState(false);
 
   const aiDraftRef = useRef(aiDraft);
@@ -380,7 +406,7 @@ export function MainScreen({
       return undefined;
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       event.preventDefault();
       event.stopPropagation();
 
@@ -427,6 +453,8 @@ export function MainScreen({
   const canTestAiConnection =
     Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
   const hasSavedAiKey = settings.ai.connectionVerified && Boolean(settings.ai.apiKey.trim());
+  const aiSummaryState =
+    settings.ai.accessMode === "official" ? "official" : hasSavedAiKey ? "saved" : "missing";
 
   function updateAiDraft(patch: Partial<AiSettings>) {
     setAiDraft((draft) => ({
@@ -538,11 +566,199 @@ export function MainScreen({
     };
   }, [aiModelsAutoRequestKey, aiModelsState.requestKey]);
 
-  async function handleTestAiConnection() {
-    const requiresBroadPermission =
-      isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint);
+  const loadOfficialAiUsage = useCallback(async () => {
+    const response = await requestOfficialAiUsage();
 
-    if (requiresBroadPermission && !(await requestBroadHostPermission())) {
+    if (response.ok && response.usage) {
+      setOfficialUsage(response.usage);
+      setOfficialUsageError(null);
+    } else {
+      setOfficialUsage(null);
+      setOfficialUsageError(response.error ?? null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === "ai" && aiAccessMode === "official") {
+      void loadOfficialAiUsage();
+    }
+  }, [activeTab, aiAccessMode, isAuthenticated, loadOfficialAiUsage]);
+
+  const serverOfficialModels = officialUsage?.models ?? [];
+  const selectedOfficialModels =
+    settings.ai.officialModels ?? serverOfficialModels.map((model) => model.model);
+  const selectedOfficialModelSet = useMemo(
+    () => new Set(selectedOfficialModels),
+    [selectedOfficialModels],
+  );
+
+  const changeOfficialModels = useCallback(
+    (next: string[]) => {
+      const uniqueNext = Array.from(new Set(next));
+
+      onSettingsChange({
+        ...settings,
+        ai: normalizeAiSettings({
+          ...settings.ai,
+          officialModels: uniqueNext,
+        }),
+      });
+    },
+    [onSettingsChange, settings],
+  );
+
+  const closeModelsPopover = useCallback(() => {
+    setModelsPopoverOpen(false);
+    modelsAddButtonRef.current?.focus();
+  }, []);
+
+  const focusModelOption = useCallback((index: number) => {
+    setModelsActiveIndex(index);
+    window.requestAnimationFrame(() => {
+      modelsPopoverRef.current
+        ?.querySelectorAll<HTMLInputElement>("input[type='checkbox']")
+        [index]?.focus();
+    });
+  }, []);
+
+  const clampModelIndex = useCallback(
+    (index: number) => {
+      if (serverOfficialModels.length === 0) {
+        return 0;
+      }
+
+      return Math.min(Math.max(index, 0), serverOfficialModels.length - 1);
+    },
+    [serverOfficialModels.length],
+  );
+
+  const updateModelsPopoverPosition = useCallback(() => {
+    const anchorRect = modelsAddButtonRef.current?.getBoundingClientRect();
+
+    if (!anchorRect) {
+      return;
+    }
+
+    setModelsPopoverStyle(
+      getAnchoredFloatingStyle(
+        anchorRect,
+        modelsPopoverRef.current?.getBoundingClientRect() ?? null,
+        {
+          align: "end",
+          minWidth: 240,
+        },
+      ),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!modelsPopoverOpen) {
+      return undefined;
+    }
+
+    updateModelsPopoverPosition();
+
+    const handleResizeOrScroll = () => updateModelsPopoverPosition();
+
+    window.addEventListener("resize", handleResizeOrScroll);
+    window.addEventListener("scroll", handleResizeOrScroll, true);
+
+    return () => {
+      window.removeEventListener("resize", handleResizeOrScroll);
+      window.removeEventListener("scroll", handleResizeOrScroll, true);
+    };
+  }, [modelsPopoverOpen, updateModelsPopoverPosition]);
+
+  const openModelsPopover = useCallback(() => {
+    setModelsPopoverTarget(
+      (modelsAddButtonRef.current?.closest(".popup-shell") as HTMLElement | null) ?? document.body,
+    );
+    setModelsPopoverStyle(undefined);
+    setModelsPopoverOpen(true);
+  }, []);
+
+  const handleModelsPopoverKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const total = serverOfficialModels.length;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeModelsPopover();
+        return;
+      }
+
+      if (total === 0) {
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        focusModelOption(clampModelIndex(modelsActiveIndex + 1));
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        focusModelOption(clampModelIndex(modelsActiveIndex - 1));
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        focusModelOption(0);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        focusModelOption(total - 1);
+      }
+    },
+    [
+      clampModelIndex,
+      closeModelsPopover,
+      focusModelOption,
+      modelsActiveIndex,
+      serverOfficialModels.length,
+    ],
+  );
+
+  const toggleOfficialModel = useCallback(
+    (modelId: string) => {
+      if (selectedOfficialModelSet.has(modelId)) {
+        changeOfficialModels(selectedOfficialModels.filter((value) => value !== modelId));
+        return;
+      }
+
+      changeOfficialModels([...selectedOfficialModels, modelId]);
+    },
+    [changeOfficialModels, selectedOfficialModelSet, selectedOfficialModels],
+  );
+
+  async function handleTestOfficialAi() {
+    await handleTestAiConnection();
+    void loadOfficialAiUsage();
+  }
+
+  async function handleTestAiConnection() {
+    const isOfficialFlow = aiDraft.accessMode === "official";
+    const broadRequired =
+      !isOfficialFlow &&
+      (isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint));
+    const activeServer = isOfficialFlow
+      ? (settings.servers.find((server) => server.id === settings.activeServerId) ??
+        settings.servers[0])
+      : null;
+    const originPermission = isOfficialFlow ? toOriginPermission(activeServer?.url) : null;
+    const requiresBroadPermission = !isOfficialFlow && broadRequired;
+
+    if (
+      (isOfficialFlow &&
+        originPermission &&
+        !(await requestOriginHostPermission(originPermission))) ||
+      (requiresBroadPermission && !(await requestBroadHostPermission()))
+    ) {
       setAiTestState({
         status: "error",
         message: t("settings.ai.status.permissionDenied"),
@@ -622,7 +838,9 @@ export function MainScreen({
     if (activeTab === "stats") {
       return (
         <div className="settings-panel__rows">
-          <StatsPanel userProfile={userProfile} />
+          <AuthGateOverlay requiresAuth={!isAuthenticated} onOpenLogin={onOpenLogin}>
+            <StatsPanel userProfile={userProfile} isAuthenticated={isAuthenticated} />
+          </AuthGateOverlay>
         </div>
       );
     }
@@ -740,14 +958,18 @@ export function MainScreen({
               <div className="ai-settings-summary" aria-label={t("settings.ai.summary.title")}>
                 <span
                   className={
-                    hasSavedAiKey ? "ai-settings-summary__ok" : "ai-settings-summary__not-stated"
+                    aiSummaryState === "missing"
+                      ? "ai-settings-summary__not-stated"
+                      : "ai-settings-summary__ok"
                   }
                 >
-                  {hasSavedAiKey
-                    ? t("settings.ai.summary.keySaved")
-                    : t("settings.ai.summary.keyMissing")}
+                  {aiSummaryState === "official"
+                    ? t("settings.ai.summary.officialActive")
+                    : aiSummaryState === "saved"
+                      ? t("settings.ai.summary.keySaved")
+                      : t("settings.ai.summary.keyMissing")}
                 </span>
-                {hasSavedAiKey && (
+                {aiSummaryState === "saved" && (
                   <>
                     <span>
                       {t("settings.ai.provider")}:{" "}
@@ -785,6 +1007,78 @@ export function MainScreen({
                   onClick={() => changeAiAccessMode("custom")}
                 />
               </TabCardGroup>
+              {isAuthenticated && aiAccessMode === "official" && (
+                <div className="ai-official__models">
+                  <span className="ai-official__models-title">
+                    {t("settings.ai.official.models.title")}
+                  </span>
+                  {serverOfficialModels.length > 0 ? (
+                    <>
+                      {selectedOfficialModels.length > 0 ? (
+                        <ul className="ai-official__model-list">
+                          {serverOfficialModels
+                            .filter((model) => selectedOfficialModelSet.has(model.model))
+                            .map((model) => (
+                              <li key={model.model}>
+                                <button
+                                  type="button"
+                                  className="ai-official__model-item"
+                                  aria-label={t("settings.ai.official.models.remove", {
+                                    model: model.label,
+                                  })}
+                                  title={t("settings.ai.official.models.remove", {
+                                    model: model.label,
+                                  })}
+                                  onClick={() => toggleOfficialModel(model.model)}
+                                >
+                                  <span className="ai-official__model-icon" aria-hidden="true">
+                                    <OfficialModelIcon model={model.model} label={model.label} />
+                                  </span>
+                                  <span className="ai-official__model-text">
+                                    <span className="ai-official__model-name">{model.label}</span>
+                                    <span className="ai-official__model-id">{model.model}</span>
+                                  </span>
+                                  <span className="ai-official__model-trash" aria-hidden="true">
+                                    <TrashIcon />
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                        </ul>
+                      ) : (
+                        <div className="ai-official__models-empty">
+                          <span>{t("settings.ai.official.models.emptySelection")}</span>
+                          <span className="ai-official__models-hint">
+                            {t("settings.ai.official.models.keepOne")}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        ref={modelsAddButtonRef}
+                        type="button"
+                        className="ai-official__model-add"
+                        aria-haspopup="dialog"
+                        aria-expanded={modelsPopoverOpen}
+                        aria-controls="reduxshare-official-models-popover"
+                        aria-label={t("settings.ai.official.models.add")}
+                        onClick={() => {
+                          if (modelsPopoverOpen) {
+                            closeModelsPopover();
+                          } else {
+                            openModelsPopover();
+                          }
+                        }}
+                      >
+                        <span aria-hidden="true">+</span>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="ai-official__models-empty">
+                      {officialUsageError ?? t("settings.ai.official.models.empty")}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             {aiAccessMode === "custom" ? (
               <div className="ai-settings-form">
@@ -912,36 +1206,174 @@ export function MainScreen({
                 )}
               </div>
             ) : (
-              <div className="ai-settings-form ai-official">
+              <AuthGateOverlay
+                requiresAuth={!isAuthenticated}
+                onOpenLogin={onOpenLogin}
+                contentClassName="ai-settings-form ai-official"
+              >
                 <div className="ai-official__head">
-                  <span className="ai-official__badge">{t("settings.ai.official.badge")}</span>
                   <h3>{t("settings.ai.official.title")}</h3>
                 </div>
                 <p className="ai-official__desc">{t("settings.ai.official.line1")}</p>
+                <p className="ai-official__desc">{t("settings.ai.official.modelLine")}</p>
+                <div className="ai-official__plans">
+                  <span className="ai-official__plans-title">
+                    {t("settings.ai.official.plan.title")}
+                  </span>
+                  <div
+                    className="ai-official__plan-cards"
+                    role="list"
+                    aria-label={t("settings.ai.official.plan.title")}
+                  >
+                    {AI_PLANS.map((plan) => {
+                      const isActive = (officialUsage?.plan ?? "free") === plan;
+                      const limits = AI_PLAN_LIMITS[plan];
+
+                      return (
+                        <div
+                          key={plan}
+                          role="listitem"
+                          className={`ai-official__plan-card${isActive ? " ai-official__plan-card--active" : ""}`}
+                        >
+                          <span className="ai-official__plan-head">
+                            <span className="ai-official__plan-name">
+                              {t(AI_PLAN_LABEL_KEYS[plan])}
+                            </span>
+                            {isActive && (
+                              <span className="ai-official__plan-current">
+                                {t("settings.ai.official.plan.current")}
+                              </span>
+                            )}
+                          </span>
+                          <span className="ai-official__plan-limits">
+                            {t("settings.ai.official.plan.limits", {
+                              minute: limits.minuteLimit,
+                              day: limits.dayLimit,
+                            })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="ai-official__quota">
                   <span className="ai-official__quota-label">
                     {t("settings.ai.official.quotaTitle")}
                   </span>
                   <span className="ai-official__quota-value">
-                    {t("settings.ai.official.quotaValue")}
+                    {officialUsage
+                      ? t("settings.ai.official.quotaValue", {
+                          used: officialUsage.dayUsed,
+                          limit: officialUsage.dayLimit,
+                        })
+                      : "—"}
                   </span>
                   <div className="ai-official__bar">
-                    <div className="ai-official__bar-fill" />
+                    <div
+                      className="ai-official__bar-fill"
+                      style={{
+                        width: `${officialUsage ? Math.min(100, Math.round((officialUsage.dayUsed / Math.max(1, officialUsage.dayLimit)) * 100)) : 0}%`,
+                      }}
+                    />
                   </div>
                   <span className="ai-official__quota-hint">
-                    {t("settings.ai.official.quotaHint")}
+                    {officialUsageError ??
+                      t("settings.ai.official.quotaHint", {
+                        minute: officialUsage?.minuteLimit ?? 5,
+                      })}
                   </span>
                 </div>
                 <div className="ai-settings-actions">
-                  <Button className="secondary-wide-button" variant="outline" disabled>
+                  <Button
+                    className="secondary-wide-button"
+                    variant="outline"
+                    disabled={aiTestState.status === "checking"}
+                    onClick={() => void handleTestOfficialAi()}
+                  >
                     {t("settings.ai.actions.test")}
                   </Button>
-                  <Button className="secondary-wide-button" variant="outline" disabled>
-                    {t("settings.ai.official.connect")}
-                  </Button>
                 </div>
-              </div>
+                {aiTestState.message && (
+                  <p className={`ai-status ai-status--${aiTestState.status}`}>
+                    {aiTestState.message}
+                  </p>
+                )}
+              </AuthGateOverlay>
             )}
+            {modelsPopoverOpen &&
+              modelsPopoverTarget &&
+              createPortal(
+                <div
+                  className="ai-official__models-backdrop"
+                  aria-hidden="true"
+                  onClick={closeModelsPopover}
+                >
+                  <div
+                    ref={modelsPopoverRef}
+                    id="reduxshare-official-models-popover"
+                    role="dialog"
+                    aria-modal="false"
+                    aria-label={t("settings.ai.official.models.popoverTitle")}
+                    className="ai-official__models-popover"
+                    style={modelsPopoverStyle}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={handleModelsPopoverKeyDown}
+                  >
+                    <span className="ai-official__models-popover-title">
+                      {t("settings.ai.official.models.popoverTitle")}
+                    </span>
+                    <ul className="ai-official__models-options">
+                      {serverOfficialModels.map((model, index) => {
+                        const checked = selectedOfficialModelSet.has(model.model);
+
+                        return (
+                          <li key={model.model}>
+                            <label
+                              className={`ai-official__model-option${checked ? " ai-official__model-option--checked" : ""}${index === modelsActiveIndex ? " ai-official__model-option--active" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onFocus={() => setModelsActiveIndex(index)}
+                                onChange={() => toggleOfficialModel(model.model)}
+                              />
+                              <span className="ai-official__model-icon" aria-hidden="true">
+                                <OfficialModelIcon model={model.model} label={model.label} />
+                              </span>
+                              <span className="ai-official__model-text">
+                                <span className="ai-official__model-name">{model.label}</span>
+                                <span className="ai-official__model-id">{model.model}</span>
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="ai-official__models-actions">
+                      <button
+                        type="button"
+                        className="ai-official__model-action ai-official__model-action--select-all"
+                        aria-label={t("settings.ai.official.models.selectAll")}
+                        onClick={() => {
+                          const allModelIds = serverOfficialModels.map((m) => m.model);
+                          changeOfficialModels(allModelIds);
+                        }}
+                      >
+                        {t("settings.ai.official.models.selectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        className="ai-official__model-action ai-official__model-action--select-none"
+                        aria-label={t("settings.ai.official.models.selectNone")}
+                        onClick={() => changeOfficialModels([])}
+                      >
+                        {t("settings.ai.official.models.selectNone")}
+                      </button>
+                    </div>
+                  </div>
+                </div>,
+                modelsPopoverTarget,
+              )}
           </section>
         </div>
       );
@@ -1042,8 +1474,12 @@ export function MainScreen({
             <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
               {t("settings.actions.reset")}
             </Button>
-            <Button className="secondary-wide-button" variant="outline" onClick={onLogout}>
-              {t("settings.actions.logout")}
+            <Button
+              className="secondary-wide-button"
+              variant="outline"
+              onClick={isAuthenticated ? onLogout : onOpenLogin}
+            >
+              {isAuthenticated ? t("settings.actions.logout") : t("auth.gate.action")}
             </Button>{" "}
             <a href="https://github.com/krchvl/ReduxShare" target="_blank">
               <button
