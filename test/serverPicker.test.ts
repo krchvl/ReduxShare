@@ -143,7 +143,7 @@ describe("ServerPicker with multiple servers", () => {
 
     expect(trigger.textContent).toContain("Основной [DE #1]");
     expect(trigger.querySelector(".cselect__trigger-meta .ping-badge")?.textContent).toContain(
-      "мс",
+      "37 мс",
     );
   });
 
