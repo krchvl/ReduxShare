@@ -67,29 +67,39 @@ function mergeUserProfile(
   };
 }
 
-export async function patchStoredState(patch: StoredStatePatch): Promise<void> {
-  const currentState = await loadStoredState();
-  const nextState = {
-    ...currentState,
-    ...patch,
-    userProfile: mergeUserProfile(
-      patch.userProfile ?? currentState.userProfile,
-      currentState.userProfile,
-      patch.moodleDomain,
-    ),
-    latestQuizAttemptContext:
-      patch.latestQuizAttemptContext ?? currentState.latestQuizAttemptContext ?? null,
-    updateState: patch.updateState ?? currentState.updateState ?? null,
-  };
+let storedStateMutationQueue: Promise<void> = Promise.resolve();
 
-  if (hasChromeStorage()) {
-    await chrome.storage.local.set({
-      [APP_STORAGE_KEY]: nextState,
-    });
-    return;
-  }
+function enqueueStoredStateMutation(run: () => Promise<void>): Promise<void> {
+  const operation = storedStateMutationQueue.then(run, run);
+  storedStateMutationQueue = operation.catch(() => {});
+  return operation;
+}
 
-  window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(nextState));
+export function patchStoredState(patch: StoredStatePatch): Promise<void> {
+  return enqueueStoredStateMutation(async () => {
+    const currentState = await loadStoredState();
+    const nextState = {
+      ...currentState,
+      ...patch,
+      userProfile: mergeUserProfile(
+        patch.userProfile ?? currentState.userProfile,
+        currentState.userProfile,
+        patch.moodleDomain,
+      ),
+      latestQuizAttemptContext:
+        patch.latestQuizAttemptContext ?? currentState.latestQuizAttemptContext ?? null,
+      updateState: patch.updateState ?? currentState.updateState ?? null,
+    };
+
+    if (hasChromeStorage()) {
+      await chrome.storage.local.set({
+        [APP_STORAGE_KEY]: nextState,
+      });
+      return;
+    }
+
+    window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(nextState));
+  });
 }
 
 type StoredStateSaveInput = Omit<StoredState, "updateState"> &
