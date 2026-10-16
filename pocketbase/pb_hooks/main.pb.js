@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// TODO: fill before deploy; each group.name must exist in gpt-load and group.model must be a valid model id of that group
+// TODO: fill before deploy; each group.name must exist in gpt-load, group.model must be a valid model id of that group, and GPTLOAD_ACCESS_KEY must be replaced with the actual gpt-load proxy key
 routerAdd(
   "POST",
   "/api/rpx-ai/v1/chat/completions",
