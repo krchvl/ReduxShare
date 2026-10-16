@@ -9,6 +9,11 @@ routerAdd(
     const GPTLOAD_ACCESS_KEY = "SET_ME_PROXY_KEY";
     const GPTLOAD_TIMEOUT_SECONDS = 90;
     const USAGE_COLLECTION = "reduxshare_ai_usage";
+
+    // Server-side limits to prevent resource abuse
+    const MAX_MESSAGES = 20;
+    const MAX_RESPONSE_TOKENS = 2048;
+
     const PLANS = {
       free: {
         groups: [
@@ -89,6 +94,27 @@ routerAdd(
     function getUserPlan(e) {
       const raw = e.auth ? e.auth.getString("plan") : "";
       return PLANS[raw] ? raw : "free";
+    }
+
+    function sanitizeChatRequest(body) {
+      if (!body || typeof body !== "object") {
+        return body;
+      }
+
+      const sanitized = { ...body };
+
+      if (typeof sanitized.max_tokens === "number") {
+        sanitized.max_tokens = Math.min(
+          MAX_RESPONSE_TOKENS,
+          Math.max(1, Math.floor(sanitized.max_tokens)),
+        );
+      }
+
+      if (Array.isArray(sanitized.messages)) {
+        sanitized.messages = sanitized.messages.slice(0, MAX_MESSAGES);
+      }
+
+      return sanitized;
     }
 
     function toPocketDateString(date) {
@@ -286,6 +312,7 @@ routerAdd(
       });
     }
 
+    const sanitizedBody = sanitizeChatRequest(body);
     const quota = consumeQuota($app, e.auth.id, PLANS[plan].limits);
 
     function failWithoutAnswer(status, message) {
@@ -299,7 +326,7 @@ routerAdd(
     let transportError = null;
 
     for (const group of attempts) {
-      const request = Object.assign({}, body, { model: group.model });
+      const request = Object.assign({}, sanitizedBody, { model: group.model });
 
       let response;
       try {
