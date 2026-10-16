@@ -9,6 +9,7 @@ interface LoginScreenProps {
   errorMessage: string | null;
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onOpenRegister: () => void;
+  onContinueAsGuest: () => void;
 }
 
 export function LoginScreen({
@@ -16,6 +17,7 @@ export function LoginScreen({
   errorMessage,
   onLogin,
   onOpenRegister,
+  onContinueAsGuest,
 }: LoginScreenProps) {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
@@ -63,6 +65,15 @@ export function LoginScreen({
           onClick={onOpenRegister}
         >
           {t("auth.register.open")}
+        </Button>
+        <Button
+          className="auth-button auth-button--guest"
+          type="button"
+          variant="outline"
+          disabled={isLoading}
+          onClick={onContinueAsGuest}
+        >
+          {t("auth.guest.open")}
         </Button>
       </div>
     </form>

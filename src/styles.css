@@ -59,6 +59,10 @@
   box-shadow: 0 24px 70px rgba(20, 30, 60, 0.12);
 }
 
+:root[data-theme="light"] .auth-gated__card {
+  box-shadow: 0 18px 44px rgba(20, 30, 60, 0.18);
+}
+
 :root[data-theme="light"] .auth-message,
 :root[data-theme="light"] .ai-status--success,
 :root[data-theme="light"] .ai-status--saved,
@@ -482,6 +486,60 @@ button:focus-visible {
   width: 170px;
   font-size: 16px;
   font-weight: 500;
+}
+
+.auth-button--guest {
+  width: auto;
+  padding-inline: 22px;
+}
+
+.auth-gated {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-gated__content {
+  filter: blur(5px) saturate(0.7);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+.auth-gated__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.auth-gated__card {
+  display: flex;
+  width: min(330px, 100%);
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--background-panel);
+  padding: 20px 22px;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.auth-gated__message {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.auth-gated__action {
+  width: 100%;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .auth-message {

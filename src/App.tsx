@@ -260,12 +260,23 @@ export function App() {
   }
 
   function handleLogout() {
+    const hadSession = Boolean(authSession);
+
     void logoutFromPocketBase(authSession);
     setAuthSession(null);
     setUserProfile(null);
     setLoginError(null);
     setRegisterMessage(null);
-    setView("login");
+
+    if (hadSession) {
+      setView("login");
+    }
+  }
+
+  function handleContinueAsGuest() {
+    setLoginError(null);
+    setRegisterMessage(null);
+    setView("main");
   }
 
   async function handleCheckUpdates() {
@@ -309,6 +320,7 @@ export function App() {
               errorMessage={loginError}
               onLogin={handleLogin}
               onOpenRegister={() => setView("register")}
+              onContinueAsGuest={handleContinueAsGuest}
             />
           )}
           {view === "register" && (
@@ -326,10 +338,12 @@ export function App() {
                 updateState={updateState}
                 isCheckingUpdates={isCheckingUpdates}
                 userProfile={userProfile}
+                isAuthenticated={authSession !== null}
                 onSettingsChange={setSettings}
                 onCheckUpdates={handleCheckUpdates}
                 onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
                 onLogout={handleLogout}
+                onOpenLogin={() => setView("login")}
               />
             </Suspense>
           )}

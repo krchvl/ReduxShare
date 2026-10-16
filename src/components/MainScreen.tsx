@@ -19,6 +19,7 @@ import {
 import { AccentColorPicker } from "./AccentColorPicker";
 import { AiAccessModeIcon, type AiAccessMode } from "./AiAccessModeIcon";
 import { AiProviderIcon, OfficialModelIcon, TrashIcon } from "./AiProviderIcon";
+import { AuthGateOverlay } from "./AuthGateOverlay";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
@@ -59,10 +60,12 @@ interface MainScreenProps {
   updateState: UpdateState;
   isCheckingUpdates: boolean;
   userProfile?: UserProfile | null;
+  isAuthenticated?: boolean;
   onSettingsChange: (settings: Settings) => void;
   onCheckUpdates: () => void;
   onResetSettings: () => void;
   onLogout: () => void;
+  onOpenLogin?: () => void;
 }
 
 type SettingsTab = "main" | "stats" | "ui" | "security" | "ai" | "extra";
@@ -294,10 +297,12 @@ export function MainScreen({
   updateState,
   isCheckingUpdates,
   userProfile,
+  isAuthenticated = true,
   onSettingsChange,
   onCheckUpdates,
   onResetSettings,
   onLogout,
+  onOpenLogin = () => {},
 }: MainScreenProps) {
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("main");
@@ -572,10 +577,10 @@ export function MainScreen({
   }, []);
 
   useEffect(() => {
-    if (activeTab === "ai" && aiAccessMode === "official") {
+    if (isAuthenticated && activeTab === "ai" && aiAccessMode === "official") {
       void loadOfficialAiUsage();
     }
-  }, [activeTab, aiAccessMode, loadOfficialAiUsage]);
+  }, [activeTab, aiAccessMode, isAuthenticated, loadOfficialAiUsage]);
 
   const serverOfficialModels = officialUsage?.models ?? [];
   const selectedOfficialModels =
@@ -820,7 +825,9 @@ export function MainScreen({
     if (activeTab === "stats") {
       return (
         <div className="settings-panel__rows">
-          <StatsPanel userProfile={userProfile} />
+          <AuthGateOverlay requiresAuth={!isAuthenticated} onOpenLogin={onOpenLogin}>
+            <StatsPanel userProfile={userProfile} isAuthenticated={isAuthenticated} />
+          </AuthGateOverlay>
         </div>
       );
     }
@@ -987,7 +994,7 @@ export function MainScreen({
                   onClick={() => changeAiAccessMode("custom")}
                 />
               </TabCardGroup>
-              {aiAccessMode === "official" && (
+              {isAuthenticated && aiAccessMode === "official" && (
                 <div className="ai-official__models">
                   <span className="ai-official__models-title">
                     {t("settings.ai.official.models.title")}
@@ -1183,7 +1190,11 @@ export function MainScreen({
                 )}
               </div>
             ) : (
-              <div className="ai-settings-form ai-official">
+              <AuthGateOverlay
+                requiresAuth={!isAuthenticated}
+                onOpenLogin={onOpenLogin}
+                contentClassName="ai-settings-form ai-official"
+              >
                 <div className="ai-official__head">
                   <h3>{t("settings.ai.official.title")}</h3>
                 </div>
@@ -1271,7 +1282,7 @@ export function MainScreen({
                     {aiTestState.message}
                   </p>
                 )}
-              </div>
+              </AuthGateOverlay>
             )}
             {modelsPopoverOpen &&
               modelsPopoverTarget &&
@@ -1447,8 +1458,12 @@ export function MainScreen({
             <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
               {t("settings.actions.reset")}
             </Button>
-            <Button className="secondary-wide-button" variant="outline" onClick={onLogout}>
-              {t("settings.actions.logout")}
+            <Button
+              className="secondary-wide-button"
+              variant="outline"
+              onClick={isAuthenticated ? onLogout : onOpenLogin}
+            >
+              {isAuthenticated ? t("settings.actions.logout") : t("auth.gate.action")}
             </Button>{" "}
             <a href="https://github.com/krchvl/ReduxShare" target="_blank">
               <button
