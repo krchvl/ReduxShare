@@ -12,7 +12,7 @@ migrate(
         name: "plan",
         presentable: false,
         required: false,
-        system: false,
+        system: true,
         type: "select",
         values: ["free", "low", "medium", "high"],
       }),
