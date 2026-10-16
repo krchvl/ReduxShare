@@ -2,6 +2,7 @@ import PocketBase, { BaseAuthStore, ClientResponseError, type AuthModel } from "
 import { I18nError, type TranslationKey } from "../i18n";
 import type { AuthSession } from "../types";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
+import { PING_SERVER_MESSAGE } from "../shared/messages";
 import { loadStoredState } from "./storage";
 import { getEnvPocketBaseUrl } from "./envConfig";
 import { normalizeSettings, type StoredState } from "../types";
@@ -115,6 +116,30 @@ export async function measurePocketBasePing(
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export interface PingServerResponse {
+  ok: boolean;
+  error?: string;
+  latencyMs?: number | null;
+}
+
+export function requestPocketBasePing(url: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: PING_SERVER_MESSAGE, payload: { url } },
+      (response: PingServerResponse | undefined) => {
+        const runtimeError = chrome.runtime.lastError;
+
+        if (runtimeError || !response || !response.ok) {
+          resolve(null);
+          return;
+        }
+
+        resolve(response.latencyMs ?? null);
+      },
+    );
+  });
 }
 
 function getJwtExpiresAt(token: string): number | null {

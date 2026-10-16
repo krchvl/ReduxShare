@@ -4,12 +4,12 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
-import { loginWithPocketBase, logoutFromPocketBase, registerWithPocketBase } from "./lib/auth";
+import { logoutFromPocketBase, requestLogin, requestRegister } from "./lib/auth";
 import { setActivePocketBaseUrl } from "./lib/pocketbase";
 import { loadStoredState, saveStoredState } from "./lib/storage";
 import { getActiveTabHostname } from "./lib/tabs";
 import { normalizeUpdateState, requestUpdateCheck } from "./lib/updates";
-import { touchUserProfile } from "./lib/userProfiles";
+import { requestTouchUserProfile } from "./lib/userProfiles";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_STORED_STATE,
@@ -41,7 +41,19 @@ export async function getAuthenticatedUserState(
   seed: UserProfileSeed = {},
 ) {
   try {
-    return await touchUserProfile(authSession, moodleDomain, seed);
+    const response = await requestTouchUserProfile(authSession, moodleDomain, seed);
+
+    if (!response.ok || !response.authSession || !response.userProfile) {
+      return {
+        authSession,
+        userProfile: null,
+      };
+    }
+
+    return {
+      authSession: response.authSession,
+      userProfile: response.userProfile,
+    };
   } catch (error) {
     console.warn("ReduxShare auth: profile sync failed", {
       userId: authSession.user.id,
@@ -207,10 +219,16 @@ export function App() {
     setIsLoginLoading(true);
 
     try {
-      const nextSession = await loginWithPocketBase(credentials);
+      const loginResponse = await requestLogin(credentials);
+
+      if (!loginResponse.ok || !loginResponse.authSession) {
+        setLoginError(loginResponse.error ?? t("errors.loginGeneric"));
+        return;
+      }
+
       const moodleDomain = await getActiveTabHostname();
       const { authSession: refreshedSession, userProfile: nextProfile } =
-        await getAuthenticatedUserState(nextSession, moodleDomain, {
+        await getAuthenticatedUserState(loginResponse.authSession, moodleDomain, {
           email: credentials.email,
         });
 
@@ -235,16 +253,21 @@ export function App() {
     setIsRegisterLoading(true);
 
     try {
-      const result = await registerWithPocketBase(credentials);
+      const registerResponse = await requestRegister(credentials);
 
-      if (!result.authSession) {
-        setRegisterMessage(result.messageKey ? t(result.messageKey) : t("auth.register.created"));
+      if (!registerResponse.ok) {
+        setRegisterMessage(registerResponse.error ?? t("errors.registerFailed"));
+        return;
+      }
+
+      if (!registerResponse.authSession) {
+        setRegisterMessage(registerResponse.message ?? t("auth.register.created"));
         return;
       }
 
       const moodleDomain = await getActiveTabHostname();
       const { authSession: refreshedSession, userProfile: nextProfile } =
-        await getAuthenticatedUserState(result.authSession, moodleDomain, {
+        await getAuthenticatedUserState(registerResponse.authSession, moodleDomain, {
           email: credentials.email,
           username: credentials.username,
         });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useI18n } from "../i18n/react";
 import type { TranslationKey } from "../i18n";
 import { BUILTIN_SERVER_ID } from "../lib/envConfig";
-import { measurePocketBasePing, pingStatusForLatency } from "../lib/pocketbase";
+import { pingStatusForLatency, requestPocketBasePing } from "../lib/pocketbase";
 import { requestBroadHostPermission } from "../lib/optionalPermissions";
 import type { Settings } from "../types";
 import { CustomSelect, type CustomSelectOption } from "./CustomSelect";
@@ -57,7 +57,7 @@ export function ServerPicker({ settings, onSettingsChange, onLogout }: ServerPic
     for (const server of settings.servers) {
       setLatencyById((prev) => ({ ...prev, [server.id]: undefined }));
 
-      void measurePocketBasePing(server.url).then((latency) => {
+      void requestPocketBasePing(server.url).then((latency) => {
         setLatencyById((prev) => ({ ...prev, [server.id]: latency }));
       });
     }
