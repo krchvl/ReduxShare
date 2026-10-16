@@ -81,6 +81,7 @@ import {
   type UserLeaderboard,
 } from "../lib/userProfiles";
 import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../shared/storageKeys";
+import type { AuthSession } from "../types";
 import {
   CHECK_UPDATE_MESSAGE,
   FETCH_ATTEMPT_HISTORY_MESSAGE,
@@ -620,6 +621,15 @@ async function handleCheckUpdate(payload: CheckUpdatePayload = {}): Promise<Upda
 
 function getStoredAuthSession(storedState: Partial<StoredState>) {
   return storedState.authSession?.user.id ? storedState.authSession : null;
+}
+
+async function isSessionStillValid(originalSession: AuthSession | null): Promise<boolean> {
+  if (!originalSession) {
+    return true;
+  }
+  const currentStoredState = await loadStoredState();
+  const currentSession = getStoredAuthSession(currentStoredState);
+  return currentSession?.accessToken === originalSession.accessToken;
 }
 
 async function handleFetchQuizAnswers(
@@ -1323,7 +1333,7 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
       officialModels: aiSettings.officialModels,
     });
 
-    if (outcome.authSession) {
+    if (outcome.authSession && (await isSessionStillValid(authSession))) {
       await saveStoredStatePatch({ authSession: outcome.authSession });
     }
 
@@ -1404,7 +1414,7 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
       officialModels: aiSettings.officialModels,
     });
 
-    if (aiAnswer.authSession) {
+    if (aiAnswer.authSession && (await isSessionStillValid(authSession))) {
       await saveStoredStatePatch({ authSession: aiAnswer.authSession });
     }
 
@@ -1441,7 +1451,9 @@ async function handleFetchAiUsage(): Promise<AiUsageResponse> {
   try {
     const { usage, authSession: nextAuthSession } = await fetchOfficialAiUsage(authSession);
 
-    await saveStoredStatePatch({ authSession: nextAuthSession });
+    if (nextAuthSession && (await isSessionStillValid(authSession))) {
+      await saveStoredStatePatch({ authSession: nextAuthSession });
+    }
 
     return {
       ok: true,
