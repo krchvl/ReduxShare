@@ -107,16 +107,19 @@ describe("auto-select source priority", () => {
       "1385",
       "external",
       slottedAnswerData([
-        answerSlot(1, { suggestions: [slottedExactSuggestion("false", 1)] }),
-        answerSlot(2, { suggestions: [exactSuggestion("false", 2)] }),
-        answerSlot(3, { suggestions: [exactSuggestion("false", 3)] }),
-        answerSlot(4, { suggestions: [exactSuggestion("false", 4)] }),
+        answerSlot(1, { suggestions: [slottedExactSuggestion("63 percent of the time.", 1)] }),
+        answerSlot(2, { suggestions: [exactSuggestion("23 percent of the time.", 2)] }),
+        answerSlot(3, {
+          suggestions: [exactSuggestion("between 10 and 20 percent of the time.", 3)],
+        }),
+        answerSlot(4, { suggestions: [exactSuggestion("47 percent of the time.", 4)] }),
       ]),
     );
 
     const result = api.applyAllExactAnswersNow(state);
 
     expect(result).toEqual({ applied: 0, total: 1 });
+    expect(getChoiceInput("q125:1_choice0").checked).toBe(false);
     expect(getChoiceInput("q125:1_choice3").checked).toBe(false);
   });
 

@@ -15,15 +15,18 @@ const baseSettings: Settings = {
 };
 
 function renderMainScreen(
-  settings: Settings = baseSettings,
-  overrides: { onSettingsChange?: (settings: Settings) => void } = {},
+  initialSettings: Settings = baseSettings,
+  overrides: {
+    onSettingsChange?: (settings: Settings) => void;
+    stateful?: boolean;
+  } = {},
 ) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
 
-  act(() => {
-    root?.render(
+  const render = (settings: Settings) => {
+    root!.render(
       createElement(
         I18nProvider,
         { language: "en" },
@@ -40,13 +43,22 @@ function renderMainScreen(
             error: null,
           },
           isCheckingUpdates: false,
-          onSettingsChange: overrides.onSettingsChange ?? vi.fn(),
+          onSettingsChange: (next) => {
+            overrides.onSettingsChange?.(next);
+            if (overrides.stateful) {
+              render(next);
+            }
+          },
           onCheckUpdates: vi.fn(),
           onResetSettings: vi.fn(),
           onLogout: vi.fn(),
         }),
       ),
     );
+  };
+
+  act(() => {
+    render(initialSettings);
   });
 }
 
@@ -199,7 +211,7 @@ describe("MainScreen AI access mode tabs", () => {
     }) as typeof chrome.runtime.sendMessage;
 
     try {
-      renderMainScreen(usageSettings, { onSettingsChange });
+      renderMainScreen(usageSettings, { onSettingsChange, stateful: true });
       openAiTab();
       clickModeTab("Official");
 
@@ -229,6 +241,7 @@ describe("MainScreen AI access mode tabs", () => {
       expect(onSettingsChange.mock.calls.length).toBe(settingsChange + 1);
       const afterRemove = onSettingsChange.mock.calls.at(-1)?.[0] as Settings | undefined;
       expect(afterRemove?.ai.officialModels).toEqual(["model-a"]);
+      expect(container!.querySelectorAll(".ai-official__model-item")).toHaveLength(1);
 
       const addButton = container!.querySelector<HTMLButtonElement>(".ai-official__model-add");
       expect(addButton?.getAttribute("aria-haspopup")).toBe("dialog");
@@ -249,7 +262,7 @@ describe("MainScreen AI access mode tabs", () => {
       const checkboxes = Array.from(
         popover!.querySelectorAll<HTMLInputElement>("input[type='checkbox']"),
       );
-      expect(checkboxes.map((box) => box.checked)).toEqual([true, true, false]);
+      expect(checkboxes.map((box) => box.checked)).toEqual([true, false, false]);
       expect(checkboxes[0]!.disabled).toBe(false);
 
       act(() => {
@@ -257,7 +270,7 @@ describe("MainScreen AI access mode tabs", () => {
       });
 
       const lastCall = onSettingsChange.mock.calls.at(-1)?.[0] as Settings | undefined;
-      expect(lastCall?.ai.officialModels).toEqual(["model-a", "model-b", "model-c"]);
+      expect(lastCall?.ai.officialModels).toEqual(["model-a", "model-c"]);
       expect(popover!.querySelectorAll("input[type='checkbox']")).toHaveLength(3);
 
       const popoverKey = (key: string) =>

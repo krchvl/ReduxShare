@@ -7,6 +7,8 @@ import {
   unknownSubmission,
   votedSubmission,
 } from "./helpers/sourceData";
+import { isAiSettingsSaved } from "../src/ui/answerMenu";
+import { DEFAULT_SETTINGS } from "../src/types";
 import type { SubmissionItem } from "../src/model";
 
 const idleAiState = {
@@ -136,12 +138,13 @@ describe("R-menu source rendering", () => {
     expect(textOf(root, '[data-answer-menu="external-stats"]')).toContain("true");
   });
 
-  it("keeps unauthenticated menus limited to external sources", async () => {
+  it("limits unauthenticated menus to external and shows a sign-in notice on the AI tab", async () => {
     const api = await getQuizAttemptTestApi();
     const root = renderMenu(
       api.getAnswerMenuMarkup(
         sourceAnswerData({
           reduxshare: exactAnswerData("internal answer"),
+          external: exactAnswerData("47 percent of the time."),
         }),
         true,
         {
@@ -157,9 +160,15 @@ describe("R-menu source rendering", () => {
     );
 
     expect(root.querySelector('[data-menu-tab="internal"]')).toBeNull();
-    expect(root.querySelector('[data-menu-tab="ai"]')).toBeNull();
     expect(textOf(root, '[data-menu-tab="external"]')).toContain("Внешние источники");
-    expect(textOf(root, '[data-answer-menu="external-exact"]')).toContain("Нет ответов");
+    expect(textOf(root, '[data-answer-menu="external-exact"]')).toContain(
+      "47 percent of the time.",
+    );
+
+    expect(root.querySelector('[data-menu-tab="ai"]')).toBeTruthy();
+    const aiPanel = root.querySelector('[data-menu-panel="ai"]');
+    expect(aiPanel?.textContent).toContain("Войдите в аккаунт расширения, чтобы использовать ИИ");
+    expect(root.querySelector('[data-ai-action="send"]')).toBeNull();
   });
 
   it("strikes through known-incorrect statistics answers", async () => {
@@ -596,5 +605,32 @@ describe("R-menu AI explain rendering", () => {
     expect(textOf(errorRoot, '[data-answer-menu="ai-explanation"] .flyout-text--error')).toBe(
       "AI request failed",
     );
+  });
+});
+
+describe("isAiSettingsSaved official-mode gating", () => {
+  const officialSettings = {
+    ...DEFAULT_SETTINGS,
+    ai: { ...DEFAULT_SETTINGS.ai, accessMode: "official" as const },
+  };
+
+  it("treats official mode as usable only for authenticated users", () => {
+    expect(isAiSettingsSaved(officialSettings, false)).toBe(false);
+    expect(isAiSettingsSaved(officialSettings, true)).toBe(true);
+  });
+
+  it("still requires configured credentials for custom mode regardless of auth", () => {
+    const customSettings = {
+      ...DEFAULT_SETTINGS,
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        accessMode: "custom" as const,
+        connectionVerified: false,
+        apiKey: "test-key",
+      },
+    };
+
+    expect(isAiSettingsSaved(customSettings, true)).toBe(false);
+    expect(isAiSettingsSaved(customSettings, false)).toBe(false);
   });
 });

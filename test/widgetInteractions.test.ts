@@ -213,7 +213,11 @@ describe("R-menu widget interactions", () => {
 
     const root = getPortalRoot();
     expect(root.querySelector('[data-menu-tab="internal"]')).toBeNull();
-    expect(root.querySelector('[data-menu-tab="ai"]')).toBeNull();
+    expect(root.querySelector('[data-menu-tab="ai"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(root.querySelector('[data-ai-action="send"]')).toBeNull();
+    expect(root.querySelector('[data-menu-panel="ai"]')?.textContent).toContain(
+      "Войдите в аккаунт расширения, чтобы использовать ИИ",
+    );
     expect(root.querySelector('[data-menu-tab="external"]')).toBeInstanceOf(HTMLButtonElement);
     expect(
       root.querySelector('[data-answer-menu="external-exact"] [data-answer-label="true"]'),

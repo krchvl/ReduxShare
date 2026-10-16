@@ -1099,9 +1099,13 @@ function openAnswerMenuPortal(
     ? getSecondQuestionClass(initialQuestionNode)
     : null;
   const aiQuestionKey = getAiQuestionKey(initialQuestionNode, questionId);
-  const aiSettingsSaved = isAiSettingsSaved(currentStoredState?.settings);
+  const aiSettingsSaved = isAiSettingsSaved(
+    currentStoredState?.settings,
+    isLoggedInToExtension(currentStoredState),
+  );
   const externalOnly = !isLoggedInToExtension(currentStoredState);
-  const aiToolsEnabled = !externalOnly && !isAiDisabledQuestionTypeName(initialQuestionType);
+  const aiQuestionTypeEnabled = !isAiDisabledQuestionTypeName(initialQuestionType);
+  const aiToolsEnabled = !externalOnly && aiQuestionTypeEnabled;
   const menuAnswerData =
     initialQuestionNode && isAiOnlyQuestionTypeName(initialQuestionType)
       ? createEmptySourceAnswerData()
@@ -1123,7 +1127,7 @@ function openAnswerMenuPortal(
     menuAnswerData,
     aiSettingsSaved,
     getAiAnswerState(aiQuestionKey),
-    aiToolsEnabled,
+    aiQuestionTypeEnabled,
     externalOnly,
     getAiExplanationState(aiQuestionKey),
     essayMenuState,

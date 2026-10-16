@@ -423,7 +423,10 @@ function renderEmptyFlyout(message = currentT("quiz.menu.empty")) {
   return `<div class="flyout-option flyout-empty">${escapeHtml(message)}</div>`;
 }
 
-export function isAiSettingsSaved(settings: StoredStateLike["settings"] | undefined) {
+export function isAiSettingsSaved(
+  settings: StoredStateLike["settings"] | undefined,
+  isAuthenticated: boolean,
+) {
   const ai = settings?.ai;
 
   if (!ai) {
@@ -431,7 +434,7 @@ export function isAiSettingsSaved(settings: StoredStateLike["settings"] | undefi
   }
 
   if (ai.accessMode === "official") {
-    return true;
+    return isAuthenticated;
   }
 
   if (!ai.connectionVerified || !ai.apiKey?.trim()) {
@@ -551,7 +554,7 @@ type AnswerMenuTabKey = "internal" | "external" | "ai";
 
 function getVisibleAnswerMenuTabs(
   answerData: SourceAnswerData,
-  aiToolsEnabled: boolean,
+  aiTypeEnabled: boolean,
   externalOnly = false,
   essayMenu?: EssayMenuState,
 ): AnswerMenuTabKey[] {
@@ -562,7 +565,7 @@ function getVisibleAnswerMenuTabs(
       tabs.push("internal");
     }
 
-    if (!externalOnly && aiToolsEnabled) {
+    if (aiTypeEnabled) {
       tabs.push("ai");
     }
   } else {
@@ -574,7 +577,7 @@ function getVisibleAnswerMenuTabs(
       tabs.push("internal");
     }
 
-    if (!externalOnly && aiToolsEnabled) {
+    if (aiTypeEnabled) {
       tabs.push("ai");
     }
   }
@@ -700,7 +703,16 @@ function renderAiMenuPanel(
   aiAnswerState: AiAnswerState,
   aiExplanationState: AiAnswerState,
   isActive: boolean,
+  externalOnly = false,
 ) {
+  if (externalOnly) {
+    return `
+      <div class="menu-panel" data-menu-panel="ai" data-active="${isActive ? "true" : "false"}">
+        <div class="ai-settings-missing">${escapeHtml(currentT("quiz.menu.aiRequiresLogin"))}</div>
+      </div>
+    `;
+  }
+
   if (!aiSettingsSaved) {
     return `
       <div class="menu-panel" data-menu-panel="ai" data-active="${isActive ? "true" : "false"}">
@@ -737,11 +749,11 @@ function renderAiMenuPanel(
 
 function renderAnswerMenuTabs(
   answerData: SourceAnswerData,
-  aiToolsEnabled: boolean,
+  aiTypeEnabled: boolean,
   externalOnly = false,
   essayMenu?: EssayMenuState,
 ) {
-  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly, essayMenu);
+  const tabs = getVisibleAnswerMenuTabs(answerData, aiTypeEnabled, externalOnly, essayMenu);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
   return `
@@ -772,18 +784,18 @@ function renderAnswerMenuPanels(
   answerData: SourceAnswerData,
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
-  aiToolsEnabled: boolean,
+  aiTypeEnabled: boolean,
   externalOnly = false,
   aiExplanationState: AiAnswerState = createIdleAiAnswerState(),
   essayMenu?: EssayMenuState,
 ) {
-  const tabs = getVisibleAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly, essayMenu);
+  const tabs = getVisibleAnswerMenuTabs(answerData, aiTypeEnabled, externalOnly, essayMenu);
   const activeTab = tabs[0] ?? (externalOnly ? "external" : "internal");
 
   return `
     ${tabs.includes("internal") ? (essayMenu ? renderEssayMenuPanel(essayMenu, activeTab === "internal") : renderSourceMenuPanel("internal", "reduxshare", answerData.reduxshare, activeTab === "internal")) : ""}
     ${tabs.includes("external") ? renderSourceMenuPanel("external", "external", answerData.external, activeTab === "external") : ""}
-    ${tabs.includes("ai") ? renderAiMenuPanel(aiSettingsSaved, aiAnswerState, aiExplanationState, activeTab === "ai") : ""}
+    ${tabs.includes("ai") ? renderAiMenuPanel(aiSettingsSaved, aiAnswerState, aiExplanationState, activeTab === "ai", externalOnly) : ""}
   `;
 }
 
@@ -922,7 +934,7 @@ export function getAnswerMenuMarkup(
   answerData: SourceAnswerData,
   aiSettingsSaved: boolean,
   aiAnswerState: AiAnswerState,
-  aiToolsEnabled = true,
+  aiTypeEnabled = true,
   externalOnly = false,
   aiExplanationState: AiAnswerState = createIdleAiAnswerState(),
   essayMenu?: EssayMenuState,
@@ -1758,8 +1770,8 @@ export function getAnswerMenuMarkup(
     </style>
 
     <div class="menu" role="dialog" aria-label="ReduxShare">
-      ${renderAnswerMenuTabs(answerData, aiToolsEnabled, externalOnly, essayMenu)}
-      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiToolsEnabled, externalOnly, aiExplanationState, essayMenu)}
+      ${renderAnswerMenuTabs(answerData, aiTypeEnabled, externalOnly, essayMenu)}
+      ${renderAnswerMenuPanels(answerData, aiSettingsSaved, aiAnswerState, aiTypeEnabled, externalOnly, aiExplanationState, essayMenu)}
     </div>
   `;
 }
