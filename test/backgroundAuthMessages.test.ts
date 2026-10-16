@@ -122,9 +122,10 @@ describe("background auth message handlers", () => {
       payload: { email: "user@example.com", password: "wrong" },
     });
 
-    expect(response).toMatchObject({ ok: false });
-    expect(typeof response?.error).toBe("string");
-    expect(response?.error?.length).toBeGreaterThan(0);
+    expect(response).toEqual({
+      ok: false,
+      error: "Не удалось войти. Проверьте почту и пароль.",
+    });
     expect((await readStoredState()).authSession).toBeUndefined();
   });
 
@@ -165,9 +166,12 @@ describe("background auth message handlers", () => {
       },
     });
 
-    expect(response).toMatchObject({ ok: true, authSession: null });
-    expect(typeof response?.message).toBe("string");
-    expect(response?.message?.length).toBeGreaterThan(0);
+    expect(response).toEqual({
+      ok: true,
+      authSession: null,
+      message:
+        "Регистрация создана. Если включено подтверждение почты, проверьте письмо для входа.",
+    });
     expect((await readStoredState()).authSession).toBeUndefined();
   });
 
