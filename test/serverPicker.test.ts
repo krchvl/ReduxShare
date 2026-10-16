@@ -5,6 +5,13 @@ import { MainScreen } from "../src/components/MainScreen";
 import { I18nProvider } from "../src/i18n/react";
 import { DEFAULT_SETTINGS, DEFAULT_UPDATE_STATE, type Settings } from "../src/types";
 
+const pingMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../src/lib/pocketbase", async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, requestPocketBasePing: pingMock };
+});
+
 const testSettings: Settings = {
   ...DEFAULT_SETTINGS,
   servers: [
@@ -111,10 +118,8 @@ async function flushMicrotasks() {
 }
 
 beforeEach(() => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => ({ ok: true })),
-  );
+  pingMock.mockReset();
+  pingMock.mockResolvedValue(37);
 });
 
 afterEach(() => {
@@ -138,7 +143,7 @@ describe("ServerPicker with multiple servers", () => {
 
     expect(trigger.textContent).toContain("Основной [DE #1]");
     expect(trigger.querySelector(".cselect__trigger-meta .ping-badge")?.textContent).toContain(
-      "мс",
+      "37 мс",
     );
   });
 

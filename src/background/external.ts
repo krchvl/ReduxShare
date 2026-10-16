@@ -77,11 +77,13 @@ import {
   fetchUserAttemptHistory,
   fetchUserLeaderboard,
   recordUserQuizProgress,
+  touchUserProfile,
   type UserAttemptHistory,
   type UserLeaderboard,
 } from "../lib/userProfiles";
+import { loginWithPocketBase, registerWithPocketBase } from "../lib/auth";
 import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../shared/storageKeys";
-import type { AuthSession } from "../types";
+import type { AuthSession, LoginCredentials, RegisterCredentials } from "../types";
 import {
   CHECK_UPDATE_MESSAGE,
   FETCH_ATTEMPT_HISTORY_MESSAGE,
@@ -91,17 +93,25 @@ import {
   FETCH_QUIZ_ANSWERS_MESSAGE,
   FETCH_QUIZ_PREVIEW_MESSAGE,
   GET_UPDATE_STATE_MESSAGE,
+  LOGIN_MESSAGE,
+  PING_SERVER_MESSAGE,
   PRELOAD_QUIZ_QUESTIONS_MESSAGE,
   RECORD_QUIZ_PROGRESS_MESSAGE,
+  REGISTER_MESSAGE,
   SAVE_ESSAY_EXAMPLE_MESSAGE,
   SAVE_REVIEW_ANSWERS_MESSAGE,
   SAVE_USER_ANSWER_MESSAGE,
+  TOUCH_PROFILE_MESSAGE,
   VOTE_ANSWER_MESSAGE,
   VOTE_ESSAY_EXAMPLE_MESSAGE,
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
-import { initActivePocketBaseServerSync } from "../lib/pocketbase";
+import {
+  ensureActivePocketBaseServer,
+  initActivePocketBaseServerSync,
+  measurePocketBasePing,
+} from "../lib/pocketbase";
 import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
 import type {
   AnswerData,
@@ -161,6 +171,61 @@ interface FetchOwnProfileResponse {
   ok: boolean;
   error?: string;
   userProfile?: UserProfile;
+}
+
+interface LoginMessage {
+  type: typeof LOGIN_MESSAGE;
+  payload: LoginCredentials;
+}
+
+interface LoginResponse {
+  ok: boolean;
+  error?: string;
+  authSession?: AuthSession;
+}
+
+interface RegisterMessage {
+  type: typeof REGISTER_MESSAGE;
+  payload: RegisterCredentials;
+}
+
+interface RegisterResponse {
+  ok: boolean;
+  error?: string;
+  authSession?: AuthSession | null;
+  message?: string;
+}
+
+interface TouchProfilePayload {
+  authSession: AuthSession;
+  moodleDomain: string | null;
+  seed: {
+    email?: string | null;
+    username?: string | null;
+  };
+}
+
+interface TouchProfileMessage {
+  type: typeof TOUCH_PROFILE_MESSAGE;
+  payload: TouchProfilePayload;
+}
+
+interface TouchProfileResponse {
+  ok: boolean;
+  error?: string;
+  authSession?: AuthSession;
+  userProfile?: UserProfile;
+}
+
+interface PingServerMessage {
+  type: typeof PING_SERVER_MESSAGE;
+  payload: { url: string };
+}
+
+interface PingServerResponse {
+  ok: boolean;
+  error?: string;
+  latencyMs?: number | null;
 }
 
 interface FetchLeaderboardMessage {
@@ -320,6 +385,64 @@ function isFetchOwnProfileMessage(message: unknown): message is FetchOwnProfileM
   }
 
   return (message as Partial<FetchOwnProfileMessage>).type === FETCH_OWN_PROFILE_MESSAGE;
+}
+
+function isLoginMessage(message: unknown): message is LoginMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<LoginMessage>;
+
+  return (
+    candidate.type === LOGIN_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null
+  );
+}
+
+function isRegisterMessage(message: unknown): message is RegisterMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<RegisterMessage>;
+
+  return (
+    candidate.type === REGISTER_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null
+  );
+}
+
+function isTouchProfileMessage(message: unknown): message is TouchProfileMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<TouchProfileMessage>;
+
+  return (
+    candidate.type === TOUCH_PROFILE_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null
+  );
+}
+
+function isPingServerMessage(message: unknown): message is PingServerMessage {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  const candidate = message as Partial<PingServerMessage>;
+
+  return (
+    candidate.type === PING_SERVER_MESSAGE &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null &&
+    typeof candidate.payload.url === "string" &&
+    candidate.payload.url.length > 0
+  );
 }
 
 function isFetchLeaderboardMessage(message: unknown): message is FetchLeaderboardMessage {
@@ -632,6 +755,16 @@ async function isSessionStillValid(originalSession: AuthSession | null): Promise
   return currentSession?.accessToken === originalSession.accessToken;
 }
 
+async function hasStoredAuthSessionChangedSince(accessToken: string | null): Promise<boolean> {
+  const storedState = await loadStoredState();
+  return (getStoredAuthSession(storedState)?.accessToken ?? null) !== accessToken;
+}
+
+async function isStoredAuthSessionForUser(userId: string): Promise<boolean> {
+  const storedState = await loadStoredState();
+  return getStoredAuthSession(storedState)?.user.id === userId;
+}
+
 async function handleFetchQuizAnswers(
   payload: FetchQuizAnswersPayload,
 ): Promise<QuizAnswersResponse> {
@@ -845,6 +978,91 @@ async function handleFetchAttemptHistory(): Promise<FetchAttemptHistoryResponse>
   return {
     ok: true,
     history: result.history,
+  };
+}
+
+async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
+  await ensureActivePocketBaseServer();
+  const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
+  const authSession = await loginWithPocketBase(payload);
+
+  const sessionChangedSinceRequest = await hasStoredAuthSessionChangedSince(
+    sessionBeforeRequest?.accessToken ?? null,
+  );
+
+  if (!sessionChangedSinceRequest) {
+    await saveStoredStatePatch({ authSession });
+  }
+
+  return {
+    ok: true,
+    authSession,
+  };
+}
+
+async function handleRegister(payload: RegisterCredentials): Promise<RegisterResponse> {
+  await ensureActivePocketBaseServer();
+  const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
+  const result = await registerWithPocketBase(payload);
+
+  if (result.authSession) {
+    const sessionChangedSinceRequest = await hasStoredAuthSessionChangedSince(
+      sessionBeforeRequest?.accessToken ?? null,
+    );
+
+    if (!sessionChangedSinceRequest) {
+      await saveStoredStatePatch({ authSession: result.authSession });
+    }
+
+    return {
+      ok: true,
+      authSession: result.authSession,
+    };
+  }
+
+  const storedState = await loadStoredState();
+
+  return {
+    ok: true,
+    authSession: null,
+    message: result.messageKey
+      ? getTranslator(storedState.settings?.language)(result.messageKey)
+      : undefined,
+  };
+}
+
+async function handleTouchProfile(payload: TouchProfilePayload): Promise<TouchProfileResponse> {
+  await ensureActivePocketBaseServer();
+
+  try {
+    const result = await touchUserProfile(payload.authSession, payload.moodleDomain, payload.seed);
+
+    if (await isStoredAuthSessionForUser(payload.authSession.user.id)) {
+      await saveStoredStatePatch({
+        authSession: result.authSession,
+        userProfile: result.userProfile,
+      });
+    }
+
+    return {
+      ok: true,
+      authSession: result.authSession,
+      userProfile: result.userProfile,
+    };
+  } catch (error) {
+    logReduxShareWarning("ReduxShare: profile touch failed", {
+      userId: payload.authSession.user.id,
+      moodleDomain: payload.moodleDomain,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+async function handlePingServer(payload: { url: string }): Promise<PingServerResponse> {
+  return {
+    ok: true,
+    latencyMs: await measurePocketBasePing(payload.url),
   };
 }
 
@@ -1487,6 +1705,46 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       .then(sendResponse)
       .catch((error) => {
         sendErrorResponse(error, sendResponse, "errors.updateCheckFailed");
+      });
+
+    return true;
+  }
+
+  if (isLoginMessage(message)) {
+    void handleLogin(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.loginFailed");
+      });
+
+    return true;
+  }
+
+  if (isRegisterMessage(message)) {
+    void handleRegister(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.registerFailed");
+      });
+
+    return true;
+  }
+
+  if (isTouchProfileMessage(message)) {
+    void handleTouchProfile(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse, "errors.profileSaveFailed");
+      });
+
+    return true;
+  }
+
+  if (isPingServerMessage(message)) {
+    void handlePingServer(message.payload)
+      .then(sendResponse)
+      .catch((error) => {
+        sendErrorResponse(error, sendResponse);
       });
 
     return true;

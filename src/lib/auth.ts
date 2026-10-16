@@ -1,6 +1,7 @@
 import { ClientResponseError } from "pocketbase";
 import { I18nError, type TranslationKey } from "../i18n";
 import type { AuthSession, LoginCredentials, RegisterCredentials } from "../types";
+import { LOGIN_MESSAGE, REGISTER_MESSAGE } from "../shared/messages";
 import { getPocketBase, mapPocketBaseSession } from "./pocketbase";
 
 export class AuthError extends I18nError {
@@ -238,4 +239,68 @@ export async function logoutFromPocketBase(authSession: AuthSession | null): Pro
   try {
     getPocketBase(authSession).authStore.clear();
   } catch {}
+}
+
+export interface LoginResponse {
+  ok: boolean;
+  error?: string;
+  authSession?: AuthSession;
+}
+
+export interface RegisterResponse {
+  ok: boolean;
+  error?: string;
+  authSession?: AuthSession | null;
+  message?: string;
+}
+
+interface LoginMessage {
+  type: typeof LOGIN_MESSAGE;
+  payload: LoginCredentials;
+}
+
+interface RegisterMessage {
+  type: typeof REGISTER_MESSAGE;
+  payload: RegisterCredentials;
+}
+
+type AuthRequestMessage = LoginMessage | RegisterMessage;
+
+function sendAuthMessage<TResponse extends LoginResponse | RegisterResponse>(
+  message: AuthRequestMessage,
+): Promise<TResponse> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response: TResponse | undefined) => {
+      const runtimeError = chrome.runtime.lastError;
+
+      if (runtimeError || !response) {
+        reject(new I18nError("errors.backgroundConnection"));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
+}
+
+export async function requestLogin(credentials: LoginCredentials): Promise<LoginResponse> {
+  try {
+    return await sendAuthMessage<LoginResponse>({
+      type: LOGIN_MESSAGE,
+      payload: credentials,
+    });
+  } catch {
+    throw new I18nError("errors.backgroundConnection");
+  }
+}
+
+export async function requestRegister(credentials: RegisterCredentials): Promise<RegisterResponse> {
+  try {
+    return await sendAuthMessage<RegisterResponse>({
+      type: REGISTER_MESSAGE,
+      payload: credentials,
+    });
+  } catch {
+    throw new I18nError("errors.backgroundConnection");
+  }
 }

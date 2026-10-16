@@ -1,9 +1,11 @@
 import type PocketBase from "pocketbase";
 import type { AuthSession, UserProfile } from "../types";
+import { I18nError } from "../i18n";
 import {
   FETCH_ATTEMPT_HISTORY_MESSAGE,
   FETCH_LEADERBOARD_MESSAGE,
   FETCH_OWN_PROFILE_MESSAGE,
+  TOUCH_PROFILE_MESSAGE,
 } from "../shared/messages";
 import {
   REVIEW_IMPORTS_COLLECTION,
@@ -177,6 +179,38 @@ export interface OwnProfileResponse {
   ok: boolean;
   error?: string;
   userProfile?: UserProfile;
+}
+
+export interface TouchProfileResponse {
+  ok: boolean;
+  error?: string;
+  authSession?: AuthSession;
+  userProfile?: UserProfile;
+}
+
+export function requestTouchUserProfile(
+  authSession: AuthSession,
+  moodleDomain: string | null,
+  seed: UserProfileSeed = {},
+): Promise<TouchProfileResponse> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        type: TOUCH_PROFILE_MESSAGE,
+        payload: { authSession, moodleDomain, seed },
+      },
+      (response: TouchProfileResponse | undefined) => {
+        const runtimeError = chrome.runtime.lastError;
+
+        if (runtimeError || !response) {
+          reject(new I18nError("errors.backgroundConnection"));
+          return;
+        }
+
+        resolve(response);
+      },
+    );
+  });
 }
 
 export function requestOwnUserProfile(): Promise<OwnProfileResponse> {
