@@ -281,6 +281,7 @@
   "settings.ai.official.modelLine": "The server picks a random available model for every request.",
   "errors.aiOfficialUnauthorized": "Log in to the extension account to use official AI access.",
   "errors.aiQuotaExceeded": "Official access limit reached. Try again later.",
+  "errors.aiOfficialNoModelsSelected": "Select at least one available AI model in the extension settings.",
   "settings.ai.official.models.popoverTitle": "Models in your plan",
   "settings.ai.official.models.add": "Edit model selection",
   "settings.ai.official.models.keepOne": "Keep at least one model",

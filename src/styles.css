@@ -1571,7 +1571,16 @@ button:focus-visible {
 }
 
 .ai-official__models-empty {
+  display: grid;
+  gap: 2px;
   color: var(--muted);
+  font-size: 11px;
+  font-weight: 340;
+  line-height: 1.25;
+}
+
+.ai-official__models-hint {
+  color: var(--beta);
   font-size: 11px;
   font-weight: 340;
   line-height: 1.25;

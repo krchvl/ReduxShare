@@ -43,6 +43,8 @@ import {
   needsBroadHostPermission,
   refreshBroadPermissionCache,
   requestBroadHostPermission,
+  requestOriginHostPermission,
+  toOriginPermission,
 } from "../lib/optionalPermissions";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
 import {
@@ -741,11 +743,22 @@ export function MainScreen({
 
   async function handleTestAiConnection() {
     const isOfficialFlow = aiDraft.accessMode === "official";
-    const requiresBroadPermission =
+    const broadRequired =
       !isOfficialFlow &&
       (isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint));
+    const activeServer = isOfficialFlow
+      ? (settings.servers.find((server) => server.id === settings.activeServerId) ??
+        settings.servers[0])
+      : null;
+    const originPermission = isOfficialFlow ? toOriginPermission(activeServer?.url) : null;
+    const requiresBroadPermission = !isOfficialFlow && broadRequired;
 
-    if (requiresBroadPermission && !(await requestBroadHostPermission())) {
+    if (
+      (isOfficialFlow &&
+        originPermission &&
+        !(await requestOriginHostPermission(originPermission))) ||
+      (requiresBroadPermission && !(await requestBroadHostPermission()))
+    ) {
       setAiTestState({
         status: "error",
         message: t("settings.ai.status.permissionDenied"),
@@ -1033,9 +1046,12 @@ export function MainScreen({
                             ))}
                         </ul>
                       ) : (
-                        <span className="ai-official__models-empty">
-                          {t("settings.ai.official.models.emptySelection")}
-                        </span>
+                        <div className="ai-official__models-empty">
+                          <span>{t("settings.ai.official.models.emptySelection")}</span>
+                          <span className="ai-official__models-hint">
+                            {t("settings.ai.official.models.keepOne")}
+                          </span>
+                        </div>
                       )}
                       <button
                         ref={modelsAddButtonRef}

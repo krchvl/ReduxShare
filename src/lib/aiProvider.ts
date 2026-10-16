@@ -210,6 +210,21 @@ function getAiErrorMessage(body: unknown) {
   return null;
 }
 
+function isOfficialAiQuotaResponse(body: unknown) {
+  const message = getAiErrorMessage(body) ?? "";
+  return /^Official AI .*\b(?:rate limit|quota)\b/i.test(message);
+}
+
+function isOfficialAiModelSelectionResponse(body: unknown) {
+  const message = getAiErrorMessage(body) ?? "";
+  return /^Official AI model selection\b/i.test(message);
+}
+
+function isPocketBaseErrorBody(body: unknown) {
+  const record = getRecord(body);
+  return record !== null && typeof record.status === "number" && typeof record.message === "string";
+}
+
 function extractGeminiText(body: unknown) {
   const bodyRecord = getRecord(body);
   const candidates = Array.isArray(bodyRecord?.candidates) ? bodyRecord.candidates : [];
@@ -584,6 +599,7 @@ function buildPromptPayloadSummary(payload: GenerateAiAnswerPayload) {
 export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
   const promptConfig = getPromptConfig(payload.questionType);
   const { questionData, controlOptionsSummary, imageSummary } = buildPromptPayloadSummary(payload);
+  const language = payload.language?.trim();
 
   return [
     "You help solve Moodle quiz questions. You must return ONLY valid JSON.",
@@ -591,6 +607,9 @@ export function buildQuizAnswerPrompt(payload: GenerateAiAnswerPayload) {
     "Be honest about confidence: 95-100 only when you are almost certain; 60-85 for plausible but not fully verified; below 60 for uncertain guesses.",
     "Use exact visible labels from the provided controls whenever the extension needs to click/select/fill an option.",
     "",
+    language
+      ? `Respond in the following language, regardless of the language of the question or the answer: ${language}.`
+      : null,
     `Question prompt profile: ${promptConfig.title}`,
     ...promptConfig.instructions.map((instruction) => `- ${instruction}`),
     "",
@@ -1304,10 +1323,9 @@ async function generateOfficialAiText(
   }
 
   const endpoint = getPocketBaseUrl() + OFFICIAL_AI_CHAT_PATH;
-  const selectedModels =
-    Array.isArray(context?.officialModels) && context.officialModels.length > 0
-      ? context.officialModels
-      : undefined;
+  const selectedModels = Array.isArray(context?.officialModels)
+    ? context.officialModels
+    : undefined;
 
   const { authSession: nextAuthSession, result: text } = await withPocketBaseSessionRetry(
     authSession,
@@ -1339,11 +1357,22 @@ async function generateOfficialAiText(
       const body = await readGeminiResponseBody(response);
 
       if (!response.ok) {
-        if (response.status === 429) {
+        if (response.status === 400 && isOfficialAiModelSelectionResponse(body)) {
+          throw new I18nError("errors.aiOfficialNoModelsSelected");
+        }
+
+        if (response.status === 429 && isOfficialAiQuotaResponse(body)) {
           throw new I18nError("errors.aiQuotaExceeded");
         }
 
         if (response.status === 401 || response.status === 403) {
+          if (!isPocketBaseErrorBody(body)) {
+            throw new Error(
+              getAiErrorMessage(body) ??
+                `Official AI request failed with status ${response.status}.`,
+            );
+          }
+
           throw new ClientResponseError({ status: response.status, url: endpoint, data: body });
         }
 

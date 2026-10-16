@@ -281,6 +281,7 @@
   "settings.ai.official.modelLine": "Сервер сам выбирает случайную доступную модель на каждый запрос.",
   "errors.aiOfficialUnauthorized": "Войдите в аккаунт расширения, чтобы пользоваться официальным доступом.",
   "errors.aiQuotaExceeded": "Лимит официального доступа исчерпан. Попробуйте позже.",
+  "errors.aiOfficialNoModelsSelected": "Выберите хотя бы одну доступную модель ИИ в настройках расширения.",
   "settings.ai.official.models.popoverTitle": "Модели твоего плана",
   "settings.ai.official.models.add": "Изменить список моделей",
   "settings.ai.official.models.keepOne": "Нужна хотя бы одна модель",

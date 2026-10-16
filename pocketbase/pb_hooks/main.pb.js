@@ -169,7 +169,29 @@ routerAdd(
         }
       });
 
-      return { minuteCount: minuteCount, dayCount: dayCount };
+      return { minuteCount: minuteCount, dayCount: dayCount, dayStart: dayStart };
+    }
+
+    function refundDayQuota(app, userId, dayStart) {
+      app.runInTransaction((txApp) => {
+        let record;
+        try {
+          record = txApp.findFirstRecordByFilter(
+            USAGE_COLLECTION,
+            "user = {:user} && period = {:period} && period_start = {:start}",
+            { user: userId, period: "day", start: dayStart },
+          );
+        } catch {
+          record = null;
+        }
+
+        if (!record) {
+          return;
+        }
+
+        record.set("count", Math.max(0, record.getInt("count", 0) - 1));
+        txApp.save(record);
+      });
     }
 
     function pickWeightedRandomGroup(groups, excludedModels) {
@@ -243,18 +265,33 @@ routerAdd(
 
     const plan = getUserPlan(e);
     const planGroups = PLANS[plan].groups;
-    const requestedModels = Array.isArray(body.models)
+    const hasModelFilter = Array.isArray(body.models);
+    const requestedModels = hasModelFilter
       ? body.models
           .filter((value) => typeof value === "string" && value.trim() !== "")
           .map((value) => value.trim().toLowerCase())
       : [];
-    const groups =
-      requestedModels.length > 0
-        ? planGroups.filter((group) => requestedModels.includes(group.model.toLowerCase()))
-        : planGroups;
-    const effectiveGroups = groups.length > 0 ? groups : planGroups;
+    const effectiveGroups = hasModelFilter
+      ? planGroups.filter((group) => requestedModels.includes(group.model.toLowerCase()))
+      : planGroups;
 
-    consumeQuota($app, e.auth.id, PLANS[plan].limits);
+    if (effectiveGroups.length === 0) {
+      return e.json(400, {
+        error: {
+          message:
+            requestedModels.length === 0
+              ? "Official AI model selection is empty: pick at least one model in the extension settings."
+              : "Official AI model selection matches no model of your plan: pick an available model in the extension settings.",
+        },
+      });
+    }
+
+    const quota = consumeQuota($app, e.auth.id, PLANS[plan].limits);
+
+    function failWithoutAnswer(status, message) {
+      refundDayQuota($app, e.auth.id, quota.dayStart);
+      return e.json(status, { error: { message: message } });
+    }
 
     const explicitGroup = pickGroupByModel(effectiveGroups, body.model);
     const attempts = explicitGroup ? [explicitGroup] : pickAttemptGroups(effectiveGroups);
@@ -272,16 +309,45 @@ routerAdd(
         continue;
       }
 
-      lastResponse = response;
-      if (response.statusCode < 500 && response.statusCode !== 429) {
-        return respondWithUpstream(e, response);
+      if (!response || typeof response.statusCode !== "number" || response.statusCode < 100) {
+        transportError = "transport failure";
+        continue;
       }
+
+      lastResponse = response;
+      const status = response.statusCode;
+
+      if (status >= 500 || status === 429 || status === 401 || status === 403) {
+        continue;
+      }
+
+      if (status >= 300) {
+        refundDayQuota($app, e.auth.id, quota.dayStart);
+      }
+
+      return respondWithUpstream(e, response);
     }
 
     if (lastResponse) {
+      if (lastResponse.statusCode === 429) {
+        return failWithoutAnswer(
+          503,
+          "All upstream AI providers are currently rate-limited, try again later.",
+        );
+      }
+
+      if (lastResponse.statusCode === 401 || lastResponse.statusCode === 403) {
+        return failWithoutAnswer(
+          502,
+          "All upstream AI providers rejected the gateway credentials.",
+        );
+      }
+
+      refundDayQuota($app, e.auth.id, quota.dayStart);
       return respondWithUpstream(e, lastResponse);
     }
 
+    refundDayQuota($app, e.auth.id, quota.dayStart);
     throw new ApiError(
       502,
       "Official AI gateway is unreachable" + (transportError ? ": " + transportError : "."),

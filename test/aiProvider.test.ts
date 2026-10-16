@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildQuizAnswerPrompt,
   buildQuizExplanationPrompt,
   fetchAiModelOptions,
   fetchOfficialAiUsage,
@@ -434,6 +435,33 @@ describe("AI explain mode", () => {
   });
 });
 
+describe("AI answer prompt", () => {
+  const answerPayload: GenerateAiAnswerPayload = {
+    questionId: "1385",
+    questionType: "multichoice",
+    questionText: "What is 2+2?",
+    answerLabels: ["3", "4", "5"],
+    controls: [],
+    images: [],
+    pageUrl: "https://example.test/mod/quiz/attempt.php",
+    mode: "answer",
+  };
+
+  it("omits the language instruction when no language is set", () => {
+    const prompt = buildQuizAnswerPrompt(answerPayload);
+
+    expect(prompt).toContain("Return JSON with this schema");
+    expect(prompt).not.toContain("Respond in the following language");
+  });
+
+  it("requests the answer in the provided language", () => {
+    const prompt = buildQuizAnswerPrompt({ ...answerPayload, language: "Russian" });
+
+    expect(prompt).toContain("Respond in the following language");
+    expect(prompt).toContain("Russian");
+  });
+});
+
 function officialSession(token: string): AuthSession {
   return {
     accessToken: token,
@@ -504,13 +532,33 @@ describe("Official AI access", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not report an upstream provider 429 as the user quota", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ error: { message: "111 provider overloaded" } }, { status: 429 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      testAiConnection(baseSettings({ accessMode: "official" }), {
+        authSession: officialSession("token-1"),
+      }),
+    ).rejects.not.toMatchObject({ i18nKey: "errors.aiQuotaExceeded" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshes the session and retries once after a gate 401", async () => {
     setActivePocketBaseUrl("https://pb.example.com");
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       if (String(init?.url ?? _url).includes("/api/rpx-ai/")) {
         if (fetchMock.mock.calls.length === 1) {
           return mockJsonResponse(
-            { message: "The request requires valid auth token." },
+            {
+              status: 401,
+              message: "The request requires valid record authorization token.",
+              data: {},
+            },
             { status: 401 },
           );
         }
@@ -535,6 +583,42 @@ describe("Official AI access", () => {
     expect(outcome.text).toBe("OK");
     expect(outcome.authSession?.accessToken).not.toBe("stale-token");
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not refresh the session when an upstream 401 is forwarded by the gate", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ error: { message: "invalid proxy authorization key" } }, { status: 401 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      testAiConnection(baseSettings({ accessMode: "official" }), {
+        authSession: officialSession("token-1"),
+      }),
+    ).rejects.toThrow("invalid proxy authorization key");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refresh the session when a forwarded 401 body is not JSON", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(
+      async () =>
+        new Response("Unauthorized", {
+          status: 403,
+          headers: { "Content-Type": "text/plain" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      testAiConnection(baseSettings({ accessMode: "official" }), {
+        authSession: officialSession("token-1"),
+      }),
+    ).rejects.toThrow("status 403");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("fetches official usage counters through the gate", async () => {
@@ -635,5 +719,43 @@ describe("Official AI model selection", () => {
       models?: string[];
     };
     expect(requestBody.models).toBeUndefined();
+  });
+
+  it("keeps an explicit empty selection as an empty models filter", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse({ choices: [{ message: { content: "OK" } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await testAiConnection(baseSettings({ accessMode: "official" }), {
+      authSession: officialSession("token-1"),
+      officialModels: [],
+    });
+
+    const requestBody = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string) as {
+      models?: string[];
+    };
+    expect(requestBody.models).toEqual([]);
+  });
+
+  it("translates the gate model-selection rejection into a localized error", async () => {
+    setActivePocketBaseUrl("https://pb.example.com");
+    const fetchMock = vi.fn(async () =>
+      mockJsonResponse(
+        { error: { message: "Official AI model selection is empty: pick a model." } },
+        { status: 400 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      testAiConnection(baseSettings({ accessMode: "official" }), {
+        authSession: officialSession("token-1"),
+        officialModels: [],
+      }),
+    ).rejects.toMatchObject({ i18nKey: "errors.aiOfficialNoModelsSelected" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
