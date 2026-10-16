@@ -1001,17 +1001,26 @@ async function handleRegister(payload: RegisterCredentials): Promise<RegisterRes
 }
 
 async function handleTouchProfile(payload: TouchProfilePayload): Promise<TouchProfileResponse> {
-  const result = await touchUserProfile(payload.authSession, payload.moodleDomain, payload.seed);
-  await saveStoredStatePatch({
-    authSession: result.authSession,
-    userProfile: result.userProfile,
-  });
+  try {
+    const result = await touchUserProfile(payload.authSession, payload.moodleDomain, payload.seed);
+    await saveStoredStatePatch({
+      authSession: result.authSession,
+      userProfile: result.userProfile,
+    });
 
-  return {
-    ok: true,
-    authSession: result.authSession,
-    userProfile: result.userProfile,
-  };
+    return {
+      ok: true,
+      authSession: result.authSession,
+      userProfile: result.userProfile,
+    };
+  } catch (error) {
+    logReduxShareWarning("ReduxShare: profile touch failed", {
+      userId: payload.authSession.user.id,
+      moodleDomain: payload.moodleDomain,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 async function handlePingServer(payload: { url: string }): Promise<PingServerResponse> {

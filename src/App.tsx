@@ -44,6 +44,12 @@ export async function getAuthenticatedUserState(
     const response = await requestTouchUserProfile(authSession, moodleDomain, seed);
 
     if (!response.ok || !response.authSession || !response.userProfile) {
+      console.warn("ReduxShare auth: profile sync failed", {
+        userId: authSession.user.id,
+        moodleDomain,
+        error: response.error ?? "background returned no profile",
+      });
+
       return {
         authSession,
         userProfile: null,

@@ -211,6 +211,26 @@ describe("background auth message handlers", () => {
     expect(stored.userProfile).toEqual(touchedProfile);
   });
 
+  it("logs a failed profile touch before answering with a localized error", async () => {
+    const { setStealthModeEnabled } = await import("../src/state");
+    setStealthModeEnabled(false);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    touchMock.mockRejectedValue(new Error("touch down"));
+
+    const { response } = await dispatch({
+      type: "REDUXSHARE_TOUCH_PROFILE",
+      payload: { authSession, moodleDomain: "moodle.example", seed: {} },
+    });
+
+    expect(response).toEqual({ ok: false, error: "touch down" });
+    expect(warnSpy).toHaveBeenCalledWith("ReduxShare: profile touch failed", {
+      userId: authSession.user.id,
+      moodleDomain: "moodle.example",
+      error: "touch down",
+    });
+    warnSpy.mockRestore();
+  });
+
   it("pings a storage server via the worker", async () => {
     pingMock.mockResolvedValue(42);
 

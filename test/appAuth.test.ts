@@ -81,6 +81,7 @@ describe("App auth helpers", () => {
   });
 
   it("keeps a successful auth session even when ReduxShare profile sync fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { getAuthenticatedUserState } = await importApp();
     appMocks.requestTouchUserProfile.mockResolvedValue({
       ok: false,
@@ -91,6 +92,13 @@ describe("App auth helpers", () => {
       authSession,
       userProfile: null,
     });
+
+    expect(warnSpy).toHaveBeenCalledWith("ReduxShare auth: profile sync failed", {
+      userId: authSession.user.id,
+      moodleDomain: "school.moodledemo.net",
+      error: "profile sync failed",
+    });
+    warnSpy.mockRestore();
   });
 
   it("falls back to the login session when the background touch rejects", async () => {
