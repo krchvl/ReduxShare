@@ -751,6 +751,16 @@ async function isSessionStillValid(originalSession: AuthSession | null): Promise
   return currentSession?.accessToken === originalSession.accessToken;
 }
 
+async function hasStoredAuthSessionChangedSince(accessToken: string | null): Promise<boolean> {
+  const storedState = await loadStoredState();
+  return (getStoredAuthSession(storedState)?.accessToken ?? null) !== accessToken;
+}
+
+async function isStoredAuthSessionForUser(userId: string): Promise<boolean> {
+  const storedState = await loadStoredState();
+  return getStoredAuthSession(storedState)?.user.id === userId;
+}
+
 async function handleFetchQuizAnswers(
   payload: FetchQuizAnswersPayload,
 ): Promise<QuizAnswersResponse> {
@@ -968,8 +978,16 @@ async function handleFetchAttemptHistory(): Promise<FetchAttemptHistoryResponse>
 }
 
 async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
+  const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
   const authSession = await loginWithPocketBase(payload);
-  await saveStoredStatePatch({ authSession });
+
+  const sessionChangedSinceRequest = await hasStoredAuthSessionChangedSince(
+    sessionBeforeRequest?.accessToken ?? null,
+  );
+
+  if (!sessionChangedSinceRequest) {
+    await saveStoredStatePatch({ authSession });
+  }
 
   return {
     ok: true,
@@ -978,10 +996,17 @@ async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
 }
 
 async function handleRegister(payload: RegisterCredentials): Promise<RegisterResponse> {
+  const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
   const result = await registerWithPocketBase(payload);
 
   if (result.authSession) {
-    await saveStoredStatePatch({ authSession: result.authSession });
+    const sessionChangedSinceRequest = await hasStoredAuthSessionChangedSince(
+      sessionBeforeRequest?.accessToken ?? null,
+    );
+
+    if (!sessionChangedSinceRequest) {
+      await saveStoredStatePatch({ authSession: result.authSession });
+    }
 
     return {
       ok: true,
@@ -1003,10 +1028,13 @@ async function handleRegister(payload: RegisterCredentials): Promise<RegisterRes
 async function handleTouchProfile(payload: TouchProfilePayload): Promise<TouchProfileResponse> {
   try {
     const result = await touchUserProfile(payload.authSession, payload.moodleDomain, payload.seed);
-    await saveStoredStatePatch({
-      authSession: result.authSession,
-      userProfile: result.userProfile,
-    });
+
+    if (await isStoredAuthSessionForUser(payload.authSession.user.id)) {
+      await saveStoredStatePatch({
+        authSession: result.authSession,
+        userProfile: result.userProfile,
+      });
+    }
 
     return {
       ok: true,

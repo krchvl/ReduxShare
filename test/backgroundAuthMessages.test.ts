@@ -211,6 +211,102 @@ describe("background auth message handlers", () => {
     expect(stored.userProfile).toEqual(touchedProfile);
   });
 
+  it("does not persist a login that finishes after a newer sign-in", async () => {
+    const competingSession: AuthSession = {
+      accessToken: "token-newer",
+      refreshToken: "token-newer",
+      expiresAt: null,
+      user: { id: "user-2", email: "other@example.com" },
+    };
+    loginMock.mockImplementation(async () => {
+      await chrome.storage.local.set({ [APP_STORAGE_KEY]: { authSession: competingSession } });
+      return authSession;
+    });
+
+    const { response } = await dispatch({
+      type: "REDUXSHARE_LOGIN",
+      payload: { email: "user@example.com", password: "secret" },
+    });
+
+    expect(response).toEqual({ ok: true, authSession });
+    expect((await readStoredState()).authSession).toEqual(competingSession);
+  });
+
+  it("does not persist a registration that finishes after a newer sign-in", async () => {
+    const competingSession: AuthSession = {
+      accessToken: "token-newer",
+      refreshToken: "token-newer",
+      expiresAt: null,
+      user: { id: "user-2", email: "other@example.com" },
+    };
+    registerMock.mockImplementation(async () => {
+      await chrome.storage.local.set({ [APP_STORAGE_KEY]: { authSession: competingSession } });
+      return { authSession };
+    });
+
+    const { response } = await dispatch({
+      type: "REDUXSHARE_REGISTER",
+      payload: {
+        email: "user@example.com",
+        username: "user-1",
+        password: "secret",
+      },
+    });
+
+    expect(response).toEqual({ ok: true, authSession });
+    expect((await readStoredState()).authSession).toEqual(competingSession);
+  });
+
+  it("does not resurrect a logged-out session from a late profile touch", async () => {
+    await chrome.storage.local.set({ [APP_STORAGE_KEY]: { authSession } });
+    const refreshedSession: AuthSession = {
+      ...authSession,
+      accessToken: "token-2",
+      refreshToken: "token-2",
+    };
+    touchMock.mockImplementation(async () => {
+      await chrome.storage.local.remove(APP_STORAGE_KEY);
+      return { authSession: refreshedSession, userProfile };
+    });
+
+    const { response } = await dispatch({
+      type: "REDUXSHARE_TOUCH_PROFILE",
+      payload: { authSession, moodleDomain: "moodle.example", seed: {} },
+    });
+
+    expect(response).toEqual({ ok: true, authSession: refreshedSession, userProfile });
+    expect((await readStoredState()).authSession).toBeUndefined();
+  });
+
+  it("still persists a profile touch after a same-user token refresh", async () => {
+    await chrome.storage.local.set({ [APP_STORAGE_KEY]: { authSession } });
+    const rotatedSession: AuthSession = {
+      ...authSession,
+      accessToken: "token-rotated",
+      refreshToken: "token-rotated",
+    };
+    const touchedProfile: UserProfile = { ...userProfile, moodleDomain: "moodle.example" };
+    touchMock.mockImplementation(async () => {
+      await chrome.storage.local.set({ [APP_STORAGE_KEY]: { authSession: rotatedSession } });
+      return { authSession: rotatedSession, userProfile: touchedProfile };
+    });
+
+    const { response } = await dispatch({
+      type: "REDUXSHARE_TOUCH_PROFILE",
+      payload: { authSession, moodleDomain: "moodle.example", seed: {} },
+    });
+
+    expect(response).toEqual({
+      ok: true,
+      authSession: rotatedSession,
+      userProfile: touchedProfile,
+    });
+
+    const stored = await readStoredState();
+    expect(stored.authSession).toEqual(rotatedSession);
+    expect(stored.userProfile).toEqual(touchedProfile);
+  });
+
   it("logs a failed profile touch before answering with a localized error", async () => {
     const { setStealthModeEnabled } = await import("../src/state");
     setStealthModeEnabled(false);
