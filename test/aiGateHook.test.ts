@@ -450,4 +450,31 @@ describe("official AI gate hook", () => {
       /\/proxy\/(groq|nararouter|fxqidian|sharellm)\/v1\/chat\/completions$/,
     );
   });
+
+  it("refunds the day counter when the gateway transport fails", () => {
+    const app = createUsageApp();
+
+    const { response } = callChat({
+      app,
+      responses: [new Error("ECONNREFUSED")],
+    });
+
+    expect(response.status).toBe(502);
+    expect(response.payload.error?.message).toMatch(/unreachable|transport/);
+    expect(usageCount(app, "day")).toBe(0);
+  });
+
+  it("does not consume quota on an empty model filter request", () => {
+    const app = createUsageApp();
+
+    const { response } = callChat({
+      app,
+      responses: [upstreamOk()],
+      body: { messages: [{ role: "user", content: "hi" }], models: [] },
+    });
+
+    expect(response.status).toBe(400);
+    expect(usageCount(app, "day")).toBe(0);
+    expect(usageCount(app, "minute")).toBe(0);
+  });
 });
