@@ -107,7 +107,11 @@ import {
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
-import { initActivePocketBaseServerSync, measurePocketBasePing } from "../lib/pocketbase";
+import {
+  ensureActivePocketBaseServer,
+  initActivePocketBaseServerSync,
+  measurePocketBasePing,
+} from "../lib/pocketbase";
 import { getQuizQuestionStubs, recordQuizQuestions } from "../lib/quizQuestionRegistry";
 import type {
   AnswerData,
@@ -978,6 +982,7 @@ async function handleFetchAttemptHistory(): Promise<FetchAttemptHistoryResponse>
 }
 
 async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
+  await ensureActivePocketBaseServer();
   const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
   const authSession = await loginWithPocketBase(payload);
 
@@ -996,6 +1001,7 @@ async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
 }
 
 async function handleRegister(payload: RegisterCredentials): Promise<RegisterResponse> {
+  await ensureActivePocketBaseServer();
   const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
   const result = await registerWithPocketBase(payload);
 
@@ -1026,6 +1032,8 @@ async function handleRegister(payload: RegisterCredentials): Promise<RegisterRes
 }
 
 async function handleTouchProfile(payload: TouchProfilePayload): Promise<TouchProfileResponse> {
+  await ensureActivePocketBaseServer();
+
   try {
     const result = await touchUserProfile(payload.authSession, payload.moodleDomain, payload.seed);
 

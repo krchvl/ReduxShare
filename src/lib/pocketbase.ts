@@ -56,7 +56,24 @@ function resolveActiveServerUrlFromSettings(storedState: Partial<StoredState> | 
   return active?.url ?? null;
 }
 
-export async function initActivePocketBaseServerSync(): Promise<void> {
+let activeServerSync: Promise<void> | null = null;
+
+export function ensureActivePocketBaseServer(): Promise<void> {
+  if (!activeServerSync) {
+    activeServerSync = runActivePocketBaseServerSync().catch((error: unknown) => {
+      activeServerSync = null;
+      throw error;
+    });
+  }
+
+  return activeServerSync;
+}
+
+export function initActivePocketBaseServerSync(): Promise<void> {
+  return ensureActivePocketBaseServer();
+}
+
+async function runActivePocketBaseServerSync(): Promise<void> {
   const storedState = await loadStoredState();
   setActivePocketBaseUrl(resolveActiveServerUrlFromSettings(storedState));
 
