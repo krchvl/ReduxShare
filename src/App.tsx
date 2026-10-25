@@ -141,6 +141,7 @@ export function App() {
       })
       .catch((error: unknown) => {
         console.warn("ReduxShare auth: stored state hydration failed", { error });
+        setHydrated(true);
       });
 
     return () => {
@@ -153,8 +154,8 @@ export function App() {
       return;
     }
 
-    void saveStoredState({ settings, authSession, userProfile });
-  }, [authSession, hydrated, settings, userProfile]);
+    void saveStoredState({ settings, userProfile }).catch(() => {});
+  }, [hydrated, settings, userProfile]);
 
   useEffect(() => {
     const activeServer =
@@ -240,6 +241,10 @@ export function App() {
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
+      void saveStoredState({
+        authSession: refreshedSession,
+        userProfile: nextProfile,
+      }).catch(() => {});
       setView("main");
     } catch (error) {
       setLoginError(getLocalizedErrorMessage(error, t, "errors.loginGeneric"));
@@ -280,6 +285,10 @@ export function App() {
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
+      void saveStoredState({
+        authSession: refreshedSession,
+        userProfile: nextProfile,
+      }).catch(() => {});
       setView("main");
     } catch (error) {
       setRegisterMessage(getLocalizedErrorMessage(error, t, "errors.registerFailed"));
@@ -292,6 +301,7 @@ export function App() {
     const hadSession = Boolean(authSession);
 
     void logoutFromPocketBase(authSession);
+    void saveStoredState({ authSession: null, userProfile: null }).catch(() => {});
     setAuthSession(null);
     setUserProfile(null);
     setLoginError(null);

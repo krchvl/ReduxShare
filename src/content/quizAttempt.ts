@@ -2836,9 +2836,11 @@ async function initializeQuizAttemptFeatures() {
   const accentColor = getAccentColor(storedState.settings);
 
   const context = await waitForQuizAttemptContext();
-  syncAllFeatures(await loadStoredState());
+  const freshStoredState = await loadStoredState();
+  setCurrentStoredState(freshStoredState);
+  syncAllFeatures(freshStoredState);
 
-  if (!canUseQuizFeatures(storedState)) {
+  if (!canUseQuizFeatures(freshStoredState)) {
     resetRestrictedQuizState();
     return;
   }

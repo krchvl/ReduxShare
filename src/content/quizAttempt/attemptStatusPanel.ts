@@ -2291,12 +2291,12 @@ export async function syncAttemptStatusPanelClosedState(storedState: StoredState
   attemptStatusPanelClosedInSession = closed;
   renderAttemptStatusPanel();
 
-  await patchStoredState({
+  await patchStoredState((currentState) => ({
     settings: {
-      ...(currentStoredState?.settings as Settings),
+      ...(currentState.settings as Settings),
       attemptStatusPanelClosed: closed,
     },
-  });
+  }));
 
   setCurrentStoredState({
     ...(currentStoredState as StoredStateLike),
@@ -2315,12 +2315,12 @@ export async function setAttemptStatusPanelClosedInSession(closed: boolean) {
   attemptStatusPanelClosedInSession = closed;
   renderAttemptStatusPanel();
 
-  await patchStoredState({
+  await patchStoredState((currentState) => ({
     settings: {
-      ...(currentStoredState?.settings as Settings),
+      ...(currentState.settings as Settings),
       attemptStatusPanelClosed: closed,
     },
-  });
+  }));
 
   setCurrentStoredState({
     ...(currentStoredState as StoredStateLike),
@@ -2375,7 +2375,12 @@ export async function setCopyUnlockSetting(enabled: boolean) {
   attemptStatusPanelTrayOpen = true;
   renderAttemptStatusPanel();
 
-  await patchStoredState({ settings: nextSettings });
+  await patchStoredState((currentState) => ({
+    settings: {
+      ...(currentState.settings as Settings),
+      copyUnlock: enabled,
+    },
+  }));
 }
 
 export function handleAttemptStatusPanelPointerDown(event: PointerEvent) {

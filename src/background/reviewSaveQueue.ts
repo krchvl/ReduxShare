@@ -109,17 +109,27 @@ export async function queuePendingSelectionSave(payload: SaveUserAnswerPayload):
 }
 
 async function queuePendingSave(payload: PendingSavePayload, kind: PendingSaveKind) {
-  const queue = await loadPendingReviewSaves();
-  const nextEntry: PendingReviewSave = {
-    id: getPendingSaveId(payload, kind),
-    queuedAt: new Date().toISOString(),
-    kind,
-    payload,
-  };
-  const dedupedQueue = queue.filter((entry) => entry.id !== nextEntry.id);
-  dedupedQueue.push(nextEntry);
-  await savePendingReviewSaves(dedupedQueue);
-  return dedupedQueue.length;
+  return withPendingQueueLock(async () => {
+    const queue = await loadPendingReviewSaves();
+    const nextEntry: PendingReviewSave = {
+      id: getPendingSaveId(payload, kind),
+      queuedAt: new Date().toISOString(),
+      kind,
+      payload,
+    };
+    const dedupedQueue = queue.filter((entry) => entry.id !== nextEntry.id);
+    dedupedQueue.push(nextEntry);
+    await savePendingReviewSaves(dedupedQueue);
+    return dedupedQueue.length;
+  });
+}
+
+let pendingQueueLock: Promise<unknown> = Promise.resolve();
+
+function withPendingQueueLock<T>(run: () => Promise<T>): Promise<T> {
+  const operation = pendingQueueLock.then(run, run);
+  pendingQueueLock = operation.catch(() => {});
+  return operation;
 }
 
 let pendingReviewSaveFlushInProgress = false;
@@ -143,48 +153,50 @@ export async function flushPendingReviewSaves(
   pendingReviewSaveFlushInProgress = true;
 
   try {
-    const queue = await loadPendingReviewSaves();
-    const remaining: PendingReviewSave[] = [];
-    let latestAuthSession = authSession;
-    let flushedCount = 0;
+    return await withPendingQueueLock(async () => {
+      const queue = await loadPendingReviewSaves();
+      const remaining: PendingReviewSave[] = [];
+      let latestAuthSession = authSession;
+      let flushedCount = 0;
 
-    for (const entry of queue) {
-      try {
-        const result =
-          entry.kind === "selection"
-            ? await saveUserAnswerSelection(
-                latestAuthSession,
-                entry.payload as SaveUserAnswerPayload,
-              )
-            : await saveReduxShareReviewAnswers(
-                latestAuthSession,
-                entry.payload as SaveReduxShareReviewPayload,
-              );
-        latestAuthSession = result.authSession;
-        flushedCount += 1;
-      } catch (error) {
-        remaining.push(entry);
-        await deps.saveDiagnostics("background-pending-save-flush-error", {
-          error: error instanceof Error ? error.message : String(error),
-          pendingId: entry.id,
-          courseId: entry.payload.courseId,
-          quizId: entry.payload.quizId,
-          attemptKey: entry.payload.attemptKey,
-        });
+      for (const entry of queue) {
+        try {
+          const result =
+            entry.kind === "selection"
+              ? await saveUserAnswerSelection(
+                  latestAuthSession,
+                  entry.payload as SaveUserAnswerPayload,
+                )
+              : await saveReduxShareReviewAnswers(
+                  latestAuthSession,
+                  entry.payload as SaveReduxShareReviewPayload,
+                );
+          latestAuthSession = result.authSession;
+          flushedCount += 1;
+        } catch (error) {
+          remaining.push(entry);
+          await deps.saveDiagnostics("background-pending-save-flush-error", {
+            error: error instanceof Error ? error.message : String(error),
+            pendingId: entry.id,
+            courseId: entry.payload.courseId,
+            quizId: entry.payload.quizId,
+            attemptKey: entry.payload.attemptKey,
+          });
+        }
       }
-    }
 
-    await savePendingReviewSaves(remaining);
+      await savePendingReviewSaves(remaining);
 
-    if (flushedCount > 0) {
-      await deps.saveStoredStatePatch({ authSession: latestAuthSession });
-    }
+      if (flushedCount > 0) {
+        await deps.saveStoredStatePatch({ authSession: latestAuthSession });
+      }
 
-    return {
-      authSession: latestAuthSession,
-      flushedCount,
-      remainingCount: remaining.length,
-    };
+      return {
+        authSession: latestAuthSession,
+        flushedCount,
+        remainingCount: remaining.length,
+      };
+    });
   } finally {
     pendingReviewSaveFlushInProgress = false;
   }

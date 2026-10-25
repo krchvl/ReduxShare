@@ -1,4 +1,4 @@
-import type { StoredState, UserProfile } from "../types";
+import type { AuthSession, StoredState, UserProfile } from "../types";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
 
 const hasChromeStorage = () =>
@@ -21,6 +21,7 @@ export async function loadStoredState(): Promise<Partial<StoredState>> {
   try {
     return JSON.parse(rawState) as Partial<StoredState>;
   } catch {
+    console.warn("ReduxShare: stored state is corrupted, resetting local fallback");
     window.localStorage.removeItem(APP_STORAGE_KEY);
     return {};
   }
@@ -75,20 +76,44 @@ function enqueueStoredStateMutation(run: () => Promise<void>): Promise<void> {
   return operation;
 }
 
-export function patchStoredState(patch: StoredStatePatch): Promise<void> {
+export function mergeAuthSession(
+  next: AuthSession | null | undefined,
+  current: AuthSession | null | undefined,
+): AuthSession | null | undefined {
+  if (next === undefined) {
+    return current;
+  }
+
+  if (next === null || !current) {
+    return next;
+  }
+
+  if (next.user.id !== current.user.id) {
+    return next;
+  }
+
+  return (next.expiresAt ?? 0) >= (current.expiresAt ?? 0) ? next : current;
+}
+
+export function patchStoredState(
+  patch: StoredStatePatch | ((currentState: Partial<StoredState>) => StoredStatePatch),
+): Promise<void> {
   return enqueueStoredStateMutation(async () => {
     const currentState = await loadStoredState();
+    const resolvedPatch =
+      typeof patch === "function" ? patch(currentState) : (patch as StoredStatePatch);
     const nextState = {
       ...currentState,
-      ...patch,
+      ...resolvedPatch,
+      authSession: mergeAuthSession(resolvedPatch.authSession, currentState.authSession),
       userProfile: mergeUserProfile(
-        patch.userProfile ?? currentState.userProfile,
+        resolvedPatch.userProfile ?? currentState.userProfile,
         currentState.userProfile,
-        patch.moodleDomain,
+        resolvedPatch.moodleDomain,
       ),
       latestQuizAttemptContext:
-        patch.latestQuizAttemptContext ?? currentState.latestQuizAttemptContext ?? null,
-      updateState: patch.updateState ?? currentState.updateState ?? null,
+        resolvedPatch.latestQuizAttemptContext ?? currentState.latestQuizAttemptContext ?? null,
+      updateState: resolvedPatch.updateState ?? currentState.updateState ?? null,
     };
 
     if (hasChromeStorage()) {
@@ -102,8 +127,9 @@ export function patchStoredState(patch: StoredStatePatch): Promise<void> {
   });
 }
 
-type StoredStateSaveInput = Omit<StoredState, "updateState"> &
-  Pick<Partial<StoredState>, "updateState">;
+type StoredStateSaveInput = Partial<Omit<StoredState, "updateState" | "authSession">> & {
+  authSession?: AuthSession | null;
+};
 
 export async function saveStoredState(state: StoredStateSaveInput): Promise<void> {
   await patchStoredState(state);
