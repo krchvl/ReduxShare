@@ -61,6 +61,8 @@ export default tseslint.config(
       globals: {
         routerAdd: "readonly",
         cronAdd: "readonly",
+        onRecordCreateRequest: "readonly",
+        onRecordUpdateRequest: "readonly",
         $app: "readonly",
         $apis: "readonly",
         $http: "readonly",

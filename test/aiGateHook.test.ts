@@ -71,6 +71,8 @@ interface UpstreamResponse {
 interface GateSandbox {
   routerAdd: (method: string, path: string, handler: GateHandler) => void;
   cronAdd: () => void;
+  onRecordCreateRequest: () => void;
+  onRecordUpdateRequest: () => void;
   $apis: { requireAuth: () => (event: GateEvent) => GateEvent };
   $app: UsageApp;
   $http: { send: (options: unknown) => UpstreamResponse };
@@ -112,6 +114,8 @@ function createGate() {
       routes.set(path, handler);
     },
     cronAdd: () => {},
+    onRecordCreateRequest: () => {},
+    onRecordUpdateRequest: () => {},
     $apis: { requireAuth: () => (event: GateEvent) => event },
     console: { warn: () => {}, error: () => {} },
     Record: FakeUsageRecord,

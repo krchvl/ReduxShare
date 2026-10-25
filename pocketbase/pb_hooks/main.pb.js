@@ -114,6 +114,8 @@ routerAdd(
         sanitized.messages = sanitized.messages.slice(0, MAX_MESSAGES);
       }
 
+      delete sanitized.models;
+
       return sanitized;
     }
 
@@ -163,15 +165,28 @@ routerAdd(
       }
 
       if (!record) {
-        record = new Record(app.findCollectionByNameOrId(USAGE_COLLECTION));
-        record.set("user", userId);
-        record.set("period", period);
-        record.set("period_start", start);
-        record.set("count", 1);
-      } else {
-        record.set("count", record.getInt("count", 0) + 1);
+        const created = new Record(app.findCollectionByNameOrId(USAGE_COLLECTION));
+        created.set("user", userId);
+        created.set("period", period);
+        created.set("period_start", start);
+        created.set("count", 1);
+
+        try {
+          app.save(created);
+          return created.getInt("count", 0);
+        } catch {
+          const winner = app.findFirstRecordByFilter(
+            USAGE_COLLECTION,
+            "user = {:user} && period = {:period} && period_start = {:start}",
+            { user: userId, period: period, start: start },
+          );
+          winner.set("count", winner.getInt("count", 0) + 1);
+          app.save(winner);
+          return winner.getInt("count", 0);
+        }
       }
 
+      record.set("count", record.getInt("count", 0) + 1);
       app.save(record);
       return record.getInt("count", 0);
     }
@@ -543,13 +558,91 @@ routerAdd(
 );
 
 cronAdd("rpx_ai_usage_cleanup", "0 3 * * *", () => {
+  const now = new Date();
+  const currentMinuteStart = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCHours(),
+    now.getUTCMinutes(),
+    0,
+    0,
+  );
+  const minuteStart = new Date(currentMinuteStart).toISOString().replace("T", " ");
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ");
-  const now = new Date().toISOString().replace("T", " ");
   $app
     .db()
     .newQuery(
-      "DELETE FROM reduxshare_ai_usage WHERE (period = 'minute' AND period_start < {:now}) OR (period = 'day' AND period_start < {:cutoff})",
+      "DELETE FROM reduxshare_ai_usage WHERE (period = 'minute' AND period_start < {:minuteStart}) OR (period = 'day' AND period_start < {:cutoff})",
     )
-    .bind({ now: now, cutoff: cutoff })
+    .bind({ minuteStart: minuteStart, cutoff: cutoff })
     .execute();
 });
+
+onRecordCreateRequest((e) => {
+  const value = e.record.getInt("value");
+  if (value !== 1 && value !== -1) {
+    throw new BadRequestError("Vote value must be 1 or -1.");
+  }
+
+  let task;
+  try {
+    task = $app.findRecordById("reduxshare_tasks", e.record.getString("task"));
+  } catch {
+    e.next();
+    return;
+  }
+
+  const verified =
+    task.getInt("correct_count", 0) + task.getInt("selected_correct_count", 0) > 0 ||
+    task.getInt("selected_incorrect_count", 0) > 0;
+
+  if (verified) {
+    throw new BadRequestError("Votes are only allowed for unverified answers.");
+  }
+
+  e.next();
+}, "reduxshare_task_votes");
+
+onRecordUpdateRequest((e) => {
+  const value = e.record.getInt("value");
+  if (value !== 1 && value !== -1) {
+    throw new BadRequestError("Vote value must be 1 or -1.");
+  }
+
+  let task;
+  try {
+    task = $app.findRecordById("reduxshare_tasks", e.record.getString("task"));
+  } catch {
+    e.next();
+    return;
+  }
+
+  const verified =
+    task.getInt("correct_count", 0) + task.getInt("selected_correct_count", 0) > 0 ||
+    task.getInt("selected_incorrect_count", 0) > 0;
+
+  if (verified) {
+    throw new BadRequestError("Votes are only allowed for unverified answers.");
+  }
+
+  e.next();
+}, "reduxshare_task_votes");
+
+onRecordCreateRequest((e) => {
+  const value = e.record.getInt("value");
+  if (value !== 1 && value !== -1) {
+    throw new BadRequestError("Vote value must be 1 or -1.");
+  }
+
+  e.next();
+}, "reduxshare_essay_votes");
+
+onRecordUpdateRequest((e) => {
+  const value = e.record.getInt("value");
+  if (value !== 1 && value !== -1) {
+    throw new BadRequestError("Vote value must be 1 or -1.");
+  }
+
+  e.next();
+}, "reduxshare_essay_votes");
