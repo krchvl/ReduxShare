@@ -451,8 +451,8 @@ export function normalizeSettings(
     colorScheme: isColorSchemeSetting(settings?.colorScheme)
       ? settings.colorScheme
       : DEFAULT_SETTINGS.colorScheme,
-    popupOpacity: settings?.popupOpacity ?? DEFAULT_SETTINGS.popupOpacity,
-    pageOverlayOpacity: settings?.pageOverlayOpacity ?? DEFAULT_SETTINGS.pageOverlayOpacity,
+    popupOpacity: normalizeOpacity(settings?.popupOpacity),
+    pageOverlayOpacity: normalizeOpacity(settings?.pageOverlayOpacity),
     servers,
     activeServerId: resolveActiveServerId(settings?.activeServerId, servers),
     ai: normalizeAiSettings(settings?.ai),

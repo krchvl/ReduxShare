@@ -123,7 +123,9 @@ export function ServerPicker({ settings, onSettingsChange, onLogout }: ServerPic
     const granted = await requestBroadHostPermission();
 
     if (!granted) {
+      setIsAdding(false);
       setAddErrorKey("settings.server.addDenied");
+      return;
     }
 
     const id = `srv-${Date.now().toString(36)}`;

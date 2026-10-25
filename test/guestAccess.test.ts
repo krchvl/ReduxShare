@@ -63,17 +63,19 @@ function renderMainScreen(overrides: { isAuthenticated?: boolean; settings?: Set
   document.body.append(container);
   root = createRoot(container);
 
-  act(() => {
+  const render = (settings: Settings) => {
     root?.render(
       createElement(
         I18nProvider,
         { language: "en" },
         createElement(MainScreen, {
-          settings: overrides.settings ?? DEFAULT_SETTINGS,
+          settings,
           updateState: DEFAULT_UPDATE_STATE,
           isCheckingUpdates: false,
           isAuthenticated: overrides.isAuthenticated ?? false,
-          onSettingsChange: vi.fn(),
+          onSettingsChange: (next) => {
+            render(next);
+          },
           onCheckUpdates: vi.fn(),
           onResetSettings: vi.fn(),
           onLogout: vi.fn(),
@@ -81,6 +83,10 @@ function renderMainScreen(overrides: { isAuthenticated?: boolean; settings?: Set
         }),
       ),
     );
+  };
+
+  act(() => {
+    render(overrides.settings ?? DEFAULT_SETTINGS);
   });
 
   return { onOpenLogin };

@@ -160,7 +160,7 @@ describe("MainScreen AI access mode tabs", () => {
   });
 
   it("switches back to the custom mode and restores the provider form", () => {
-    renderMainScreen();
+    renderMainScreen(baseSettings, { stateful: true });
     openAiTab();
     clickModeTab("Official");
     expect(container!.querySelector(".ai-provider-tab")).toBeNull();

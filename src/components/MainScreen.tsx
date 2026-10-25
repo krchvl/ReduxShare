@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { TranslateFn, TranslationKey } from "../i18n";
@@ -309,7 +317,7 @@ export function MainScreen({
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("main");
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
-  const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(settings.ai.accessMode);
+  const aiAccessMode = settings.ai.accessMode;
   const [aiDraft, setAiDraft] = useState<AiSettings>(() => normalizeAiSettings(settings.ai));
   const [aiTestState, setAiTestState] = useState<AiTestState>({
     status: settings.ai.connectionVerified ? "saved" : "idle",
@@ -388,7 +396,6 @@ export function MainScreen({
   };
 
   const changeAiAccessMode = (mode: AiAccessMode) => {
-    setAiAccessMode(mode);
     updateSetting("ai", normalizeAiSettings({ ...settings.ai, accessMode: mode }));
   };
 
@@ -532,6 +539,7 @@ export function MainScreen({
       );
 
       if (
+        aiModelsStateRef.current.requestKey === requestKey &&
         aiDraftRef.current.provider === requestProvider &&
         !models.some((model) => model.value === aiDraftRef.current.model)
       ) {
@@ -651,7 +659,7 @@ export function MainScreen({
     );
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!modelsPopoverOpen) {
       return undefined;
     }
@@ -1279,7 +1287,7 @@ export function MainScreen({
                   <span className="ai-official__quota-hint">
                     {officialUsageError ??
                       t("settings.ai.official.quotaHint", {
-                        minute: officialUsage?.minuteLimit ?? 5,
+                        minute: officialUsage?.minuteLimit ?? AI_PLAN_LIMITS.free.minuteLimit,
                       })}
                   </span>
                 </div>
