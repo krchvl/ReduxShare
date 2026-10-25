@@ -46,10 +46,8 @@ import {
   type PendingSaveFlushResult,
 } from "./reviewSaveQueue";
 import {
-  EXTERNAL_TYPE_PROBE_ORDER,
   fetchQuestionVariants,
   hasExternalAnswerRows,
-  fetchExternalAnswer,
   probeExternalQuestionType,
   type ExternalQuestionRequest,
   type ExternalVariantResult,
@@ -696,6 +694,9 @@ async function performUpdateCheck(payload: CheckUpdatePayload = {}): Promise<Upd
     await saveStoredStatePatch({ updateState });
     return updateState;
   } catch (error) {
+    console.warn("ReduxShare: update check failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     const checkedAt = new Date();
     const updateState = normalizeUpdateState(
       {
@@ -704,7 +705,11 @@ async function performUpdateCheck(payload: CheckUpdatePayload = {}): Promise<Upd
         currentVersion,
         checkedAt: checkedAt.toISOString(),
         nextCheckAt: new Date(checkedAt.getTime() + UPDATE_RETRY_INTERVAL_MS).toISOString(),
-        error: getRequestErrorMessage(error, undefined, "errors.updateCheckFailed"),
+        error: getRequestErrorMessage(
+          error,
+          storedState.settings?.language,
+          "errors.updateCheckFailed",
+        ),
       },
       currentVersion,
     );
@@ -1095,6 +1100,7 @@ async function handlePreloadQuizQuestions(
   );
 
   let found = 0;
+  const discoveredTypes = new Map<string, string>();
 
   for (const question of newQuestions) {
     const questionId = question.questionId?.trim();
@@ -1103,61 +1109,66 @@ async function handlePreloadQuizQuestions(
       continue;
     }
 
-    logReduxShareInfo(`ReduxShare: probing question ${questionId}`);
+    const hit = await probeExternalQuestionType(
+      {
+        domain,
+        courseId,
+        quizId,
+        attemptId: "1",
+        questions: [],
+      },
+      { ...question, questionId },
+      storedState.settings?.language,
+    );
 
-    for (const qtype of EXTERNAL_TYPE_PROBE_ORDER) {
-      const probeRequest: ExternalQuestionRequest = {
-        questionId,
-        questionType: qtype,
-        questionHash: question.questionHash?.trim() || null,
-      };
-
-      try {
-        logReduxShareInfo(
-          `ReduxShare: fetching external answer for question ${questionId} (${qtype})`,
-        );
-        const response = await fetchExternalAnswer(
-          probeRequest,
-          domain,
-          courseId,
-          quizId,
-          storedState.settings?.language,
-        );
-
-        logReduxShareInfo(`ReduxShare: response for question ${questionId} (${qtype}):`, response);
-
-        if (!response.ok) {
-          logReduxShareInfo(
-            `ReduxShare: request failed for question ${questionId} (${qtype}), continuing...`,
-          );
-          continue;
-        }
-
-        if (Array.isArray(response.data) && response.data.length === 0) {
-          logReduxShareInfo(
-            `ReduxShare: empty answer for question ${questionId} (${qtype}), continuing...`,
-          );
-          continue;
-        }
-
-        found++;
-        logReduxShareInfo(
-          `ReduxShare: preloaded question ${questionId} (${qtype}) from external source for ${domain}/${courseId}/${quizId}`,
-        );
-        break;
-      } catch (error) {
-        logReduxShareWarning(`ReduxShare: error probing question ${questionId} (${qtype}):`, error);
-        continue;
-      }
+    if (!hit) {
+      continue;
     }
+
+    found += 1;
+    discoveredTypes.set(questionId, hit.questionType);
   }
 
   if (found > 0) {
-    logReduxShareInfo(`ReduxShare: recording ${found} probed questions to registry`);
-    await recordQuizQuestions(domain, courseId, quizId, newQuestions);
+    logReduxShareInfo(
+      `ReduxShare: preloaded ${found} questions for ${domain}/${courseId}/${quizId}`,
+    );
+    await recordQuizQuestions(
+      domain,
+      courseId,
+      quizId,
+      newQuestions.map((question) => ({
+        questionId: question.questionId ?? "",
+        questionType: discoveredTypes.get(question.questionId ?? "") ?? question.questionType,
+        questionHash: question.questionHash ?? null,
+        questionText: question.questionText ?? null,
+      })),
+    );
   }
 
   return { ok: true, found, total: questions.length };
+}
+
+const EXTERNAL_PROBE_CONCURRENCY = 4;
+
+async function mapWithConcurrency<TItem, TResult>(
+  items: TItem[],
+  limit: number,
+  worker: (item: TItem) => Promise<TResult>,
+): Promise<TResult[]> {
+  const results = new Array<TResult>(items.length);
+  let nextIndex = 0;
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index]);
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
 }
 
 async function handleFetchQuizPreview(
@@ -1278,36 +1289,34 @@ async function handleFetchQuizPreview(
 
   const discoveredTypes = new Map<string, string>();
 
-  await Promise.all(
-    externalRequests.map(async (question) => {
-      if (!question.questionId) {
-        return;
-      }
+  await mapWithConcurrency(externalRequests, EXTERNAL_PROBE_CONCURRENCY, async (question) => {
+    if (!question.questionId) {
+      return;
+    }
 
-      if (!payload.forceRefresh && stubTypeByQuestionId.has(question.questionId)) {
-        return;
-      }
+    if (!payload.forceRefresh && stubTypeByQuestionId.has(question.questionId)) {
+      return;
+    }
 
-      const currentResult = externalByQuestionId.get(question.questionId);
+    const currentResult = externalByQuestionId.get(question.questionId);
 
-      if (currentResult && hasExternalAnswerRows(currentResult)) {
-        return;
-      }
+    if (currentResult && hasExternalAnswerRows(currentResult)) {
+      return;
+    }
 
-      const hit = await probeExternalQuestionType(
-        externalPayload,
-        question,
-        storedState.settings?.language,
-      );
+    const hit = await probeExternalQuestionType(
+      externalPayload,
+      question,
+      storedState.settings?.language,
+    );
 
-      if (!hit) {
-        return;
-      }
+    if (!hit) {
+      return;
+    }
 
-      externalByQuestionId.set(question.questionId, hit.result);
-      discoveredTypes.set(question.questionId, hit.questionType);
-    }),
-  );
+    externalByQuestionId.set(question.questionId, hit.result);
+    discoveredTypes.set(question.questionId, hit.questionType);
+  });
 
   if (discoveredTypes.size > 0) {
     await recordQuizQuestions(

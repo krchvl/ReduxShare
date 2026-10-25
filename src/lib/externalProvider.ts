@@ -212,9 +212,6 @@ export async function fetchExternalAnswer(
   language?: string,
   timeoutMs: number = EXTERNAL_REQUEST_TIMEOUT_MS,
 ): Promise<{ ok: boolean; data: unknown | null }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
     const url = buildExternalAnswerUrl(domain, courseId, quizId, question, language);
     const response = await fetchWithTimeout(
@@ -225,8 +222,6 @@ export async function fetchExternalAnswer(
       },
       timeoutMs,
     );
-
-    clearTimeout(timeoutId);
 
     const text = await response.text();
 
@@ -241,7 +236,6 @@ export async function fetchExternalAnswer(
       return { ok: false, data: null };
     }
   } catch {
-    clearTimeout(timeoutId);
     return { ok: false, data: null };
   }
 }

@@ -796,17 +796,27 @@ export async function voteTaskAnswer(
         const finalTask = await pb.collection(TASKS_COLLECTION).getOne<TaskRecord>(payload.taskId, {
           fields: "id,votes_up,votes_down",
         });
-        const votesUp = Math.max(finalTask.votes_up ?? 0, 0);
-        const votesDown = Math.max(finalTask.votes_down ?? 0, 0);
+        const rawVotesUp = finalTask.votes_up ?? 0;
+        const rawVotesDown = finalTask.votes_down ?? 0;
+        const voteCorrection: Record<string, number> = {};
 
-        if (votesUp !== (finalTask.votes_up ?? 0) || votesDown !== (finalTask.votes_down ?? 0)) {
-          await pb.collection(TASKS_COLLECTION).update<TaskRecord>(payload.taskId, {
-            votes_up: votesUp,
-            votes_down: votesDown,
-          });
+        if (rawVotesUp < 0) {
+          voteCorrection["votes_up+"] = -rawVotesUp;
         }
 
-        return { votesUp, votesDown, myVote };
+        if (rawVotesDown < 0) {
+          voteCorrection["votes_down+"] = -rawVotesDown;
+        }
+
+        if (Object.keys(voteCorrection).length > 0) {
+          await pb.collection(TASKS_COLLECTION).update<TaskRecord>(payload.taskId, voteCorrection);
+        }
+
+        return {
+          votesUp: Math.max(rawVotesUp, 0),
+          votesDown: Math.max(rawVotesDown, 0),
+          myVote,
+        };
       },
     );
 
@@ -1241,18 +1251,41 @@ async function upsertReviewImport(
       throw error;
     }
 
-    const created = await pb.collection(REVIEW_IMPORTS_COLLECTION).create<ReviewImportRecord>({
-      user: entry.userId,
-      moodle_domain: entry.domain,
-      attempt_key: entry.attemptKey,
-      course_id: entry.courseId,
-      quiz_id: entry.quizId,
-      page_url: entry.pageUrl,
-      imported_question_count: entry.questionCount,
-      imported_question_hashes: {},
-    });
+    const created = await pb
+      .collection(REVIEW_IMPORTS_COLLECTION)
+      .create<ReviewImportRecord>({
+        user: entry.userId,
+        moodle_domain: entry.domain,
+        attempt_key: entry.attemptKey,
+        course_id: entry.courseId,
+        quiz_id: entry.quizId,
+        page_url: entry.pageUrl,
+        imported_question_count: entry.questionCount,
+        imported_question_hashes: {},
+      })
+      .catch(async (error: unknown) => {
+        if (!isValidationError(error)) {
+          throw error;
+        }
 
-    return { id: created.id, questionHashes: {} };
+        const winner = await pb
+          .collection(REVIEW_IMPORTS_COLLECTION)
+          .getFirstListItem<ReviewImportRecord>(filter);
+
+        await pb.collection(REVIEW_IMPORTS_COLLECTION).update(winner.id, {
+          course_id: entry.courseId,
+          quiz_id: entry.quizId,
+          page_url: entry.pageUrl || winner.page_url,
+          imported_question_count: Math.max(
+            winner.imported_question_count ?? 0,
+            entry.questionCount,
+          ),
+        });
+
+        return winner;
+      });
+
+    return { id: created.id, questionHashes: created.imported_question_hashes ?? {} };
   }
 }
 

@@ -322,15 +322,12 @@ describe("ReduxShare task votes (PocketBase)", () => {
     const votes = pbMocks.collections.reduxshare_task_votes;
     votes.getFirstListItem.mockResolvedValue(voteRow({ value: 1 }));
 
-    // После декремента сервер вернул -1 — клиент должен исправить значение на 0.
+    // После декремента сервер вернул -1 — клиент должен атомарно добрать счётчик до нуля.
     tasks.getOne.mockResolvedValueOnce(taskRow()).mockResolvedValueOnce(taskRow({ votes_up: -1 }));
 
     const result = await voteTaskAnswer(authSession, { taskId: "task-1", value: 1 });
 
-    expect(tasks.update).toHaveBeenLastCalledWith("task-1", {
-      votes_up: 0,
-      votes_down: 0,
-    });
+    expect(tasks.update).toHaveBeenLastCalledWith("task-1", { "votes_up+": 1 });
     expect(result.votesUp).toBe(0);
   });
 });

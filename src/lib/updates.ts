@@ -1,4 +1,4 @@
-import { getLocalizedErrorMessage, getTranslator } from "../i18n";
+import { getLocalizedErrorMessage, getTranslator, I18nError } from "../i18n";
 import { CHECK_UPDATE_MESSAGE, GET_UPDATE_STATE_MESSAGE } from "../shared/messages";
 import { DEFAULT_UPDATE_STATE, type UpdateSource, type UpdateState } from "../types";
 
@@ -104,13 +104,13 @@ export async function fetchLatestUpdateInfo(currentVersion: string): Promise<Lat
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub version check failed with status ${response.status}.`);
+    throw new I18nError("errors.updateCheckFailed");
   }
 
   const latestVersion = normalizeVersion(await response.text());
 
   if (!isValidVersion(latestVersion)) {
-    throw new Error("GitHub version file contains an invalid version.");
+    throw new I18nError("errors.updateCheckFailed");
   }
 
   return {

@@ -42,6 +42,7 @@ const GEMINI_MODELS_MAX_PAGES = 5;
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const AI_MODEL_LIST_TIMEOUT_MS = 15_000;
+const AI_REQUEST_TIMEOUT_MS = 90_000;
 const OFFICIAL_AI_TIMEOUT_MS = 90_000;
 
 export interface AiAuthContext {
@@ -784,26 +785,30 @@ export async function generateGoogleAiText(
     throw new Error("Google AI API key is missing.");
   }
 
-  const response = await fetch(getGeminiGenerateContentUrl(settings.model), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": settings.apiKey.trim(),
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: prompt }, ...(options.imageParts ?? [])],
-        },
-      ],
-      generationConfig: {
-        temperature: options.temperature ?? 0.2,
-        topP: 0.9,
-        maxOutputTokens: options.maxOutputTokens ?? 1024,
-        responseMimeType: options.responseMimeType ?? "text/plain",
+  const response = await fetchWithTimeout(
+    getGeminiGenerateContentUrl(settings.model),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": settings.apiKey.trim(),
       },
-    }),
-  });
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }, ...(options.imageParts ?? [])],
+          },
+        ],
+        generationConfig: {
+          temperature: options.temperature ?? 0.2,
+          topP: 0.9,
+          maxOutputTokens: options.maxOutputTokens ?? 1024,
+          responseMimeType: options.responseMimeType ?? "text/plain",
+        },
+      }),
+    },
+    AI_REQUEST_TIMEOUT_MS,
+  );
 
   const body = await readGeminiResponseBody(response);
 
@@ -897,25 +902,29 @@ async function generateOpenAiCompatibleChatCompletion({
     throw new Error(`${providerName} model is missing.`);
   }
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey.trim()}`,
-      ...extraHeaders,
+  const response = await fetchWithTimeout(
+    endpoint,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey.trim()}`,
+        ...extraHeaders,
+      },
+      body: JSON.stringify({
+        model: model.trim(),
+        messages: [
+          {
+            role: "user",
+            content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? []),
+          },
+        ],
+        max_tokens: options.maxOutputTokens ?? 1024,
+        temperature: options.temperature ?? 0.2,
+      }),
     },
-    body: JSON.stringify({
-      model: model.trim(),
-      messages: [
-        {
-          role: "user",
-          content: buildOpenAiCompatibleMessageContent(prompt, options.imageParts ?? []),
-        },
-      ],
-      max_tokens: options.maxOutputTokens ?? 1024,
-      temperature: options.temperature ?? 0.2,
-    }),
-  });
+    AI_REQUEST_TIMEOUT_MS,
+  );
 
   const body = await readGeminiResponseBody(response);
 
@@ -987,32 +996,36 @@ export async function generateAnthropicAiText(
       data: part.inlineData.data,
     },
   }));
-  const response = await fetch(ANTHROPIC_MESSAGES_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": settings.apiKey.trim(),
-      "anthropic-version": ANTHROPIC_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true",
+  const response = await fetchWithTimeout(
+    ANTHROPIC_MESSAGES_URL,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": settings.apiKey.trim(),
+        "anthropic-version": ANTHROPIC_VERSION,
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: options.maxOutputTokens ?? 1024,
+        temperature: options.temperature ?? 0.2,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt,
+              },
+              ...imageContent,
+            ],
+          },
+        ],
+      }),
     },
-    body: JSON.stringify({
-      model: settings.model,
-      max_tokens: options.maxOutputTokens ?? 1024,
-      temperature: options.temperature ?? 0.2,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt,
-            },
-            ...imageContent,
-          ],
-        },
-      ],
-    }),
-  });
+    AI_REQUEST_TIMEOUT_MS,
+  );
 
   const body = await readGeminiResponseBody(response);
 

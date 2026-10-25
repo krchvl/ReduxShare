@@ -520,22 +520,29 @@ export async function voteEssayExample(
           .getOne<EssayExampleRecord>(payload.exampleId, {
             fields: "id,votes_up,votes_down",
           });
-        const votesUp = Math.max(finalExample.votes_up ?? 0, 0);
-        const votesDown = Math.max(finalExample.votes_down ?? 0, 0);
+        const rawVotesUp = finalExample.votes_up ?? 0;
+        const rawVotesDown = finalExample.votes_down ?? 0;
+        const voteCorrection: Record<string, number> = {};
 
-        if (
-          votesUp !== (finalExample.votes_up ?? 0) ||
-          votesDown !== (finalExample.votes_down ?? 0)
-        ) {
-          await pb
-            .collection(ESSAY_EXAMPLES_COLLECTION)
-            .update<EssayExampleRecord>(payload.exampleId, {
-              votes_up: votesUp,
-              votes_down: votesDown,
-            });
+        if (rawVotesUp < 0) {
+          voteCorrection["votes_up+"] = -rawVotesUp;
         }
 
-        return { votesUp, votesDown, myVote };
+        if (rawVotesDown < 0) {
+          voteCorrection["votes_down+"] = -rawVotesDown;
+        }
+
+        if (Object.keys(voteCorrection).length > 0) {
+          await pb
+            .collection(ESSAY_EXAMPLES_COLLECTION)
+            .update<EssayExampleRecord>(payload.exampleId, voteCorrection);
+        }
+
+        return {
+          votesUp: Math.max(rawVotesUp, 0),
+          votesDown: Math.max(rawVotesDown, 0),
+          myVote,
+        };
       },
     );
 

@@ -65,12 +65,18 @@ describe("GitHub update provider", () => {
   it("rejects invalid GitHub .VERSION content", async () => {
     mockVersionResponse("latest");
 
-    await expect(fetchLatestUpdateInfo("0.1.0")).rejects.toThrow("invalid version");
+    await expect(fetchLatestUpdateInfo("0.1.0")).rejects.toMatchObject({
+      name: "I18nError",
+      i18nKey: "errors.updateCheckFailed",
+    });
   });
 
   it("rejects failed GitHub .VERSION responses", async () => {
     mockVersionResponse("", false, 404);
 
-    await expect(fetchLatestUpdateInfo("0.1.0")).rejects.toThrow("status 404");
+    await expect(fetchLatestUpdateInfo("0.1.0")).rejects.toMatchObject({
+      name: "I18nError",
+      i18nKey: "errors.updateCheckFailed",
+    });
   });
 });

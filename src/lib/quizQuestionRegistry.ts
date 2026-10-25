@@ -10,9 +10,41 @@ export interface QuizQuestionStub {
 
 const REGISTRY_STORAGE_PREFIX = "reduxshare_quiz_questions";
 const REGISTRY_MAX_QUESTIONS_PER_QUIZ = 500;
+const REGISTRY_MAX_TRACKED_QUIZZES = 10;
 
 function getRegistryStorageKey(domain: string, courseId: number, quizId: number) {
   return `${REGISTRY_STORAGE_PREFIX}:${domain}:${courseId}:${quizId}`;
+}
+
+export async function pruneQuizQuestionRegistries(keepStorageKey: string): Promise<void> {
+  try {
+    const allStorage = (await chrome.storage.local.get(null)) as Record<string, unknown>;
+    const registryKeys = Object.keys(allStorage).filter(
+      (key) => key.startsWith(REGISTRY_STORAGE_PREFIX) && key !== keepStorageKey,
+    );
+
+    if (registryKeys.length < REGISTRY_MAX_TRACKED_QUIZZES) {
+      return;
+    }
+
+    const ranked = registryKeys
+      .map((key) => {
+        const stubs = allStorage[key];
+        const lastUpdatedAt =
+          Array.isArray(stubs) && stubs.length > 0 && stubs[0]?.updatedAt
+            ? String(stubs[0].updatedAt)
+            : "";
+
+        return { key, lastUpdatedAt };
+      })
+      .sort((left, right) => right.lastUpdatedAt.localeCompare(left.lastUpdatedAt));
+
+    const removeKeys = ranked.slice(REGISTRY_MAX_TRACKED_QUIZZES - 1).map((entry) => entry.key);
+
+    if (removeKeys.length > 0) {
+      await chrome.storage.local.remove(removeKeys);
+    }
+  } catch {}
 }
 
 export async function recordQuizQuestions(
@@ -78,6 +110,7 @@ export async function recordQuizQuestions(
       .slice(0, REGISTRY_MAX_QUESTIONS_PER_QUIZ);
 
     await chrome.storage.local.set({ [storageKey]: stubs });
+    await pruneQuizQuestionRegistries(storageKey);
   } catch {}
 }
 
