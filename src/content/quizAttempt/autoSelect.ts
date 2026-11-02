@@ -91,6 +91,7 @@ type PendingAutoSelectAnswer = {
   hosts: HTMLElement[];
   startedAt: number;
   delayMs: number;
+  applying: boolean;
 };
 
 const pendingAutoSelectAnswers = new Map<string, PendingAutoSelectAnswer>();
@@ -479,6 +480,7 @@ export function scheduleAutoSelectAnswer(
     hosts: getAutoSelectWidgetHosts(questionNode, questionId),
     startedAt: Date.now(),
     delayMs,
+    applying: false,
   };
   const firePendingAnswer = async () => {
     if (document.hidden) {
@@ -488,27 +490,32 @@ export function scheduleAutoSelectAnswer(
       return;
     }
 
-    if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
-      await runHumanPrecursors(questionNode);
-    }
+    pending.applying = true;
+    try {
+      if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
+        await runHumanPrecursors(questionNode);
+      }
 
-    const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
-      questionNode,
-      getAnswerDataForQuestion(questionId),
-      isLoggedInToExtension(currentStoredState),
-      questionId,
-    );
+      const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
+        questionNode,
+        getAnswerDataForQuestion(questionId),
+        isLoggedInToExtension(currentStoredState),
+        questionId,
+      );
 
-    if (await applyTextAnswerHumanLike(questionNode, questionId, freshAnswerData, settings)) {
+      if (await applyTextAnswerHumanLike(questionNode, questionId, freshAnswerData, settings)) {
+        pendingAutoSelectAnswers.delete(key);
+        stopAutoSelectProgress(pending);
+        return;
+      }
+
       pendingAutoSelectAnswers.delete(key);
       stopAutoSelectProgress(pending);
-      return;
+
+      applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
+    } finally {
+      pending.applying = false;
     }
-
-    pendingAutoSelectAnswers.delete(key);
-    stopAutoSelectProgress(pending);
-
-    applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
   };
   pending.timeoutId = window.setTimeout(() => {
     void firePendingAnswer();
@@ -548,6 +555,10 @@ function handleAutoSelectUserInput(event: Event) {
   }
 
   for (const [key, pending] of Array.from(pendingAutoSelectAnswers)) {
+    if (pending.applying) {
+      continue;
+    }
+
     if (pending.questionNode.contains(target)) {
       dropAutoSelectSchedule(key, pending);
     }
