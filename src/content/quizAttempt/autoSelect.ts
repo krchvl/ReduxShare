@@ -42,7 +42,7 @@ import {
   setAnswerInputChecked,
   setSelectValue,
 } from "./answerControls";
-import { typeTextHumanLike } from "./textControls";
+import { isExtensionCreatedEvent, typeTextHumanLike } from "./textControls";
 import { autoSelectDdmarkerAnswers } from "./ddmarker";
 import { autoSelectDdwtosAnswers } from "./ddwtos";
 import { autoSelectDdimageOrTextAnswers } from "./ddimageortext";
@@ -91,6 +91,7 @@ type PendingAutoSelectAnswer = {
   hosts: HTMLElement[];
   startedAt: number;
   delayMs: number;
+  cancelled: boolean;
 };
 
 const pendingAutoSelectAnswers = new Map<string, PendingAutoSelectAnswer>();
@@ -350,6 +351,7 @@ function stopAutoSelectProgress(pending: PendingAutoSelectAnswer) {
 }
 
 function dropAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer) {
+  pending.cancelled = true;
   pendingAutoSelectAnswers.delete(key);
   window.clearTimeout(pending.timeoutId);
   stopAutoSelectProgress(pending);
@@ -360,6 +362,7 @@ async function applyTextAnswerHumanLike(
   questionId: string | null,
   answerData: AnswerData,
   settings: StoredStateLike["settings"] | undefined,
+  options: { shouldAbort?: () => boolean } = {},
 ): Promise<boolean> {
   if (!(settings?.humanTyping ?? DEFAULT_SETTINGS.humanTyping)) {
     return false;
@@ -388,7 +391,7 @@ async function applyTextAnswerHumanLike(
     return false;
   }
 
-  const changed = await typeTextHumanLike(control, exactAnswerLabels[0]);
+  const changed = await typeTextHumanLike(control, exactAnswerLabels[0], options);
 
   if (!changed) {
     return false;
@@ -479,6 +482,7 @@ export function scheduleAutoSelectAnswer(
     hosts: getAutoSelectWidgetHosts(questionNode, questionId),
     startedAt: Date.now(),
     delayMs,
+    cancelled: false,
   };
   const firePendingAnswer = async () => {
     if (document.hidden) {
@@ -492,6 +496,10 @@ export function scheduleAutoSelectAnswer(
       await runHumanPrecursors(questionNode);
     }
 
+    if (pending.cancelled) {
+      return;
+    }
+
     const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
       questionNode,
       getAnswerDataForQuestion(questionId),
@@ -499,14 +507,22 @@ export function scheduleAutoSelectAnswer(
       questionId,
     );
 
-    if (await applyTextAnswerHumanLike(questionNode, questionId, freshAnswerData, settings)) {
-      pendingAutoSelectAnswers.delete(key);
-      stopAutoSelectProgress(pending);
-      return;
-    }
+    const applied = await applyTextAnswerHumanLike(
+      questionNode,
+      questionId,
+      freshAnswerData,
+      settings,
+      {
+        shouldAbort: () => pending.cancelled,
+      },
+    );
 
     pendingAutoSelectAnswers.delete(key);
     stopAutoSelectProgress(pending);
+
+    if (applied || pending.cancelled) {
+      return;
+    }
 
     applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
   };
@@ -538,6 +554,10 @@ export function countPendingAutoSelectSchedules(): number {
 
 function handleAutoSelectUserInput(event: Event) {
   if (pendingAutoSelectAnswers.size === 0) {
+    return;
+  }
+
+  if (isExtensionCreatedEvent(event)) {
     return;
   }
 

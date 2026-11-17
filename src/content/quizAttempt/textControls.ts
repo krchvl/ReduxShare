@@ -15,9 +15,17 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
   input.value = value;
 }
 
+const extensionCreatedEvents = new WeakSet<Event>();
+
+export function isExtensionCreatedEvent(event: Event): boolean {
+  return extensionCreatedEvents.has(event);
+}
+
 function createControlEvent(control: HTMLElement, type: string) {
   const EventConstructor = control.ownerDocument.defaultView?.Event ?? Event;
-  return new EventConstructor(type, { bubbles: true });
+  const event = new EventConstructor(type, { bubbles: true });
+  extensionCreatedEvents.add(event);
+  return event;
 }
 
 function dispatchTextControlEvents(control: HTMLElement) {
@@ -29,6 +37,7 @@ export interface HumanTypingOptions {
   minIntervalMs?: number;
   maxIntervalMs?: number;
   random?: () => number;
+  shouldAbort?: () => boolean;
 }
 
 const HUMAN_TYPING_MIN_INTERVAL_MS = 45;
@@ -36,7 +45,9 @@ const HUMAN_TYPING_MAX_INTERVAL_MS = 190;
 
 function dispatchKeyEvent(control: HTMLElement, type: string, key: string): void {
   const EventConstructor = control.ownerDocument.defaultView?.KeyboardEvent ?? window.KeyboardEvent;
-  control.dispatchEvent(new EventConstructor(type, { key, bubbles: true, cancelable: true }));
+  const event = new EventConstructor(type, { key, bubbles: true, cancelable: true });
+  extensionCreatedEvents.add(event);
+  control.dispatchEvent(event);
 }
 
 function sleepTyping(ms: number): Promise<void> {
@@ -59,6 +70,7 @@ export async function typeTextHumanLike(
   const random = options.random ?? Math.random;
   const minInterval = options.minIntervalMs ?? HUMAN_TYPING_MIN_INTERVAL_MS;
   const maxInterval = Math.max(minInterval, options.maxIntervalMs ?? HUMAN_TYPING_MAX_INTERVAL_MS);
+  const shouldAbort = options.shouldAbort ?? (() => false);
 
   try {
     if (typeof control.focus === "function") {
@@ -78,12 +90,20 @@ export async function typeTextHumanLike(
   setValue("");
 
   for (const char of nextValue) {
+    if (shouldAbort()) {
+      return false;
+    }
+
     dispatchKeyEvent(control, "keydown", char);
     dispatchKeyEvent(control, "keypress", char);
     setValue(control.value + char);
     control.dispatchEvent(createControlEvent(control, "input"));
     dispatchKeyEvent(control, "keyup", char);
     await sleepTyping(minInterval + random() * (maxInterval - minInterval));
+  }
+
+  if (shouldAbort()) {
+    return false;
   }
 
   if (control.getAttribute("value") !== nextValue) {

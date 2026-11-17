@@ -42,6 +42,7 @@ type QuizAttemptTestApi = {
     immediate?: boolean,
   ) => boolean;
   cancelAutoSelectSchedule: (questionId: string | null) => void;
+  countPendingAutoSelectSchedules: () => number;
   buildReviewAnswersForQuestion: (questionNode: Element, questionType: string | null) => unknown[];
   collectReviewQuestionsForSave: () => Array<{
     questionId: string | null;
