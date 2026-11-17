@@ -55,10 +55,15 @@ describe("auto-select humanized text typing", () => {
     const input = document.querySelector<HTMLInputElement>('input[type="text"]');
     expect(input).toBeTruthy();
 
+    const tickMs = 25;
+    const maxScheduleDelayMs = 60000;
+    const typingHeadroomMs = 5000;
+    const maxTicks = Math.ceil((maxScheduleDelayMs + typingHeadroomMs) / tickMs);
+
     let sawPartialValue = false;
 
-    for (let tick = 0; tick < 600; tick += 1) {
-      await vi.advanceTimersByTimeAsync(25);
+    for (let tick = 0; tick < maxTicks; tick += 1) {
+      await vi.advanceTimersByTimeAsync(tickMs);
 
       if (input.value !== "" && input.value !== "1300") {
         sawPartialValue = true;
@@ -75,6 +80,55 @@ describe("auto-select humanized text typing", () => {
 
     await vi.advanceTimersByTimeAsync(200);
 
+    expect(api.countPendingAutoSelectSchedules()).toBe(0);
+  });
+
+  it("stops typing and cancels the schedule when the user edits the field mid-typing", async () => {
+    vi.useFakeTimers();
+    const api = await getQuizAttemptTestApi();
+    const state = baseStoredState();
+    api.setStoredState(state);
+    setCurrentStoredState(state);
+    syncLanguage(state);
+    syncStealthMode(state);
+
+    loadQuestionFixture("shortanswer", "attempt");
+    document
+      .querySelectorAll('[data-reduxshare-answer-widget="true"]')
+      .forEach((node) => node.remove());
+
+    api.setSourceAnswerData("2011", "external", exactAnswerData("1300"));
+
+    const questionNode = document.querySelector(".que");
+    expect(questionNode).toBeInstanceOf(Element);
+
+    vi.stubGlobal(TEST_MODE_STUB, false);
+
+    api.scheduleAutoSelectAnswer("2011", questionNode as Element, state, false);
+
+    const input = document.querySelector<HTMLInputElement>('input[type="text"]');
+    expect(input).toBeTruthy();
+
+    for (let tick = 0; tick < 2600; tick += 1) {
+      await vi.advanceTimersByTimeAsync(25);
+
+      if (input.value !== "" && input.value !== "1300") {
+        break;
+      }
+    }
+
+    expect(input.value).not.toBe("");
+    expect(input.value).not.toBe("1300");
+    expect(api.countPendingAutoSelectSchedules()).toBe(1);
+
+    input.value = "u";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(api.countPendingAutoSelectSchedules()).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(input.value).toBe("u");
     expect(api.countPendingAutoSelectSchedules()).toBe(0);
   });
 });
