@@ -52,7 +52,10 @@ Notes:
 
 1. Open **Build** → **Firestore Database**.
 2. Click **Create database**.
-3. Choose **Native mode** (not Datastore mode).
+3. Choose **Standard edition**:
+   - **Standard edition** — simple query engine with automatic indexing, supports core operations. This is the current name of the classic Firestore database (previously called **Native mode**). Choose this one.
+   - **Enterprise edition** — advanced query engine with self-managed indexing (supports core operations, pipelines, and MongoDB). It is not needed here: the extension uses the classic documents/query/commit API and relies on automatic single-field indexes.
+   - On older consoles the same choice is shown as **Native mode** vs **Datastore mode**: pick **Native mode**.
 4. Choose a location close to your users. The location is permanent for the project.
 5. Start in **production mode**. The default rules will be replaced in the next step.
 
@@ -194,19 +197,19 @@ Firestore backups require the Blaze plan. Options:
 
 ## Troubleshooting
 
-| Symptom                                                              | Cause and fix                                                                                                                                                                        |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Popup shows `Firebase is not configured…`                            | `VITE_FIREBASE_API_KEY` or `VITE_FIREBASE_PROJECT_ID` was missing at build time. Fill `.env` and rebuild.                                                                            |
-| Login fails for every account                                        | Email/Password provider is disabled, or the API key/project ID is wrong. Check Authentication → Sign-in method and Project settings.                                                 |
-| Registration always fails with a generic error                       | Rules were not deployed, the username collection write is denied, or the project uses Datastore mode. Deploy `firebase/firestore.rules` and create a Native-mode Firestore database. |
-| `PERMISSION_DENIED` on every read                                    | Rules not published, the user is signed out, or a stale session from another provider is stored. Sign out, log in again; verify the Rules tab shows the repository rules.            |
-| `API key not valid` / requests blocked                               | The Web API key is restricted (HTTP referrers, API restrictions). Allow the Identity Toolkit and Cloud Firestore APIs and remove referrer restrictions for extension use.            |
-| Registration says the username is taken right after a failed attempt | A previous registration left a reservation, or another user owns it. Delete the stale `usernames/{hash}` document in the console, or choose another username.                        |
-| Review saves stay `queued`                                           | No valid session: the pending queue flushes after login (same behavior as PocketBase).                                                                                               |
-| Answers are invisible to another user                                | Both users must be signed in; all reads require authentication.                                                                                                                      |
-| Votes/counters look wrong                                            | Counters are client-driven and can race; reload the page. Persistent negative values are clamped to zero by the client.                                                              |
-| Build warns about missing Firebase config                            | `.env` was not picked up: check the variable names, remove quotes if they were pasted, and rebuild from the repository root.                                                         |
-| Requests fail behind a corporate proxy                               | The three `*.googleapis.com` hosts must be reachable; verify the manifest host permissions and the proxy/firewall.                                                                   |
+| Symptom                                                              | Cause and fix                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Popup shows `Firebase is not configured…`                            | `VITE_FIREBASE_API_KEY` or `VITE_FIREBASE_PROJECT_ID` was missing at build time. Fill `.env` and rebuild.                                                                                                                                   |
+| Login fails for every account                                        | Email/Password provider is disabled, or the API key/project ID is wrong. Check Authentication → Sign-in method and Project settings.                                                                                                        |
+| Registration always fails with a generic error                       | Rules were not deployed, the username collection write is denied, or the database was created in Datastore/Enterprise mode. Deploy `firebase/firestore.rules` and create a **Standard edition** database (older consoles: **Native mode**). |
+| `PERMISSION_DENIED` on every read                                    | Rules not published, the user is signed out, or a stale session from another provider is stored. Sign out, log in again; verify the Rules tab shows the repository rules.                                                                   |
+| `API key not valid` / requests blocked                               | The Web API key is restricted (HTTP referrers, API restrictions). Allow the Identity Toolkit and Cloud Firestore APIs and remove referrer restrictions for extension use.                                                                   |
+| Registration says the username is taken right after a failed attempt | A previous registration left a reservation, or another user owns it. Delete the stale `usernames/{hash}` document in the console, or choose another username.                                                                               |
+| Review saves stay `queued`                                           | No valid session: the pending queue flushes after login (same behavior as PocketBase).                                                                                                                                                      |
+| Answers are invisible to another user                                | Both users must be signed in; all reads require authentication.                                                                                                                                                                             |
+| Votes/counters look wrong                                            | Counters are client-driven and can race; reload the page. Persistent negative values are clamped to zero by the client.                                                                                                                     |
+| Build warns about missing Firebase config                            | `.env` was not picked up: check the variable names, remove quotes if they were pasted, and rebuild from the repository root.                                                                                                                |
+| Requests fail behind a corporate proxy                               | The three `*.googleapis.com` hosts must be reachable; verify the manifest host permissions and the proxy/firewall.                                                                                                                          |
 
 ## Switching back to PocketBase
 
