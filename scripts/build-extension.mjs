@@ -43,7 +43,27 @@ for (const target of targets) {
   await removeBuildJunk(resolve(rootDir, "dist", target));
   const manifest = await writeTargetManifest(target);
   await assertContentScriptsAreSelfContained(resolve(rootDir, "dist", target));
+  await assertNoLegacyFirestoreFields(resolve(rootDir, "dist", target));
   await createTargetArchive(target, manifest.version);
+}
+
+async function assertNoLegacyFirestoreFields(targetDir) {
+  const assetsDir = resolve(targetDir, "assets");
+  const files = await readdir(assetsDir);
+
+  for (const file of files) {
+    if (!file.endsWith(".js")) {
+      continue;
+    }
+
+    const source = await readFile(resolve(assetsDir, file), "utf8");
+
+    if (source.includes("setToServerTimestamp")) {
+      console.error(`${file} contains the legacy Firestore REST field "setToServerTimestamp".`);
+      console.error('Firestore REST expects "setToServerValue": "REQUEST_TIME".');
+      process.exit(1);
+    }
+  }
 }
 
 async function assertContentScriptsAreSelfContained(targetDir) {

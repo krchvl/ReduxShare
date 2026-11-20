@@ -30,7 +30,9 @@ interface WriteBody {
 }
 
 function pathFromName(name: string): string {
-  return name.startsWith(`${DOCUMENTS_BASE}/`) ? name.slice(DOCUMENTS_BASE.length + 1) : name;
+  const marker = "/documents/";
+  const index = name.indexOf(marker);
+  return index >= 0 ? name.slice(index + marker.length) : name;
 }
 
 export class FakeFirestore {

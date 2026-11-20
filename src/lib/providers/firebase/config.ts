@@ -19,8 +19,10 @@ export function requireFirebaseConfig(): FirebaseRuntimeConfig {
   return config;
 }
 
+export function getFirestoreDatabaseRoot(projectId: string): string {
+  return `projects/${encodeURIComponent(projectId)}/databases/(default)/documents`;
+}
+
 export function getFirestoreDocumentsUrl(projectId: string): string {
-  return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
-    projectId,
-  )}/databases/(default)/documents`;
+  return `https://firestore.googleapis.com/v1/${getFirestoreDatabaseRoot(projectId)}`;
 }

@@ -6,7 +6,7 @@ import {
   decodeFirestoreDocument,
   decodeFirestoreValue,
   deleteDocumentWrite,
-  documentName,
+  documentResourceName,
   encodeFirestoreFields,
   encodeFirestoreValue,
   incrementDocumentWrite,
@@ -154,7 +154,7 @@ describe("firestore query and write builders", () => {
 
     expect(create).toEqual({
       update: {
-        name: documentName("demo", "tasks/task-1"),
+        name: documentResourceName("demo", "tasks/task-1"),
         fields: { answer_label: { stringValue: "Alpha" } },
       },
       currentDocument: { exists: false },
@@ -171,7 +171,7 @@ describe("firestore query and write builders", () => {
       }),
     ).toEqual({
       update: {
-        name: documentName("demo", "tasks/task-1"),
+        name: documentResourceName("demo", "tasks/task-1"),
         fields: {
           answer_label: { stringValue: "Beta" },
           last_contributor_username: { stringValue: "bob" },
@@ -189,7 +189,7 @@ describe("firestore query and write builders", () => {
       }),
     ).toEqual({
       transform: {
-        document: documentName("demo", "tasks/task-1"),
+        document: documentResourceName("demo", "tasks/task-1"),
         fieldTransforms: [
           { fieldPath: "correct_count", increment: { integerValue: "1" } },
           { fieldPath: "votes_down", increment: { integerValue: "-1" } },
@@ -199,7 +199,7 @@ describe("firestore query and write builders", () => {
     });
 
     expect(deleteDocumentWrite("demo", "taskVotes/vote-1")).toEqual({
-      delete: documentName("demo", "taskVotes/vote-1"),
+      delete: documentResourceName("demo", "taskVotes/vote-1"),
     });
   });
 });
@@ -227,17 +227,19 @@ describe("firestore client", () => {
   });
 
   it("batch-gets documents by name in request order", async () => {
+    const resourceRoot = "projects/demo/databases/(default)/documents";
+
     stubFetchOnce([
       {
         found: {
-          name: `${documentsUrl}/taskVotes/vote-b`,
+          name: `${resourceRoot}/taskVotes/vote-b`,
           fields: { value: { integerValue: "-1" } },
         },
       },
-      { missing: `${documentsUrl}/taskVotes/missing` },
+      { missing: `${resourceRoot}/taskVotes/missing` },
       {
         found: {
-          name: `${documentsUrl}/taskVotes/vote-a`,
+          name: `${resourceRoot}/taskVotes/vote-a`,
           fields: { value: { integerValue: "1" } },
         },
       },

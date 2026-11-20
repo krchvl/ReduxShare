@@ -1,4 +1,4 @@
-import { getFirestoreDocumentsUrl } from "./config";
+import { getFirestoreDatabaseRoot, getFirestoreDocumentsUrl } from "./config";
 import { firebaseFetchJson, isFirebaseNotFoundError } from "./http";
 
 export type FirestoreValue =
@@ -203,7 +203,11 @@ export function decodeFirestoreDocument(document: FirestoreDocument): FirestoreD
   };
 }
 
-export function documentName(projectId: string, path: string): string {
+export function documentResourceName(projectId: string, path: string): string {
+  return `${getFirestoreDatabaseRoot(projectId)}/${path.replace(/^\/+/, "")}`;
+}
+
+export function documentUrl(projectId: string, path: string): string {
   return `${getFirestoreDocumentsUrl(projectId)}/${path.replace(/^\/+/, "")}`;
 }
 
@@ -265,7 +269,7 @@ export function createDocumentWrite(
   path: string,
   data: Record<string, unknown>,
 ): FirestoreWrite {
-  const name = documentName(projectId, path);
+  const name = documentResourceName(projectId, path);
 
   return {
     update: { name, fields: encodeFirestoreFields(omitTimestampFields(data)) },
@@ -280,7 +284,7 @@ export function updateDocumentWrite(
   data: Record<string, unknown>,
   fieldPaths?: string[],
 ): FirestoreWrite {
-  const name = documentName(projectId, path);
+  const name = documentResourceName(projectId, path);
   const fields = encodeFirestoreFields(omitTimestampFields(data));
   const mask = fieldPaths ?? Object.keys(fields);
 
@@ -296,7 +300,7 @@ export function incrementDocumentWrite(
   path: string,
   increments: Record<string, number>,
 ): FirestoreWrite {
-  const name = documentName(projectId, path);
+  const name = documentResourceName(projectId, path);
   const fieldTransforms: FirestoreWriteTransform[] = [];
 
   for (const [fieldPath, delta] of Object.entries(increments)) {
@@ -320,7 +324,7 @@ export function updateDocumentWithIncrementsWrite(
   data: Record<string, unknown>,
   increments: Record<string, number>,
 ): FirestoreWrite {
-  const name = documentName(projectId, path);
+  const name = documentResourceName(projectId, path);
   const fields = encodeFirestoreFields(omitTimestampFields(data));
   const fieldTransforms: FirestoreWriteTransform[] = [];
 
@@ -348,7 +352,7 @@ export function updateDocumentWithIncrementsWrite(
 }
 
 export function deleteDocumentWrite(projectId: string, path: string): FirestoreWrite {
-  return { delete: documentName(projectId, path) };
+  return { delete: documentResourceName(projectId, path) };
 }
 
 interface QueryResult {
@@ -383,16 +387,18 @@ export function createFirestoreClient(options: {
     });
   }
 
-  function nameOf(path: string): string {
+  function urlOf(path: string): string {
     return `${documentsUrl}/${path.replace(/^\/+/, "")}`;
+  }
+
+  function resourceNameOf(path: string): string {
+    return documentResourceName(options.projectId, path);
   }
 
   return {
     async getDocument(path) {
-      const name = nameOf(path);
-
       try {
-        const document = await request<FirestoreDocument>(name, {
+        const document = await request<FirestoreDocument>(urlOf(path), {
           method: "GET",
         });
 
@@ -411,7 +417,7 @@ export function createFirestoreClient(options: {
         return [];
       }
 
-      const names = paths.map((path) => nameOf(path));
+      const names = paths.map((path) => resourceNameOf(path));
       const results = await request<BatchGetResult[]>(`${documentsUrl}:batchGet`, {
         method: "POST",
         body: JSON.stringify({ documents: names }),

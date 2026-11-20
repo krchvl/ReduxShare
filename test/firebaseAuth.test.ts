@@ -14,6 +14,7 @@ const IDENTITY_URL = "https://identitytoolkit.googleapis.com/v1";
 const SECURE_TOKEN_URL = "https://securetoken.googleapis.com/v1/token";
 const DOCUMENTS_URL =
   "https://firestore.googleapis.com/v1/projects/demo/databases/(default)/documents";
+const RESOURCE_ROOT = "projects/demo/databases/(default)/documents";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -222,14 +223,14 @@ describe("firebase register", () => {
     const commitBody = JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string);
 
     expect(commitBody.writes).toHaveLength(2);
-    expect(commitBody.writes[0].update.name).toBe(`${DOCUMENTS_URL}/users/uid-1`);
+    expect(commitBody.writes[0].update.name).toBe(`${RESOURCE_ROOT}/users/uid-1`);
     expect(commitBody.writes[0].currentDocument).toEqual({ exists: false });
     expect(commitBody.writes[0].update.fields.username).toEqual({ stringValue: "Alice" });
     expect(commitBody.writes[0].update.fields.email).toEqual({
       stringValue: "user@example.com",
     });
     expect(commitBody.writes[1].update.name).toBe(
-      `${DOCUMENTS_URL}/usernames/${usernameDocumentId("Alice")}`,
+      `${RESOURCE_ROOT}/usernames/${usernameDocumentId("Alice")}`,
     );
     expect(commitBody.writes[1].update.fields.user).toEqual({ stringValue: "uid-1" });
   });
