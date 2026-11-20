@@ -107,6 +107,7 @@ import {
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
+import { isAuthSessionForProvider } from "../lib/envConfig";
 import {
   ensureActivePocketBaseServer,
   initActivePocketBaseServerSync,
@@ -743,7 +744,13 @@ async function handleCheckUpdate(payload: CheckUpdatePayload = {}): Promise<Upda
 }
 
 function getStoredAuthSession(storedState: Partial<StoredState>) {
-  return storedState.authSession?.user.id ? storedState.authSession : null;
+  const authSession = storedState.authSession;
+
+  if (!authSession?.user.id) {
+    return null;
+  }
+
+  return isAuthSessionForProvider(authSession) ? authSession : null;
 }
 
 async function isSessionStillValid(originalSession: AuthSession | null): Promise<boolean> {
