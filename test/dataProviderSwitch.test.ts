@@ -44,6 +44,9 @@ function firebaseSession(overrides: Partial<AuthSession> = {}): AuthSession {
 
 describe("data provider switch", () => {
   it("defaults to PocketBase", () => {
+    vi.stubEnv("VITE_FIREBASE_API_KEY", "");
+    vi.stubEnv("VITE_FIREBASE_PROJECT_ID", "");
+
     expect(getDataProvider()).toBe("pocketbase");
     expect(isFirebaseBackend()).toBe(false);
     expect(getFirebaseEnvConfig()).toBeNull();
