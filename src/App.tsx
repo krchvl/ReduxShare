@@ -4,7 +4,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
-import { logoutFromPocketBase, requestLogin, requestRegister } from "./lib/auth";
+import { logout, requestLogin, requestRegister } from "./lib/auth";
 import { isAuthSessionForProvider, isFirebaseBackend } from "./lib/envConfig";
 import { setActivePocketBaseUrl } from "./lib/pocketbase";
 import { loadStoredState, saveStoredState } from "./lib/storage";
@@ -300,7 +300,7 @@ export function App() {
   function handleLogout() {
     const hadSession = Boolean(authSession);
 
-    void logoutFromPocketBase(authSession);
+    void logout(authSession);
     setAuthSession(null);
     setUserProfile(null);
     setLoginError(null);

@@ -7,7 +7,7 @@ const loginMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof AuthLib>();
-  return { ...actual, loginWithPocketBase: loginMock };
+  return { ...actual, login: loginMock };
 });
 
 type WorkerListener = (

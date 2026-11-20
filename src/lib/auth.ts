@@ -1,20 +1,19 @@
 import { ClientResponseError } from "pocketbase";
-import { I18nError, type TranslationKey } from "../i18n";
+import { I18nError } from "../i18n";
 import type { AuthSession, LoginCredentials, RegisterCredentials } from "../types";
 import { LOGIN_MESSAGE, REGISTER_MESSAGE } from "../shared/messages";
 import { getPocketBase, mapPocketBaseSession } from "./pocketbase";
+import { isFirebaseBackend } from "./envConfig";
+import { AuthError, type AuthResult } from "./authErrors";
+import {
+  firebaseEnsureSession,
+  firebaseLogin,
+  firebaseRefreshSession,
+  firebaseRegister,
+} from "./providers/firebase/auth";
 
-export class AuthError extends I18nError {
-  constructor(messageKey: TranslationKey) {
-    super(messageKey);
-    this.name = "AuthError";
-  }
-}
-
-export interface AuthResult {
-  authSession: AuthSession | null;
-  messageKey?: TranslationKey;
-}
+export { AuthError } from "./authErrors";
+export type { AuthResult } from "./authErrors";
 
 function maskAuthEmail(email: string) {
   const trimmedEmail = email.trim();
@@ -239,6 +238,34 @@ export async function logoutFromPocketBase(authSession: AuthSession | null): Pro
   try {
     getPocketBase(authSession).authStore.clear();
   } catch {}
+}
+
+export async function login(credentials: LoginCredentials): Promise<AuthSession> {
+  return isFirebaseBackend() ? firebaseLogin(credentials) : loginWithPocketBase(credentials);
+}
+
+export async function register(credentials: RegisterCredentials): Promise<AuthResult> {
+  return isFirebaseBackend() ? firebaseRegister(credentials) : registerWithPocketBase(credentials);
+}
+
+export async function ensureSession(authSession: AuthSession): Promise<AuthSession> {
+  return isFirebaseBackend()
+    ? firebaseEnsureSession(authSession)
+    : ensurePocketBaseSession(authSession);
+}
+
+export async function restoreSession(authSession: AuthSession): Promise<AuthSession> {
+  return isFirebaseBackend()
+    ? firebaseRefreshSession(authSession)
+    : restorePocketBaseSession(authSession);
+}
+
+export async function logout(authSession: AuthSession | null): Promise<void> {
+  if (isFirebaseBackend()) {
+    return;
+  }
+
+  await logoutFromPocketBase(authSession);
 }
 
 export interface LoginResponse {

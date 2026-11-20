@@ -81,7 +81,7 @@ import {
   type UserAttemptHistory,
   type UserLeaderboard,
 } from "../lib/userProfiles";
-import { loginWithPocketBase, registerWithPocketBase } from "../lib/auth";
+import { login, register } from "../lib/auth";
 import { APP_STORAGE_KEY, QUIZ_REVIEW_SAVE_DIAGNOSTICS_STORAGE_KEY } from "../shared/storageKeys";
 import type { AuthSession, LoginCredentials, RegisterCredentials } from "../types";
 import {
@@ -991,7 +991,7 @@ async function handleFetchAttemptHistory(): Promise<FetchAttemptHistoryResponse>
 async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
   await ensureActivePocketBaseServer();
   const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
-  const authSession = await loginWithPocketBase(payload);
+  const authSession = await login(payload);
 
   const sessionChangedSinceRequest = await hasStoredAuthSessionChangedSince(
     sessionBeforeRequest?.accessToken ?? null,
@@ -1010,7 +1010,7 @@ async function handleLogin(payload: LoginCredentials): Promise<LoginResponse> {
 async function handleRegister(payload: RegisterCredentials): Promise<RegisterResponse> {
   await ensureActivePocketBaseServer();
   const sessionBeforeRequest = getStoredAuthSession(await loadStoredState());
-  const result = await registerWithPocketBase(payload);
+  const result = await register(payload);
 
   if (result.authSession) {
     const sessionChangedSinceRequest = await hasStoredAuthSessionChangedSince(
