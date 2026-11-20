@@ -159,8 +159,8 @@ describe("firestore query and write builders", () => {
       },
       currentDocument: { exists: false },
       updateTransforms: [
-        { fieldPath: "created", setToServerTimestamp: {} },
-        { fieldPath: "updated", setToServerTimestamp: {} },
+        { fieldPath: "created", setToServerValue: "REQUEST_TIME" },
+        { fieldPath: "updated", setToServerValue: "REQUEST_TIME" },
       ],
     });
 
@@ -178,7 +178,7 @@ describe("firestore query and write builders", () => {
         },
       },
       updateMask: { fieldPaths: ["answer_label", "last_contributor_username"] },
-      updateTransforms: [{ fieldPath: "updated", setToServerTimestamp: {} }],
+      updateTransforms: [{ fieldPath: "updated", setToServerValue: "REQUEST_TIME" }],
     });
 
     expect(
@@ -193,7 +193,7 @@ describe("firestore query and write builders", () => {
         fieldTransforms: [
           { fieldPath: "correct_count", increment: { integerValue: "1" } },
           { fieldPath: "votes_down", increment: { integerValue: "-1" } },
-          { fieldPath: "updated", setToServerTimestamp: {} },
+          { fieldPath: "updated", setToServerValue: "REQUEST_TIME" },
         ],
       },
     });

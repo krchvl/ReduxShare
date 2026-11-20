@@ -15,7 +15,7 @@ interface WriteBody {
   updateTransforms?: Array<{
     fieldPath: string;
     increment?: { integerValue?: string; doubleValue?: number };
-    setToServerTimestamp?: unknown;
+    setToServerValue?: string;
   }>;
   currentDocument?: { exists?: boolean };
   transform?: {
@@ -23,7 +23,7 @@ interface WriteBody {
     fieldTransforms: Array<{
       fieldPath: string;
       increment?: { integerValue?: string; doubleValue?: number };
-      setToServerTimestamp?: unknown;
+      setToServerValue?: string;
     }>;
   };
   delete?: string;
@@ -154,7 +154,7 @@ export class FakeFirestore {
         fields[transform.fieldPath] = ((fields[transform.fieldPath] as number) ?? 0) + delta;
       }
 
-      if (transform.setToServerTimestamp !== undefined) {
+      if (transform.setToServerValue !== undefined) {
         fields[transform.fieldPath] = this.nextTimestamp();
       }
     }

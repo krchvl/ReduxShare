@@ -30,7 +30,7 @@ export interface FirestoreDocumentData {
 export interface FirestoreWriteTransform {
   fieldPath: string;
   increment?: { integerValue: string } | { doubleValue: number };
-  setToServerTimestamp?: Record<string, never>;
+  setToServerValue?: "REQUEST_TIME";
 }
 
 export interface FirestoreWrite {
@@ -250,7 +250,7 @@ function omitTimestampFields(data: Record<string, unknown>): Record<string, unkn
 }
 
 function serverTimestampTransform(fieldPath: string): FirestoreWriteTransform {
-  return { fieldPath, setToServerTimestamp: {} };
+  return { fieldPath, setToServerValue: "REQUEST_TIME" };
 }
 
 function incrementTransform(fieldPath: string, delta: number): FirestoreWriteTransform {
