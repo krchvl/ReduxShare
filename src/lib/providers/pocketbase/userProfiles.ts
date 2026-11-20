@@ -1,12 +1,5 @@
 import type PocketBase from "pocketbase";
-import type { AuthSession, UserProfile } from "../../../types";
-import { I18nError } from "../../../i18n";
-import {
-  FETCH_ATTEMPT_HISTORY_MESSAGE,
-  FETCH_LEADERBOARD_MESSAGE,
-  FETCH_OWN_PROFILE_MESSAGE,
-  TOUCH_PROFILE_MESSAGE,
-} from "../../../shared/messages";
+import type { AuthSession } from "../../../types";
 import {
   REVIEW_IMPORTS_COLLECTION,
   TASKS_COLLECTION,
@@ -18,35 +11,18 @@ import {
 import type { ReviewImportRecord } from "../../dataTypes";
 import type {
   AttemptHistoryEntry,
-  AttemptHistoryResponse,
   AuthenticatedProfileResult,
   FetchUserAttemptHistoryResult,
   FetchUserLeaderboardResult,
   LeaderboardEntry,
-  LeaderboardResponse,
-  OwnProfileResponse,
   PocketBaseUserRecord,
-  TouchProfileResponse,
   UserAttemptHistory,
   UserLeaderboard,
   UserProfileSeed,
   UserProgressDelta,
 } from "../../dataTypes";
 import { AuthError } from "../../auth";
-
-export function mapUserRecord(record: PocketBaseUserRecord): UserProfile {
-  return {
-    id: record.id,
-    email: record.email,
-    username: record.username,
-    moodleDomain: record.moodle_domain || null,
-    solvedTestsCount: record.solved_tests_count ?? 0,
-    solvedTasksCount: record.solved_tasks_count ?? 0,
-    importedQuestionsCount: record.imported_questions_count ?? 0,
-    attemptCorrectCount: record.attempt_correct_count ?? 0,
-    attemptIncorrectCount: record.attempt_incorrect_count ?? 0,
-  };
-}
+import { mapUserRecord } from "../../dataCore/profileCore";
 
 async function getOwnUserRecord(pb: PocketBase, userId: string): Promise<PocketBaseUserRecord> {
   try {
@@ -161,49 +137,6 @@ export async function fetchOwnUserProfile(
   }
 }
 
-export function requestTouchUserProfile(
-  authSession: AuthSession,
-  moodleDomain: string | null,
-  seed: UserProfileSeed = {},
-): Promise<TouchProfileResponse> {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      {
-        type: TOUCH_PROFILE_MESSAGE,
-        payload: { authSession, moodleDomain, seed },
-      },
-      (response: TouchProfileResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
-
-        if (runtimeError || !response) {
-          reject(new I18nError("errors.backgroundConnection"));
-          return;
-        }
-
-        resolve(response);
-      },
-    );
-  });
-}
-
-export function requestOwnUserProfile(): Promise<OwnProfileResponse> {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      { type: FETCH_OWN_PROFILE_MESSAGE },
-      (response: OwnProfileResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
-
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
-        }
-
-        resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      },
-    );
-  });
-}
-
 function mapLeaderboardEntry(record: PocketBaseUserRecord): LeaderboardEntry {
   return {
     id: record.id,
@@ -261,24 +194,6 @@ export async function fetchUserLeaderboard(
   }
 }
 
-export function requestUserLeaderboard(): Promise<LeaderboardResponse> {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      { type: FETCH_LEADERBOARD_MESSAGE },
-      (response: LeaderboardResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
-
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
-        }
-
-        resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      },
-    );
-  });
-}
-
 function mapAttemptHistoryEntry(record: ReviewImportRecord): AttemptHistoryEntry {
   return {
     id: record.id,
@@ -319,22 +234,4 @@ export async function fetchUserAttemptHistory(
   } catch (error) {
     throw toI18nError(error, "errors.attemptHistoryLoadFailed");
   }
-}
-
-export function requestUserAttemptHistory(): Promise<AttemptHistoryResponse> {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      { type: FETCH_ATTEMPT_HISTORY_MESSAGE },
-      (response: AttemptHistoryResponse | undefined) => {
-        const runtimeError = chrome.runtime.lastError;
-
-        if (runtimeError) {
-          reject(new Error(runtimeError.message));
-          return;
-        }
-
-        resolve(response ?? { ok: false, error: "Background script did not return a response." });
-      },
-    );
-  });
 }

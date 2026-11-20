@@ -43,7 +43,6 @@ import { ensureSession } from "../../auth";
 import { requireFirebaseConfig } from "./config";
 import {
   createDocumentWrite,
-  deleteDocumentWrite,
   incrementDocumentWrite,
   updateDocumentWithIncrementsWrite,
   updateDocumentWrite,
@@ -54,6 +53,7 @@ import { isFirebasePreconditionError } from "./http";
 import { reviewImportDocumentId, taskDocumentId, taskVoteDocumentId } from "./ids";
 import { mapReviewImportDocument, mapTaskDocument, mapUserDocument } from "./mappers";
 import { fetchContributorName, withFirebaseSessionRetry } from "./session";
+import { performVoteToggle } from "./votes";
 
 const TASKS_COLLECTION_ID = "tasks";
 const TASK_VOTES_COLLECTION_ID = "taskVotes";
@@ -223,74 +223,6 @@ export async function fetchReduxShareTasks(
   }
 }
 
-interface VoteDecision {
-  voteWrites: FirestoreWrite[];
-  upDelta: number;
-  downDelta: number;
-  myVote: 1 | -1 | 0;
-}
-
-function buildVoteDecision(
-  projectId: string,
-  votePath: string,
-  userId: string,
-  payload: VoteTaskAnswerPayload,
-  existingValue: 1 | -1 | null,
-): VoteDecision {
-  if (existingValue === null) {
-    return {
-      voteWrites: [
-        createDocumentWrite(projectId, votePath, {
-          user: userId,
-          task_id: payload.taskId,
-          value: payload.value,
-        }),
-      ],
-      upDelta: payload.value === 1 ? 1 : 0,
-      downDelta: payload.value === -1 ? 1 : 0,
-      myVote: payload.value,
-    };
-  }
-
-  if (existingValue === payload.value) {
-    return {
-      voteWrites: [deleteDocumentWrite(projectId, votePath)],
-      upDelta: payload.value === 1 ? -1 : 0,
-      downDelta: payload.value === -1 ? -1 : 0,
-      myVote: 0,
-    };
-  }
-
-  return {
-    voteWrites: [updateDocumentWrite(projectId, votePath, { value: payload.value })],
-    upDelta: payload.value === 1 ? 1 : -1,
-    downDelta: payload.value === 1 ? -1 : 1,
-    myVote: payload.value,
-  };
-}
-
-async function commitVoteDecision(
-  client: FirestoreClient,
-  projectId: string,
-  taskId: string,
-  decision: VoteDecision,
-): Promise<void> {
-  const writes = [...decision.voteWrites];
-
-  if (decision.upDelta !== 0 || decision.downDelta !== 0) {
-    writes.push(
-      incrementDocumentWrite(projectId, `${TASKS_COLLECTION_ID}/${taskId}`, {
-        votes_up: decision.upDelta,
-        votes_down: decision.downDelta,
-      }),
-    );
-  }
-
-  if (writes.length > 0) {
-    await client.commit(writes);
-  }
-}
-
 export async function voteTaskAnswer(
   authSession: AuthSession,
   payload: VoteTaskAnswerPayload,
@@ -313,62 +245,18 @@ export async function voteTaskAnswer(
           throw new I18nError("errors.voteUnverifiableOnly");
         }
 
-        const votePath = `${TASK_VOTES_COLLECTION_ID}/${taskVoteDocumentId(
-          payload.taskId,
-          session.user.id,
-        )}`;
-        const existingVote = await client.getDocument(votePath);
-        const existingValue = existingVote ? (existingVote.fields.value === -1 ? -1 : 1) : null;
-        let decision = buildVoteDecision(
+        return performVoteToggle({
+          client,
           projectId,
-          votePath,
-          session.user.id,
-          payload,
-          existingValue,
-        );
-
-        try {
-          await commitVoteDecision(client, projectId, payload.taskId, decision);
-        } catch (error) {
-          if (!isFirebasePreconditionError(error)) {
-            throw error;
-          }
-
-          const winner = await client.getDocument(votePath);
-
-          if (!winner) {
-            throw error;
-          }
-
-          const winnerValue = winner.fields.value === -1 ? -1 : 1;
-
-          decision =
-            winnerValue === payload.value
-              ? { voteWrites: [], upDelta: 0, downDelta: 0, myVote: payload.value }
-              : buildVoteDecision(projectId, votePath, session.user.id, payload, winnerValue);
-          await commitVoteDecision(client, projectId, payload.taskId, decision);
-        }
-
-        const finalDocument = await client.getDocument(`tasks/${payload.taskId}`);
-        const rawUp =
-          typeof finalDocument?.fields.votes_up === "number" ? finalDocument.fields.votes_up : 0;
-        const rawDown =
-          typeof finalDocument?.fields.votes_down === "number"
-            ? finalDocument.fields.votes_down
-            : 0;
-        const votesUp = Math.max(rawUp, 0);
-        const votesDown = Math.max(rawDown, 0);
-
-        if (votesUp !== rawUp || votesDown !== rawDown) {
-          await client.commit([
-            updateDocumentWrite(projectId, `tasks/${payload.taskId}`, {
-              votes_up: votesUp,
-              votes_down: votesDown,
-            }),
-          ]);
-        }
-
-        return { votesUp, votesDown, myVote: decision.myVote };
+          votePath: `${TASK_VOTES_COLLECTION_ID}/${taskVoteDocumentId(payload.taskId, session.user.id)}`,
+          documentPath: `tasks/${payload.taskId}`,
+          voteFields: (value) => ({
+            user: session.user.id,
+            task_id: payload.taskId,
+            value,
+          }),
+          value: payload.value,
+        });
       },
     );
 
