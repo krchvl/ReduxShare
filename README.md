@@ -244,7 +244,7 @@ Collections are created automatically from `pocketbase/pb_migrations/` on the fi
 
 ### Firebase
 
-Create a Firebase project, enable the Email/Password sign-in provider, and create a Cloud Firestore database in Native mode. Put the Web API key and project ID into `.env` and rebuild.
+Create a Firebase project, enable the Email/Password sign-in provider, and create a Cloud Firestore database in Native mode. Put the Web API key and project ID into `.env` and rebuild. The complete step-by-step guide, including rules deployment, security notes, quotas, backups, and troubleshooting, is in [`firebase/README.md`](firebase/README.md).
 
 Deploy the Firestore security rules from this repository (or paste them into the Firebase console):
 
