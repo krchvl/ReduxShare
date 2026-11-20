@@ -165,7 +165,7 @@ Requirements:
 - Node.js 20 or newer
 - npm
 - Chromium-based browser such as Chrome, Edge, Brave, or Chromium
-- Self-hosted PocketBase URL if you want internal ReduxShare sources to work (set `VITE_POCKETBASE_URL` in `.env`)
+- Self-hosted PocketBase URL or a Firebase project if you want internal ReduxShare sources to work (configured in `.env`)
 
 Install dependencies:
 
@@ -179,11 +179,22 @@ Create a local environment file:
 cp .env.example .env
 ```
 
-Set your PocketBase URL in `.env`:
+Set the backend provider in `.env`. PocketBase is the default:
 
 ```bash
+VITE_DATA_PROVIDER=pocketbase
 VITE_POCKETBASE_URL=https://pb.example.com
 ```
+
+Or switch to Firebase:
+
+```bash
+VITE_DATA_PROVIDER=firebase
+VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_PROJECT_ID=reduxshare-xxxxx
+```
+
+The provider is selected at build time, so rebuild after changing it.
 
 Do not commit `.env`. Only `.env.example` should be stored in Git.
 
@@ -213,6 +224,12 @@ Use `npm run build` before loading or reloading the production extension from `d
 
 ## Configuration
 
+### Backend provider
+
+`VITE_DATA_PROVIDER` selects the storage backend at build time: `pocketbase` (default) or `firebase`. Authentication, answer storage, review imports, votes, essay examples, profiles, the leaderboard, and attempt history all follow this switch.
+
+The Firebase build uses Firebase Authentication (email/password) and Cloud Firestore directly from the extension background worker. It does not include the official AI mode — only the custom provider mode with your own API key is available.
+
 ### PocketBase (self-hosted)
 
 ReduxShare uses a self-hosted PocketBase instance for authentication and sessions, profile state, quiz progress, and internal answer storage. The extension expects its public URL at build time:
@@ -224,6 +241,26 @@ VITE_POCKETBASE_URL=https://pb.example.com
 Collection definitions live in `pocketbase/pb_migrations/`. Serve PocketBase behind a reverse proxy with TLS (e.g. Caddy) and create a superuser with `pocketbase superuser upsert`.
 
 Collections are created automatically from `pocketbase/pb_migrations/` on the first server start after copying them next to the PocketBase binary.
+
+### Firebase
+
+Create a Firebase project, enable the Email/Password sign-in provider, and create a Cloud Firestore database in Native mode. Put the Web API key and project ID into `.env` and rebuild.
+
+Deploy the Firestore security rules from this repository (or paste them into the Firebase console):
+
+```bash
+npx firebase-tools deploy --config firebase/firebase.json --only firestore:rules --project reduxshare-xxxxx
+```
+
+Data model:
+
+- `users/{uid}` — public profile and counters; `usernames/{hash}` — case-insensitive username reservation.
+- `tasks/{hash}` — aggregated answer rows keyed by the question/answer identity.
+- `taskVotes/{taskId}__{uid}` — per-user answer votes.
+- `reviewImports/{uid}__{hash}` — review import deduplication and attempt history.
+- `essayExamples/{uid}__{hash}` and `essayVotes/{exampleId}__{uid}` — essay examples and votes.
+
+There is no automatic migration from PocketBase to Firebase; a Firebase build starts with an empty database.
 
 ### AI
 
