@@ -314,6 +314,39 @@ export function incrementDocumentWrite(
   };
 }
 
+export function updateDocumentWithIncrementsWrite(
+  projectId: string,
+  path: string,
+  data: Record<string, unknown>,
+  increments: Record<string, number>,
+): FirestoreWrite {
+  const name = documentName(projectId, path);
+  const fields = encodeFirestoreFields(omitTimestampFields(data));
+  const fieldTransforms: FirestoreWriteTransform[] = [];
+
+  for (const [fieldPath, delta] of Object.entries(increments)) {
+    if (!delta) {
+      continue;
+    }
+
+    fieldTransforms.push(incrementTransform(fieldPath, delta));
+  }
+
+  fieldTransforms.push(serverTimestampTransform("updated"));
+
+  if (Object.keys(fields).length === 0) {
+    return {
+      transform: { document: name, fieldTransforms },
+    };
+  }
+
+  return {
+    update: { name, fields },
+    updateMask: { fieldPaths: Object.keys(fields) },
+    updateTransforms: fieldTransforms,
+  };
+}
+
 export function deleteDocumentWrite(projectId: string, path: string): FirestoreWrite {
   return { delete: documentName(projectId, path) };
 }
