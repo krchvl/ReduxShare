@@ -102,6 +102,8 @@ import {
   ensureAutoSelectCancelListener,
   estimateQuestionReadingSeconds,
   getQuestionBehaviour,
+  getHumanizedAnswerGapMs,
+  getPendingAutoSelectScheduleDelays,
   isStepPerActionBehaviour,
   parseQuizTimeLeftSeconds,
   runHumanPrecursors,
@@ -332,6 +334,8 @@ declare global {
         scheduleAutoSelectAnswer: typeof scheduleAutoSelectAnswer;
         cancelAutoSelectSchedule: typeof cancelAutoSelectSchedule;
         countPendingAutoSelectSchedules: typeof countPendingAutoSelectSchedules;
+        getPendingAutoSelectScheduleDelays: typeof getPendingAutoSelectScheduleDelays;
+        getHumanizedAnswerGapMs: typeof getHumanizedAnswerGapMs;
         createEmptySourceAnswerData: typeof createEmptySourceAnswerData;
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
         flushQuestionSelections: typeof flushQuestionSelections;
@@ -2473,6 +2477,10 @@ const PIPELINE_RELEVANT_SETTING_KEYS = [
   "attemptStatusPanelClosed",
   "autoSelect",
   "autoSelectAvgSeconds",
+  "humanTyping",
+  "humanPrecursors",
+  "humanReading",
+  "humanOrder",
   "hotkey",
   "hotkeyCode",
   "accentColor",
@@ -3049,6 +3057,8 @@ function installQuizAttemptTestApi() {
     scheduleAutoSelectAnswer,
     cancelAutoSelectSchedule,
     countPendingAutoSelectSchedules,
+    getPendingAutoSelectScheduleDelays,
+    getHumanizedAnswerGapMs,
     createEmptySourceAnswerData,
     createEmptyVariantCounts,
     flushQuestionSelections,

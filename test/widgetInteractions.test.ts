@@ -1256,8 +1256,8 @@ describe("human-like auto-select scheduling", () => {
     expect(withReading - base).toBeLessThanOrEqual(10001);
 
     const withFirstBonus = api.computeAutoSelectDelayMs(4, steady, null, { firstInPage: true });
-    expect(withFirstBonus - base).toBeGreaterThanOrEqual(5999);
-    expect(withFirstBonus - base).toBeLessThanOrEqual(6001);
+    expect(withFirstBonus - base).toBeGreaterThanOrEqual(2999);
+    expect(withFirstBonus - base).toBeLessThanOrEqual(3001);
 
     const interactive = api.computeAutoSelectDelayMs(4, steady, null, { interactive: true });
     expect(interactive).toBeGreaterThanOrEqual(4000);
@@ -1273,12 +1273,12 @@ describe("human-like auto-select scheduling", () => {
       <input type="radio" name="a" /><input type="radio" name="a" />`;
 
     const seconds = api.estimateQuestionReadingSeconds(node);
-    expect(seconds).toBeGreaterThanOrEqual(160 / 16 + 4 * 1.2 - 0.001);
-    expect(seconds).toBeLessThanOrEqual(45);
+    expect(seconds).toBeGreaterThanOrEqual(160 / 22 + 4 * 0.8 - 0.001);
+    expect(seconds).toBeLessThanOrEqual(12);
 
     const huge = document.createElement("div");
     huge.textContent = "x".repeat(100000);
-    expect(api.estimateQuestionReadingSeconds(huge)).toBe(45);
+    expect(api.estimateQuestionReadingSeconds(huge)).toBe(12);
 
     const empty = document.createElement("div");
     expect(api.estimateQuestionReadingSeconds(empty)).toBe(0);

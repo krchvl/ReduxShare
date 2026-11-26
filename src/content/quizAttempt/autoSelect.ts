@@ -19,7 +19,7 @@ import {
   isOrderingQuestionType,
 } from "../../dom/questionTypes";
 import { isLoggedInToExtension } from "../../logic/settings";
-import { logReduxShareInfo } from "../../logic/runtime";
+import { logReduxShareInfo, logReduxShareWarning } from "../../logic/runtime";
 import { answerWidgetStates, currentStoredState } from "../../state";
 import { setAnswerDelayProgress } from "../../ui/answerMenu";
 import {
@@ -62,11 +62,14 @@ const AUTO_SELECT_MAX_DELAY_MS = 60000;
 
 const AUTO_SELECT_RUSH_TIME_FRACTION = 0.1;
 
-const READING_CHARS_PER_SECOND = 16;
-const READING_SECONDS_PER_OPTION = 1.2;
-const READING_MAX_SECONDS = 45;
-const PAGE_READ_BONUS_SECONDS = 6;
+const READING_CHARS_PER_SECOND = 22;
+const READING_SECONDS_PER_OPTION = 0.8;
+const READING_MAX_SECONDS = 12;
+const PAGE_READ_BONUS_SECONDS = 3;
 const INTERACTIVE_MIN_GAP_MS = 5000;
+const HUMANIZED_ANSWER_GAP_MS = 2000;
+const AUTO_SELECT_RETRY_DELAY_MS = 2500;
+const AUTO_SELECT_MAX_RETRIES = 2;
 
 const STEP_PER_ACTION_BEHAVIOURS = new Set([
   "interactive",
@@ -92,6 +95,7 @@ type PendingAutoSelectAnswer = {
   startedAt: number;
   delayMs: number;
   cancelled: boolean;
+  retries: number;
 };
 
 const pendingAutoSelectAnswers = new Map<string, PendingAutoSelectAnswer>();
@@ -146,10 +150,11 @@ function ensureAutoSelectVisibilityListener(): void {
 export async function runHumanPrecursors(
   target: Element,
   random: () => number = Math.random,
+  shouldAbort: () => boolean = () => false,
 ): Promise<void> {
   const element = target instanceof HTMLElement ? target : target.parentElement;
 
-  if (!(element instanceof HTMLElement)) {
+  if (!(element instanceof HTMLElement) || shouldAbort()) {
     return;
   }
 
@@ -163,6 +168,10 @@ export async function runHumanPrecursors(
     HUMAN_SCROLL_SETTLE_MIN_MS +
       random() * (HUMAN_SCROLL_SETTLE_MAX_MS - HUMAN_SCROLL_SETTLE_MIN_MS),
   );
+
+  if (shouldAbort()) {
+    return;
+  }
 
   try {
     if (typeof element.focus === "function") {
@@ -185,6 +194,7 @@ export interface HumanDelayExtras {
   readingSeconds?: number;
   firstInPage?: boolean;
   interactive?: boolean;
+  extraDelayMs?: number;
 }
 
 function randomNormal(random: () => number): number {
@@ -218,18 +228,26 @@ export function computeAutoSelectDelayMs(
     delayMs = Math.max(delayMs, INTERACTIVE_MIN_GAP_MS * (0.8 + 0.4 * random()));
   }
 
+  const extraDelayMs = Math.max(0, extras.extraDelayMs ?? 0);
   const timeLeft =
     typeof timeLeftSeconds === "number" && Number.isFinite(timeLeftSeconds)
       ? timeLeftSeconds
       : null;
+  const limitMs =
+    timeLeft !== null && timeLeft > 0 ? timeLeft * 1000 * AUTO_SELECT_RUSH_TIME_FRACTION : null;
+  const cappedBaseMs = Math.min(AUTO_SELECT_MAX_DELAY_MS, delayMs);
 
-  if (timeLeft !== null && timeLeft > 0) {
-    delayMs = Math.min(delayMs, timeLeft * 1000 * AUTO_SELECT_RUSH_TIME_FRACTION);
+  if (limitMs === null) {
+    return Math.round(Math.max(AUTO_SELECT_MIN_DELAY_MS, cappedBaseMs + extraDelayMs));
   }
 
-  return Math.round(
-    Math.min(AUTO_SELECT_MAX_DELAY_MS, Math.max(AUTO_SELECT_MIN_DELAY_MS, delayMs)),
-  );
+  if (extraDelayMs >= limitMs) {
+    return Math.round(limitMs);
+  }
+
+  const allowedBaseMs = Math.min(cappedBaseMs, limitMs - extraDelayMs);
+
+  return Math.round(Math.max(AUTO_SELECT_MIN_DELAY_MS, allowedBaseMs + extraDelayMs));
 }
 
 export function estimateQuestionReadingSeconds(questionNode: Element): number {
@@ -357,6 +375,115 @@ function dropAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer) {
   stopAutoSelectProgress(pending);
 }
 
+function releaseAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer): boolean {
+  if (pendingAutoSelectAnswers.get(key) !== pending) {
+    stopAutoSelectProgress(pending);
+    return false;
+  }
+
+  pendingAutoSelectAnswers.delete(key);
+  stopAutoSelectProgress(pending);
+  return true;
+}
+
+function isChoiceExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const labels = getExactAnswerLabels(answerData);
+
+  if (labels.length === 0) {
+    return false;
+  }
+
+  const inputs = getChoiceAnswerInputs(questionNode);
+
+  if (inputs.length === 0) {
+    return false;
+  }
+
+  if (inputs.some((input) => input.type === "checkbox")) {
+    const exactKeys = new Set(labels.flatMap((label) => [...getAnswerLabelMatchKeys(label)]));
+    const matched = inputs.filter((input) => {
+      const label = getInputAnswerLabelText(questionNode, input);
+      return [...getAnswerLabelMatchKeys(label)].some((key) => exactKeys.has(key));
+    });
+
+    if (matched.length === 0) {
+      return false;
+    }
+
+    return matched.every((input) => input.checked);
+  }
+
+  return labels.some((label) => Boolean(findInputForAnswerLabel(questionNode, label)?.checked));
+}
+
+function isTextExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const labels = getExactAnswerLabels(answerData);
+
+  if (labels.length !== 1) {
+    return false;
+  }
+
+  const control =
+    getTextAnswerInputs(questionNode)[0] ?? getEssayAnswerTextareas(questionNode)[0] ?? null;
+
+  if (!control) {
+    return false;
+  }
+
+  return control.value.trim() === labels[0].trim();
+}
+
+function isSelectExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const selects = getSelectableAnswerControls(questionNode);
+
+  if (selects.length === 0) {
+    return false;
+  }
+
+  for (const select of selects) {
+    const slot = getAnswerSlotForSelect(answerData, select);
+    const slotLabels = slot ? getPreferredSuggestionLabels(slot.suggestions) : [];
+
+    if (slotLabels.length !== 1) {
+      return false;
+    }
+
+    const option = findSelectOptionByLabel(select, slotLabels[0]);
+
+    if (!option || select.value !== option.value) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const questionType = getSupportedAutoSelectQuestionType(questionNode);
+
+  if (!questionType) {
+    return false;
+  }
+
+  if (CHOICE_QUESTION_TYPES.has(questionType)) {
+    return isChoiceExactAnswerAlreadyApplied(questionNode, answerData);
+  }
+
+  if (TEXT_INPUT_QUESTION_TYPES.has(questionType)) {
+    return isTextExactAnswerAlreadyApplied(questionNode, answerData);
+  }
+
+  if (
+    questionType === "gapselect" ||
+    questionType === "gapfill" ||
+    isMatchingQuestionTypeName(questionType)
+  ) {
+    return isSelectExactAnswerAlreadyApplied(questionNode, answerData);
+  }
+
+  return false;
+}
+
 async function applyTextAnswerHumanLike(
   questionNode: Element,
   questionId: string | null,
@@ -429,6 +556,7 @@ export function scheduleAutoSelectAnswer(
   questionNode: Element,
   storedState: StoredStateLike | undefined,
   immediate: boolean = isImmediateAutoSelectMode(),
+  delayOffsetMs: number = 0,
 ): boolean {
   if (!isAutoSelectEnabled(storedState?.settings)) {
     return false;
@@ -472,6 +600,7 @@ export function scheduleAutoSelectAnswer(
       readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
       firstInPage: readingEnabled && firstInPage,
       interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
+      extraDelayMs: Math.max(0, delayOffsetMs),
     },
   );
   const pending: PendingAutoSelectAnswer = {
@@ -483,6 +612,7 @@ export function scheduleAutoSelectAnswer(
     startedAt: Date.now(),
     delayMs,
     cancelled: false,
+    retries: 0,
   };
   const firePendingAnswer = async () => {
     if (document.hidden) {
@@ -492,39 +622,63 @@ export function scheduleAutoSelectAnswer(
       return;
     }
 
-    if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
-      await runHumanPrecursors(questionNode);
+    try {
+      if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
+        await runHumanPrecursors(questionNode, Math.random, () => pending.cancelled);
+      }
+
+      if (pending.cancelled) {
+        return;
+      }
+
+      const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
+        questionNode,
+        getAnswerDataForQuestion(questionId),
+        isLoggedInToExtension(currentStoredState),
+        questionId,
+      );
+
+      const applied = await applyTextAnswerHumanLike(
+        questionNode,
+        questionId,
+        freshAnswerData,
+        settings,
+        {
+          shouldAbort: () => pending.cancelled,
+        },
+      );
+
+      if (applied || pending.cancelled) {
+        releaseAutoSelectSchedule(key, pending);
+        return;
+      }
+
+      const changed = applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
+      const superseded = !releaseAutoSelectSchedule(key, pending);
+
+      if (superseded) {
+        return;
+      }
+
+      if (changed || isExactAnswerAlreadyApplied(questionNode, freshAnswerData)) {
+        return;
+      }
+
+      if (pending.retries < AUTO_SELECT_MAX_RETRIES) {
+        pending.retries += 1;
+        pending.startedAt = Date.now();
+        pending.delayMs = AUTO_SELECT_RETRY_DELAY_MS;
+        pending.timeoutId = window.setTimeout(() => {
+          void firePendingAnswer();
+        }, AUTO_SELECT_RETRY_DELAY_MS);
+        pendingAutoSelectAnswers.set(key, pending);
+        startAutoSelectProgress(pending);
+        return;
+      }
+    } catch (error) {
+      releaseAutoSelectSchedule(key, pending);
+      logReduxShareWarning("ReduxShare: auto-select failed", error);
     }
-
-    if (pending.cancelled) {
-      return;
-    }
-
-    const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
-      questionNode,
-      getAnswerDataForQuestion(questionId),
-      isLoggedInToExtension(currentStoredState),
-      questionId,
-    );
-
-    const applied = await applyTextAnswerHumanLike(
-      questionNode,
-      questionId,
-      freshAnswerData,
-      settings,
-      {
-        shouldAbort: () => pending.cancelled,
-      },
-    );
-
-    pendingAutoSelectAnswers.delete(key);
-    stopAutoSelectProgress(pending);
-
-    if (applied || pending.cancelled) {
-      return;
-    }
-
-    applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
   };
   pending.timeoutId = window.setTimeout(() => {
     void firePendingAnswer();
@@ -542,6 +696,16 @@ export function cancelAutoSelectSchedule(questionId: string | null) {
   }
 }
 
+function cancelAutoSelectScheduleByKey(key: string) {
+  const pending = pendingAutoSelectAnswers.get(key);
+
+  if (!pending) {
+    return;
+  }
+
+  dropAutoSelectSchedule(key, pending);
+}
+
 export function cancelAllAutoSelectSchedules() {
   for (const [key, pending] of Array.from(pendingAutoSelectAnswers)) {
     dropAutoSelectSchedule(key, pending);
@@ -550,6 +714,16 @@ export function cancelAllAutoSelectSchedules() {
 
 export function countPendingAutoSelectSchedules(): number {
   return pendingAutoSelectAnswers.size;
+}
+
+export function getPendingAutoSelectScheduleDelays(): Array<{
+  questionId: string | null;
+  delayMs: number;
+}> {
+  return Array.from(pendingAutoSelectAnswers.values()).map((pending) => ({
+    questionId: pending.questionId,
+    delayMs: pending.delayMs,
+  }));
 }
 
 function handleAutoSelectUserInput(event: Event) {
@@ -746,6 +920,12 @@ function autoSelectQuestionAnswers(questionNode: Element, answerData: AnswerData
   return false;
 }
 
+export function getHumanizedAnswerGapMs(settings: StoredStateLike["settings"] | undefined): number {
+  const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
+
+  return readingEnabled ? HUMANIZED_ANSWER_GAP_MS : 0;
+}
+
 function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void {
   if (!isAutoSelectEnabled(storedState?.settings)) {
     cancelAllAutoSelectSchedules();
@@ -754,14 +934,22 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
 
   if (!isImmediateAutoSelectMode()) {
     const entries = getAnswerEntries().filter((entry) => entry.questionNode);
+    const gapMs = getHumanizedAnswerGapMs(storedState?.settings);
     const ordered =
       (storedState?.settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder)
         ? shuffleScheduleOrder(entries)
         : entries;
+    let offsetMs = 0;
 
     for (const { questionId, questionNode } of ordered) {
-      if (questionNode) {
-        scheduleAutoSelectAnswer(questionId, questionNode, storedState, false);
+      if (!questionNode) {
+        continue;
+      }
+
+      cancelAutoSelectScheduleByKey(getAutoSelectScheduleKey(questionNode, questionId));
+
+      if (scheduleAutoSelectAnswer(questionId, questionNode, storedState, false, offsetMs)) {
+        offsetMs += gapMs;
       }
     }
 
