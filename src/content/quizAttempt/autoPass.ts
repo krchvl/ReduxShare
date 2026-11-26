@@ -25,6 +25,7 @@ import { getAnswerDataForQuestion, getAnswerEntries } from "./answerControls";
 import {
   cancelAllAutoSelectSchedules,
   countPendingAutoSelectSchedules,
+  getHumanizedAnswerGapMs,
   getPreferredAutoSelectAnswerDataForQuestion,
   hasExactAutoSelectData,
   scheduleAutoSelectAnswer,
@@ -411,6 +412,8 @@ export async function runAutoPassPage(): Promise<void> {
 
       let unsolvedEntry: AnswerEntry | null = null;
       let unsolvedIndex = 0;
+      const gapMs = getHumanizedAnswerGapMs(scheduleState.settings);
+      let offsetMs = 0;
 
       for (const [index, entry] of entries.entries()) {
         if (isAttemptStatusPanelQuestionAnswered(entry)) {
@@ -425,7 +428,14 @@ export async function runAutoPassPage(): Promise<void> {
         );
 
         if (hasExactAutoSelectData(answerData)) {
-          scheduleAutoSelectAnswer(entry.questionId, entry.questionNode, scheduleState);
+          scheduleAutoSelectAnswer(
+            entry.questionId,
+            entry.questionNode,
+            scheduleState,
+            undefined,
+            offsetMs,
+          );
+          offsetMs += gapMs;
           continue;
         }
 

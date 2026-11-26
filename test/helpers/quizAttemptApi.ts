@@ -22,12 +22,17 @@ type QuizAttemptTestApi = {
       readingSeconds?: number;
       firstInPage?: boolean;
       interactive?: boolean;
+      extraDelayMs?: number;
     },
   ) => number;
   estimateQuestionReadingSeconds: (questionNode: Element) => number;
   getQuestionBehaviour: (questionNode: Element) => string | null;
   isStepPerActionBehaviour: (behaviour: string | null) => boolean;
-  runHumanPrecursors: (target: Element, random?: () => number) => Promise<void>;
+  runHumanPrecursors: (
+    target: Element,
+    random?: () => number,
+    shouldAbort?: () => boolean,
+  ) => Promise<void>;
   shuffleScheduleOrder: <T>(entries: T[], random?: () => number) => T[];
   typeTextHumanLike: (
     control: HTMLInputElement | HTMLTextAreaElement,
@@ -40,9 +45,15 @@ type QuizAttemptTestApi = {
     questionNode: Element,
     storedState: StoredStateLike | undefined,
     immediate?: boolean,
+    delayOffsetMs?: number,
   ) => boolean;
   cancelAutoSelectSchedule: (questionId: string | null) => void;
   countPendingAutoSelectSchedules: () => number;
+  getPendingAutoSelectScheduleDelays: () => Array<{
+    questionId: string | null;
+    delayMs: number;
+  }>;
+  getHumanizedAnswerGapMs: (settings?: StoredStateLike["settings"]) => number;
   buildReviewAnswersForQuestion: (questionNode: Element, questionType: string | null) => unknown[];
   collectReviewQuestionsForSave: () => Array<{
     questionId: string | null;

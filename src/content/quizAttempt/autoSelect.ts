@@ -150,10 +150,11 @@ function ensureAutoSelectVisibilityListener(): void {
 export async function runHumanPrecursors(
   target: Element,
   random: () => number = Math.random,
+  shouldAbort: () => boolean = () => false,
 ): Promise<void> {
   const element = target instanceof HTMLElement ? target : target.parentElement;
 
-  if (!(element instanceof HTMLElement)) {
+  if (!(element instanceof HTMLElement) || shouldAbort()) {
     return;
   }
 
@@ -167,6 +168,10 @@ export async function runHumanPrecursors(
     HUMAN_SCROLL_SETTLE_MIN_MS +
       random() * (HUMAN_SCROLL_SETTLE_MAX_MS - HUMAN_SCROLL_SETTLE_MIN_MS),
   );
+
+  if (shouldAbort()) {
+    return;
+  }
 
   try {
     if (typeof element.focus === "function") {
@@ -189,6 +194,7 @@ export interface HumanDelayExtras {
   readingSeconds?: number;
   firstInPage?: boolean;
   interactive?: boolean;
+  extraDelayMs?: number;
 }
 
 function randomNormal(random: () => number): number {
@@ -222,18 +228,26 @@ export function computeAutoSelectDelayMs(
     delayMs = Math.max(delayMs, INTERACTIVE_MIN_GAP_MS * (0.8 + 0.4 * random()));
   }
 
+  const extraDelayMs = Math.max(0, extras.extraDelayMs ?? 0);
   const timeLeft =
     typeof timeLeftSeconds === "number" && Number.isFinite(timeLeftSeconds)
       ? timeLeftSeconds
       : null;
+  const limitMs =
+    timeLeft !== null && timeLeft > 0 ? timeLeft * 1000 * AUTO_SELECT_RUSH_TIME_FRACTION : null;
+  const cappedBaseMs = Math.min(AUTO_SELECT_MAX_DELAY_MS, delayMs);
 
-  if (timeLeft !== null && timeLeft > 0) {
-    delayMs = Math.min(delayMs, timeLeft * 1000 * AUTO_SELECT_RUSH_TIME_FRACTION);
+  if (limitMs === null) {
+    return Math.round(Math.max(AUTO_SELECT_MIN_DELAY_MS, cappedBaseMs + extraDelayMs));
   }
 
-  return Math.round(
-    Math.min(AUTO_SELECT_MAX_DELAY_MS, Math.max(AUTO_SELECT_MIN_DELAY_MS, delayMs)),
-  );
+  if (extraDelayMs >= limitMs) {
+    return Math.round(limitMs);
+  }
+
+  const allowedBaseMs = Math.min(cappedBaseMs, limitMs - extraDelayMs);
+
+  return Math.round(Math.max(AUTO_SELECT_MIN_DELAY_MS, allowedBaseMs + extraDelayMs));
 }
 
 export function estimateQuestionReadingSeconds(questionNode: Element): number {
@@ -361,6 +375,115 @@ function dropAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer) {
   stopAutoSelectProgress(pending);
 }
 
+function releaseAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer): boolean {
+  if (pendingAutoSelectAnswers.get(key) !== pending) {
+    stopAutoSelectProgress(pending);
+    return false;
+  }
+
+  pendingAutoSelectAnswers.delete(key);
+  stopAutoSelectProgress(pending);
+  return true;
+}
+
+function isChoiceExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const labels = getExactAnswerLabels(answerData);
+
+  if (labels.length === 0) {
+    return false;
+  }
+
+  const inputs = getChoiceAnswerInputs(questionNode);
+
+  if (inputs.length === 0) {
+    return false;
+  }
+
+  if (inputs.some((input) => input.type === "checkbox")) {
+    const exactKeys = new Set(labels.flatMap((label) => [...getAnswerLabelMatchKeys(label)]));
+    const matched = inputs.filter((input) => {
+      const label = getInputAnswerLabelText(questionNode, input);
+      return [...getAnswerLabelMatchKeys(label)].some((key) => exactKeys.has(key));
+    });
+
+    if (matched.length === 0) {
+      return false;
+    }
+
+    return matched.every((input) => input.checked);
+  }
+
+  return labels.some((label) => Boolean(findInputForAnswerLabel(questionNode, label)?.checked));
+}
+
+function isTextExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const labels = getExactAnswerLabels(answerData);
+
+  if (labels.length !== 1) {
+    return false;
+  }
+
+  const control =
+    getTextAnswerInputs(questionNode)[0] ?? getEssayAnswerTextareas(questionNode)[0] ?? null;
+
+  if (!control) {
+    return false;
+  }
+
+  return control.value.trim() === labels[0].trim();
+}
+
+function isSelectExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const selects = getSelectableAnswerControls(questionNode);
+
+  if (selects.length === 0) {
+    return false;
+  }
+
+  for (const select of selects) {
+    const slot = getAnswerSlotForSelect(answerData, select);
+    const slotLabels = slot ? getPreferredSuggestionLabels(slot.suggestions) : [];
+
+    if (slotLabels.length !== 1) {
+      return false;
+    }
+
+    const option = findSelectOptionByLabel(select, slotLabels[0]);
+
+    if (!option || select.value !== option.value) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isExactAnswerAlreadyApplied(questionNode: Element, answerData: AnswerData): boolean {
+  const questionType = getSupportedAutoSelectQuestionType(questionNode);
+
+  if (!questionType) {
+    return false;
+  }
+
+  if (CHOICE_QUESTION_TYPES.has(questionType)) {
+    return isChoiceExactAnswerAlreadyApplied(questionNode, answerData);
+  }
+
+  if (TEXT_INPUT_QUESTION_TYPES.has(questionType)) {
+    return isTextExactAnswerAlreadyApplied(questionNode, answerData);
+  }
+
+  if (
+    questionType === "gapselect" ||
+    questionType === "gapfill" ||
+    isMatchingQuestionTypeName(questionType)
+  ) {
+    return isSelectExactAnswerAlreadyApplied(questionNode, answerData);
+  }
+
+  return false;
+}
+
 async function applyTextAnswerHumanLike(
   questionNode: Element,
   questionId: string | null,
@@ -469,18 +592,16 @@ export function scheduleAutoSelectAnswer(
   const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
   const firstInPage = autoSelectScheduledTotal === 0;
   autoSelectScheduledTotal += 1;
-  const delayMs = Math.min(
-    AUTO_SELECT_MAX_DELAY_MS,
-    computeAutoSelectDelayMs(
-      settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
-      Math.random,
-      readQuizTimeLeftSeconds(),
-      {
-        readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
-        firstInPage: readingEnabled && firstInPage,
-        interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
-      },
-    ) + Math.max(0, delayOffsetMs),
+  const delayMs = computeAutoSelectDelayMs(
+    settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
+    Math.random,
+    readQuizTimeLeftSeconds(),
+    {
+      readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
+      firstInPage: readingEnabled && firstInPage,
+      interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
+      extraDelayMs: Math.max(0, delayOffsetMs),
+    },
   );
   const pending: PendingAutoSelectAnswer = {
     questionId,
@@ -503,7 +624,7 @@ export function scheduleAutoSelectAnswer(
 
     try {
       if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
-        await runHumanPrecursors(questionNode);
+        await runHumanPrecursors(questionNode, Math.random, () => pending.cancelled);
       }
 
       if (pending.cancelled) {
@@ -528,17 +649,18 @@ export function scheduleAutoSelectAnswer(
       );
 
       if (applied || pending.cancelled) {
-        pendingAutoSelectAnswers.delete(key);
-        stopAutoSelectProgress(pending);
+        releaseAutoSelectSchedule(key, pending);
         return;
       }
 
-      pendingAutoSelectAnswers.delete(key);
-      stopAutoSelectProgress(pending);
-
       const changed = applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
+      const superseded = !releaseAutoSelectSchedule(key, pending);
 
-      if (changed) {
+      if (superseded) {
+        return;
+      }
+
+      if (changed || isExactAnswerAlreadyApplied(questionNode, freshAnswerData)) {
         return;
       }
 
@@ -554,8 +676,7 @@ export function scheduleAutoSelectAnswer(
         return;
       }
     } catch (error) {
-      pendingAutoSelectAnswers.delete(key);
-      stopAutoSelectProgress(pending);
+      releaseAutoSelectSchedule(key, pending);
       logReduxShareWarning("ReduxShare: auto-select failed", error);
     }
   };
@@ -593,6 +714,16 @@ export function cancelAllAutoSelectSchedules() {
 
 export function countPendingAutoSelectSchedules(): number {
   return pendingAutoSelectAnswers.size;
+}
+
+export function getPendingAutoSelectScheduleDelays(): Array<{
+  questionId: string | null;
+  delayMs: number;
+}> {
+  return Array.from(pendingAutoSelectAnswers.values()).map((pending) => ({
+    questionId: pending.questionId,
+    delayMs: pending.delayMs,
+  }));
 }
 
 function handleAutoSelectUserInput(event: Event) {
@@ -789,6 +920,12 @@ function autoSelectQuestionAnswers(questionNode: Element, answerData: AnswerData
   return false;
 }
 
+export function getHumanizedAnswerGapMs(settings: StoredStateLike["settings"] | undefined): number {
+  const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
+
+  return readingEnabled ? HUMANIZED_ANSWER_GAP_MS : 0;
+}
+
 function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void {
   if (!isAutoSelectEnabled(storedState?.settings)) {
     cancelAllAutoSelectSchedules();
@@ -797,18 +934,21 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
 
   if (!isImmediateAutoSelectMode()) {
     const entries = getAnswerEntries().filter((entry) => entry.questionNode);
-    const readingEnabled = storedState?.settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
+    const gapMs = getHumanizedAnswerGapMs(storedState?.settings);
     const ordered =
       (storedState?.settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder)
         ? shuffleScheduleOrder(entries)
         : entries;
-    const gapMs = readingEnabled ? HUMANIZED_ANSWER_GAP_MS : 0;
     let offsetMs = 0;
 
     for (const { questionId, questionNode } of ordered) {
-      if (questionNode) {
-        cancelAutoSelectScheduleByKey(getAutoSelectScheduleKey(questionNode, questionId));
-        scheduleAutoSelectAnswer(questionId, questionNode, storedState, false, offsetMs);
+      if (!questionNode) {
+        continue;
+      }
+
+      cancelAutoSelectScheduleByKey(getAutoSelectScheduleKey(questionNode, questionId));
+
+      if (scheduleAutoSelectAnswer(questionId, questionNode, storedState, false, offsetMs)) {
         offsetMs += gapMs;
       }
     }

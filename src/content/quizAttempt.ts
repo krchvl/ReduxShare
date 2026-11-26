@@ -102,6 +102,8 @@ import {
   ensureAutoSelectCancelListener,
   estimateQuestionReadingSeconds,
   getQuestionBehaviour,
+  getHumanizedAnswerGapMs,
+  getPendingAutoSelectScheduleDelays,
   isStepPerActionBehaviour,
   parseQuizTimeLeftSeconds,
   runHumanPrecursors,
@@ -332,6 +334,8 @@ declare global {
         scheduleAutoSelectAnswer: typeof scheduleAutoSelectAnswer;
         cancelAutoSelectSchedule: typeof cancelAutoSelectSchedule;
         countPendingAutoSelectSchedules: typeof countPendingAutoSelectSchedules;
+        getPendingAutoSelectScheduleDelays: typeof getPendingAutoSelectScheduleDelays;
+        getHumanizedAnswerGapMs: typeof getHumanizedAnswerGapMs;
         createEmptySourceAnswerData: typeof createEmptySourceAnswerData;
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
         flushQuestionSelections: typeof flushQuestionSelections;
@@ -3053,6 +3057,8 @@ function installQuizAttemptTestApi() {
     scheduleAutoSelectAnswer,
     cancelAutoSelectSchedule,
     countPendingAutoSelectSchedules,
+    getPendingAutoSelectScheduleDelays,
+    getHumanizedAnswerGapMs,
     createEmptySourceAnswerData,
     createEmptyVariantCounts,
     flushQuestionSelections,
