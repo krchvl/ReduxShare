@@ -19,7 +19,7 @@ import {
   isOrderingQuestionType,
 } from "../../dom/questionTypes";
 import { isLoggedInToExtension } from "../../logic/settings";
-import { logReduxShareInfo } from "../../logic/runtime";
+import { logReduxShareInfo, logReduxShareWarning } from "../../logic/runtime";
 import { answerWidgetStates, currentStoredState } from "../../state";
 import { setAnswerDelayProgress } from "../../ui/answerMenu";
 import {
@@ -62,11 +62,14 @@ const AUTO_SELECT_MAX_DELAY_MS = 60000;
 
 const AUTO_SELECT_RUSH_TIME_FRACTION = 0.1;
 
-const READING_CHARS_PER_SECOND = 16;
-const READING_SECONDS_PER_OPTION = 1.2;
-const READING_MAX_SECONDS = 45;
-const PAGE_READ_BONUS_SECONDS = 6;
+const READING_CHARS_PER_SECOND = 22;
+const READING_SECONDS_PER_OPTION = 0.8;
+const READING_MAX_SECONDS = 12;
+const PAGE_READ_BONUS_SECONDS = 3;
 const INTERACTIVE_MIN_GAP_MS = 5000;
+const HUMANIZED_ANSWER_GAP_MS = 2000;
+const AUTO_SELECT_RETRY_DELAY_MS = 2500;
+const AUTO_SELECT_MAX_RETRIES = 2;
 
 const STEP_PER_ACTION_BEHAVIOURS = new Set([
   "interactive",
@@ -92,6 +95,7 @@ type PendingAutoSelectAnswer = {
   startedAt: number;
   delayMs: number;
   cancelled: boolean;
+  retries: number;
 };
 
 const pendingAutoSelectAnswers = new Map<string, PendingAutoSelectAnswer>();
@@ -429,6 +433,7 @@ export function scheduleAutoSelectAnswer(
   questionNode: Element,
   storedState: StoredStateLike | undefined,
   immediate: boolean = isImmediateAutoSelectMode(),
+  delayOffsetMs: number = 0,
 ): boolean {
   if (!isAutoSelectEnabled(storedState?.settings)) {
     return false;
@@ -464,15 +469,18 @@ export function scheduleAutoSelectAnswer(
   const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
   const firstInPage = autoSelectScheduledTotal === 0;
   autoSelectScheduledTotal += 1;
-  const delayMs = computeAutoSelectDelayMs(
-    settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
-    Math.random,
-    readQuizTimeLeftSeconds(),
-    {
-      readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
-      firstInPage: readingEnabled && firstInPage,
-      interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
-    },
+  const delayMs = Math.min(
+    AUTO_SELECT_MAX_DELAY_MS,
+    computeAutoSelectDelayMs(
+      settings?.autoSelectAvgSeconds ?? DEFAULT_AUTO_SELECT_AVG_SECONDS,
+      Math.random,
+      readQuizTimeLeftSeconds(),
+      {
+        readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
+        firstInPage: readingEnabled && firstInPage,
+        interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
+      },
+    ) + Math.max(0, delayOffsetMs),
   );
   const pending: PendingAutoSelectAnswer = {
     questionId,
@@ -483,6 +491,7 @@ export function scheduleAutoSelectAnswer(
     startedAt: Date.now(),
     delayMs,
     cancelled: false,
+    retries: 0,
   };
   const firePendingAnswer = async () => {
     if (document.hidden) {
@@ -492,39 +501,63 @@ export function scheduleAutoSelectAnswer(
       return;
     }
 
-    if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
-      await runHumanPrecursors(questionNode);
+    try {
+      if (settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors) {
+        await runHumanPrecursors(questionNode);
+      }
+
+      if (pending.cancelled) {
+        return;
+      }
+
+      const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
+        questionNode,
+        getAnswerDataForQuestion(questionId),
+        isLoggedInToExtension(currentStoredState),
+        questionId,
+      );
+
+      const applied = await applyTextAnswerHumanLike(
+        questionNode,
+        questionId,
+        freshAnswerData,
+        settings,
+        {
+          shouldAbort: () => pending.cancelled,
+        },
+      );
+
+      if (applied || pending.cancelled) {
+        pendingAutoSelectAnswers.delete(key);
+        stopAutoSelectProgress(pending);
+        return;
+      }
+
+      pendingAutoSelectAnswers.delete(key);
+      stopAutoSelectProgress(pending);
+
+      const changed = applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
+
+      if (changed) {
+        return;
+      }
+
+      if (pending.retries < AUTO_SELECT_MAX_RETRIES) {
+        pending.retries += 1;
+        pending.startedAt = Date.now();
+        pending.delayMs = AUTO_SELECT_RETRY_DELAY_MS;
+        pending.timeoutId = window.setTimeout(() => {
+          void firePendingAnswer();
+        }, AUTO_SELECT_RETRY_DELAY_MS);
+        pendingAutoSelectAnswers.set(key, pending);
+        startAutoSelectProgress(pending);
+        return;
+      }
+    } catch (error) {
+      pendingAutoSelectAnswers.delete(key);
+      stopAutoSelectProgress(pending);
+      logReduxShareWarning("ReduxShare: auto-select failed", error);
     }
-
-    if (pending.cancelled) {
-      return;
-    }
-
-    const freshAnswerData = getPreferredAutoSelectAnswerDataForQuestion(
-      questionNode,
-      getAnswerDataForQuestion(questionId),
-      isLoggedInToExtension(currentStoredState),
-      questionId,
-    );
-
-    const applied = await applyTextAnswerHumanLike(
-      questionNode,
-      questionId,
-      freshAnswerData,
-      settings,
-      {
-        shouldAbort: () => pending.cancelled,
-      },
-    );
-
-    pendingAutoSelectAnswers.delete(key);
-    stopAutoSelectProgress(pending);
-
-    if (applied || pending.cancelled) {
-      return;
-    }
-
-    applyAutoSelectAnswer(questionNode, questionId, freshAnswerData);
   };
   pending.timeoutId = window.setTimeout(() => {
     void firePendingAnswer();
@@ -540,6 +573,16 @@ export function cancelAutoSelectSchedule(questionId: string | null) {
       dropAutoSelectSchedule(key, pending);
     }
   }
+}
+
+function cancelAutoSelectScheduleByKey(key: string) {
+  const pending = pendingAutoSelectAnswers.get(key);
+
+  if (!pending) {
+    return;
+  }
+
+  dropAutoSelectSchedule(key, pending);
 }
 
 export function cancelAllAutoSelectSchedules() {
@@ -754,14 +797,19 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
 
   if (!isImmediateAutoSelectMode()) {
     const entries = getAnswerEntries().filter((entry) => entry.questionNode);
+    const readingEnabled = storedState?.settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
     const ordered =
       (storedState?.settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder)
         ? shuffleScheduleOrder(entries)
         : entries;
+    const gapMs = readingEnabled ? HUMANIZED_ANSWER_GAP_MS : 0;
+    let offsetMs = 0;
 
     for (const { questionId, questionNode } of ordered) {
       if (questionNode) {
-        scheduleAutoSelectAnswer(questionId, questionNode, storedState, false);
+        cancelAutoSelectScheduleByKey(getAutoSelectScheduleKey(questionNode, questionId));
+        scheduleAutoSelectAnswer(questionId, questionNode, storedState, false, offsetMs);
+        offsetMs += gapMs;
       }
     }
 
