@@ -1,4 +1,5 @@
 import { ANSWER_WIDGET_ATTR } from "../model";
+import { convertLatexTokensToSymbols } from "../shared/latexSymbols";
 
 interface LabelCacheElement extends Element {
   _reduxshareLabelCache?: string;
@@ -223,7 +224,7 @@ export function isPlaceholderSelectOption(option: HTMLOptionElement) {
 }
 
 export function normalizeAnswerLabel(label: string) {
-  return label
+  return convertLatexTokensToSymbols(label)
     .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim()

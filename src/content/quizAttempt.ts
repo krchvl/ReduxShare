@@ -24,6 +24,7 @@ import {
   type SuggestionItem,
 } from "../model";
 import { APP_STORAGE_KEY, QUIZ_CONTEXT_STORAGE_KEY } from "../shared/storageKeys";
+import { convertLatexTokensToSymbols } from "../shared/latexSymbols";
 import { patchStoredState } from "../lib/storage";
 import type { SaveEssayExamplePayload } from "../lib/essayExamples";
 import {
@@ -790,7 +791,7 @@ function selectAnswerByLabelForTrigger(
 function getPreferredSuggestionLabels(suggestions: SuggestionItem[]) {
   const exactSuggestionLabels = suggestions
     .filter((suggestion) => suggestion.correctness === 2 && suggestion.label.trim())
-    .map((suggestion) => suggestion.label.trim());
+    .map((suggestion) => convertLatexTokensToSymbols(suggestion.label).trim());
 
   return Array.from(new Set(exactSuggestionLabels));
 }
