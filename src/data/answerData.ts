@@ -1,3 +1,4 @@
+import { convertLatexTokensToSymbols } from "../shared/latexSymbols";
 import {
   type AnswerData,
   type AnswerSlotData,
@@ -12,7 +13,7 @@ import {
 export function getPreferredSuggestionLabels(suggestions: SuggestionItem[]) {
   const exactSuggestionLabels = suggestions
     .filter((suggestion) => suggestion.correctness === 2 && suggestion.label.trim())
-    .map((suggestion) => suggestion.label.trim());
+    .map((suggestion) => convertLatexTokensToSymbols(suggestion.label).trim());
 
   return Array.from(new Set(exactSuggestionLabels));
 }

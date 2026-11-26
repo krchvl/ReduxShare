@@ -212,7 +212,7 @@ describe("user answer selection capture", () => {
 
     expect(payload.questions[0].preCountedAnswers).toEqual([
       { answerKey: "true", slotKey: "63 percent of the time.", verdict: "unknown" },
-      { answerKey: "stale-answer", slotKey: "question", verdict: "unknown" },
+      { answerKey: "stale", slotKey: "question", verdict: "unknown" },
     ]);
 
     const plainPayload = api.buildReviewSaveRequestPayload(undefined) as {

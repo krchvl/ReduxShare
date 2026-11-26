@@ -326,7 +326,7 @@ function attachPreCountedSelections(
     }
 
     question.preCountedAnswers = tracked.map((entry) => ({
-      answerKey: entry.answerKey,
+      answerKey: createReviewAnswerKey(entry.label) || entry.answerKey,
       slotKey: entry.slotKey,
       verdict: entry.verdict,
     }));

@@ -248,7 +248,11 @@ async function trackSelectionEntries(
 ): Promise<TrackedSelectionEntry[]> {
   const store = await loadSelectionSavesStore();
   const existing = store[attemptKey]?.questions?.[questionId] ?? [];
-  const seen = new Set(existing.map((entry) => `${entry.slotKey}|${entry.answerKey}`));
+  const seen = new Set(
+    existing.map(
+      (entry) => `${entry.slotKey}|${createReviewAnswerKey(entry.label) || entry.answerKey}`,
+    ),
+  );
   const fresh = candidates.filter((entry) => !seen.has(`${entry.slotKey}|${entry.answerKey}`));
 
   if (fresh.length === 0) {

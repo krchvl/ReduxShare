@@ -1,4 +1,5 @@
 import { ANSWER_WIDGET_ATTR } from "../../model";
+import { convertLatexTokensToSymbols } from "../../shared/latexSymbols";
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
   const InputConstructor =
@@ -115,7 +116,7 @@ export async function typeTextHumanLike(
 }
 
 export function setTextAnswerValue(input: HTMLInputElement, label: string) {
-  const nextValue = label.trim();
+  const nextValue = convertLatexTokensToSymbols(label).trim();
 
   if (!nextValue) {
     return false;
