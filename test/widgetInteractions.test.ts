@@ -216,7 +216,7 @@ describe("R-menu widget interactions", () => {
     expect(root.querySelector('[data-menu-tab="ai"]')).toBeInstanceOf(HTMLButtonElement);
     expect(root.querySelector('[data-ai-action="send"]')).toBeNull();
     expect(root.querySelector('[data-menu-panel="ai"]')?.textContent).toContain(
-      "Войдите в аккаунт расширения, чтобы использовать ИИ",
+      "Войдите, чтобы использовать ИИ",
     );
     expect(root.querySelector('[data-menu-tab="external"]')).toBeInstanceOf(HTMLButtonElement);
     expect(

@@ -169,8 +169,7 @@ describe("background auth message handlers", () => {
     expect(response).toEqual({
       ok: true,
       authSession: null,
-      message:
-        "Регистрация создана. Если включено подтверждение почты, проверьте письмо для входа.",
+      message: "Аккаунт создан. Если нужна проверка почты — загляните в письмо.",
     });
     expect((await readStoredState()).authSession).toBeUndefined();
   });
