@@ -243,9 +243,9 @@ describe("quiz preview panel", () => {
 
     const state = getQuizPreviewPanelState();
     expect(state.authRequired).toBe(true);
-    expect(
-      getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent,
-    ).toContain("Войдите в аккаунт расширения");
+    expect(getPreviewModal().querySelector(".reduxshare-preview-placeholder")?.textContent).toBe(
+      "Войдите в аккаунт расширения, чтобы увидеть сохранённые ответы",
+    );
   });
 
   it("shows an error message and allows closing the modal", () => {

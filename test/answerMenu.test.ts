@@ -167,7 +167,9 @@ describe("R-menu source rendering", () => {
 
     expect(root.querySelector('[data-menu-tab="ai"]')).toBeTruthy();
     const aiPanel = root.querySelector('[data-menu-panel="ai"]');
-    expect(aiPanel?.textContent).toContain("Войдите в аккаунт расширения, чтобы использовать ИИ");
+    expect(aiPanel?.querySelector(".ai-settings-missing")?.textContent).toBe(
+      "Войдите в аккаунт расширения, чтобы использовать ИИ",
+    );
     expect(root.querySelector('[data-ai-action="send"]')).toBeNull();
   });
 

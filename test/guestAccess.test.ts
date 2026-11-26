@@ -102,8 +102,8 @@ const statsTab = ["Stats", "Статистика"];
 const aiTab = ["AI", "ИИ"];
 const extraTab = ["Extra", "Дополнительно"];
 const gateMessages = {
-  en: "Sign in for full extension access",
-  ru: "Авторизуйтесь для получения полного доступа к расширению",
+  en: "Sign in for full access",
+  ru: "Войдите для полного доступа к расширению",
 };
 
 async function renderApp() {

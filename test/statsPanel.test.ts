@@ -264,7 +264,7 @@ describe("MainScreen stats tab", () => {
     await act(async () => {});
 
     expect(container.querySelector(".stats-leaderboard__empty")?.textContent).toBe(
-      "Пока нет импортированных ответов — лидерборд заполнится после первых импортов",
+      "Импортированных ответов пока нет",
     );
     expect(container.querySelector(".stats-leaderboard__grid")).toBeNull();
     expect(container.querySelector(".stats-leaderboard__rank")).toBeNull();
@@ -314,7 +314,7 @@ describe("MainScreen stats tab", () => {
     await act(async () => {});
 
     expect(container.querySelector(".stats-history__empty")?.textContent).toBe(
-      "Пока нет импортированных попыток — история заполнится после импорта ответов со страниц review",
+      "Импортированных попыток пока нет",
     );
     expect(container.querySelector(".stats-history__grid")).toBeNull();
     expect(container.querySelector(".stats-history__total")?.textContent).toBe("Попыток: 0");

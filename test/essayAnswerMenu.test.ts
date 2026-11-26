@@ -95,7 +95,9 @@ describe("R-menu essay examples panel", () => {
   it("shows the empty state when there are no examples yet", async () => {
     const root = await renderEssayMenu({ examples: [] });
 
-    expect(root.querySelector(".essay-examples-empty")?.textContent).toContain("Пока нет примеров");
+    expect(root.querySelector(".essay-examples-empty")?.textContent).toBe(
+      "Примеров пока нет. Сохраните свой ответ первым.",
+    );
     expect(root.querySelectorAll(".essay-example")).toHaveLength(0);
     expect(root.querySelector('[data-essay-action="save"]')).not.toBeNull();
   });
