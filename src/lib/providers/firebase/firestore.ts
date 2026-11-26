@@ -367,11 +367,11 @@ export function updateDocumentWithIncrementsWrite(
 export function deleteDocumentWrite(
   projectId: string,
   path: string,
-  options?: { exists?: boolean },
+  options?: { exists?: boolean; updateTime?: string },
 ): FirestoreWrite {
   return {
     delete: documentResourceName(projectId, path),
-    ...(options?.exists === undefined ? {} : { currentDocument: { exists: options.exists } }),
+    ...(options ? { currentDocument: preconditionOf(options) } : {}),
   };
 }
 
