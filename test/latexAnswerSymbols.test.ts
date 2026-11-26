@@ -3,7 +3,7 @@ import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { exactAnswerData, sourceAnswerData } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
 import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
-import { convertLatexTokensToSymbols } from "../src/shared/latexSymbols";
+import { convertLatexTokensToSymbols, flattenSuperscripts } from "../src/shared/latexSymbols";
 
 const QUESTION_ID = "900";
 const TEXT_QUESTION_ID = "901";
@@ -25,7 +25,9 @@ function baseStoredState() {
   };
 }
 
-function renderChoiceQuestion() {
+function renderChoiceQuestion(superscript = false) {
+  const correctLabel = superscript ? "x<sup>2</sup>" : "&gt;";
+
   document.body.innerHTML = `
     <div id="question-900-1" class="que multichoice deferredfeedback" data-questionid="${QUESTION_ID}">
       <div class="content">
@@ -41,7 +43,7 @@ function renderChoiceQuestion() {
                   id="q900:1_choice0"
                   aria-labelledby="q900:1_choice0_label"
                 />
-                <div id="q900:1_choice0_label" data-region="answer-label"><p>&gt;</p></div>
+                <div id="q900:1_choice0_label" data-region="answer-label"><p>${correctLabel}</p></div>
               </div>
               <div class="r1">
                 <input
@@ -116,6 +118,7 @@ describe("LaTeX answer symbols", () => {
     expect(convertLatexTokensToSymbols("a \\neq b")).toBe("a ≠ b");
     expect(convertLatexTokensToSymbols("a \\times b")).toBe("a × b");
     expect(convertLatexTokensToSymbols("a \\pm b")).toBe("a ± b");
+    expect(convertLatexTokensToSymbols("a \\circ b")).toBe("a ∘ b");
     expect(convertLatexTokensToSymbols("\\to")).toBe("→");
     expect(convertLatexTokensToSymbols("\\alpha")).toBe("α");
     expect(convertLatexTokensToSymbols("\\pi")).toBe("π");
@@ -128,6 +131,29 @@ describe("LaTeX answer symbols", () => {
     expect(convertLatexTokensToSymbols("\\frac{1}{2}")).toBe("1/2");
     expect(convertLatexTokensToSymbols("\\sqrt{2}")).toBe("√2");
     expect(convertLatexTokensToSymbols("\\text{answer}")).toBe("answer");
+    expect(convertLatexTokensToSymbols("\\mathbb{R}")).toBe("ℝ");
+  });
+
+  it("converts nested fractions and roots with an index", () => {
+    expect(convertLatexTokensToSymbols("\\frac{\\frac{1}{2}}{3}")).toBe("1/2/3");
+    expect(convertLatexTokensToSymbols("\\frac{\\sqrt{2}}{3}")).toBe("√2/3");
+    expect(convertLatexTokensToSymbols("\\sqrt[3]{8}")).toBe("∛8");
+    expect(convertLatexTokensToSymbols("\\sqrt[4]{16}")).toBe("∜16");
+    expect(convertLatexTokensToSymbols("\\sqrt[n]{x}")).toBe("ⁿ√x");
+  });
+
+  it("converts superscripts and escapes braces without extra spacing", () => {
+    expect(convertLatexTokensToSymbols("x^{2}")).toBe("x²");
+    expect(convertLatexTokensToSymbols("x^2")).toBe("x²");
+    expect(convertLatexTokensToSymbols("\\{x\\}")).toBe("{x}");
+    expect(convertLatexTokensToSymbols("a\\!b")).toBe("ab");
+    expect(convertLatexTokensToSymbols("a\\,b")).toBe("a b");
+  });
+
+  it("flattens superscripts for option label matching", () => {
+    expect(flattenSuperscripts("x²")).toBe("x2");
+    expect(flattenSuperscripts("xⁿ")).toBe("xn");
+    expect(flattenSuperscripts("plain")).toBe("plain");
   });
 
   it("keeps unknown commands and plain text untouched", () => {
@@ -148,6 +174,18 @@ describe("LaTeX answer symbols", () => {
     expect(getInput("q900:1_choice1").checked).toBe(false);
   });
 
+  it("matches a superscript answer against a superscript option", async () => {
+    const state = baseStoredState();
+    const api = await setupPage(state);
+    const questionNode = renderChoiceQuestion(true);
+    api.setSourceAnswerData(QUESTION_ID, "external", exactAnswerData("x^{2}"));
+
+    expect(api.scheduleAutoSelectAnswer(QUESTION_ID, questionNode, state, true)).toBe(true);
+
+    expect(getInput("q900:1_choice0").checked).toBe(true);
+    expect(getInput("q900:1_choice1").checked).toBe(false);
+  });
+
   it("writes the converted sign into a text answer", async () => {
     const state = baseStoredState();
     const api = await setupPage(state);
@@ -157,6 +195,17 @@ describe("LaTeX answer symbols", () => {
     expect(api.scheduleAutoSelectAnswer(TEXT_QUESTION_ID, questionNode, state, true)).toBe(true);
 
     expect(getInput("q901:1_response").value).toBe(">");
+  });
+
+  it("keeps TeX markup when typing free text such as an essay example", async () => {
+    const api = await getQuizAttemptTestApi();
+    const textarea = document.createElement("textarea");
+    document.body.append(textarea);
+
+    await api.typeTextHumanLike(textarea, "the value \\alpha stays");
+
+    expect(textarea.value).toBe("the value \\alpha stays");
+    textarea.remove();
   });
 
   it("applies a LaTeX answer from the R-menu flyout", async () => {

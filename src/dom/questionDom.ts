@@ -1,5 +1,5 @@
 import { ANSWER_WIDGET_ATTR } from "../model";
-import { convertLatexTokensToSymbols } from "../shared/latexSymbols";
+import { convertLatexTokensToSymbols, flattenSuperscripts } from "../shared/latexSymbols";
 
 interface LabelCacheElement extends Element {
   _reduxshareLabelCache?: string;
@@ -238,6 +238,7 @@ export function stripMoodleAnswerPrefix(label: string) {
 export function getAnswerLabelMatchKeys(label: string) {
   const normalizedLabel = normalizeAnswerLabel(label);
   const normalizedWithoutPrefix = normalizeAnswerLabel(stripMoodleAnswerPrefix(normalizedLabel));
+  const flattenedLabel = flattenSuperscripts(normalizedLabel);
   const imagePathMatch = /^image:(.+)$/i.exec(normalizedLabel);
   const imagePathParts = imagePathMatch?.[1]?.split(/[/?#]/).filter(Boolean) ?? [];
   const imageBasename = imagePathParts[imagePathParts.length - 1] ?? "";
@@ -246,6 +247,7 @@ export function getAnswerLabelMatchKeys(label: string) {
     [
       normalizedLabel,
       normalizedWithoutPrefix,
+      flattenedLabel,
       imageBasename ? `image:${imageBasename}` : "",
     ].filter(Boolean),
   );

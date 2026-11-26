@@ -62,7 +62,7 @@ export async function typeTextHumanLike(
   label: string,
   options: HumanTypingOptions = {},
 ): Promise<boolean> {
-  const nextValue = convertLatexTokensToSymbols(label).trim();
+  const nextValue = label.trim();
 
   if (!nextValue) {
     return false;
