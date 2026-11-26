@@ -17,7 +17,7 @@ interface WriteBody {
     increment?: { integerValue?: string; doubleValue?: number };
     setToServerValue?: string;
   }>;
-  currentDocument?: { exists?: boolean };
+  currentDocument?: { exists?: boolean; updateTime?: string };
   transform?: {
     document: string;
     fieldTransforms: Array<{
@@ -244,6 +244,31 @@ export class FakeFirestore {
             return this.json(
               { error: { code: 409, status: "ALREADY_EXISTS", message: "exists" } },
               409,
+            );
+          }
+        }
+
+        const precondition = write.currentDocument;
+
+        if (precondition?.exists === true || precondition?.updateTime) {
+          const path = write.update
+            ? pathFromName(write.update.name)
+            : write.delete
+              ? pathFromName(write.delete)
+              : null;
+          const current = path ? this.docs.get(path) : null;
+
+          if (!current) {
+            return this.json(
+              { error: { code: 412, status: "FAILED_PRECONDITION", message: "missing" } },
+              412,
+            );
+          }
+
+          if (precondition.updateTime && current.updated !== precondition.updateTime) {
+            return this.json(
+              { error: { code: 412, status: "FAILED_PRECONDITION", message: "stale" } },
+              412,
             );
           }
         }

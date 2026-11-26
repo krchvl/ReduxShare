@@ -242,6 +242,22 @@ describe("firebase voteEssayExample", () => {
     expect(fake.read(`essayExamples/${id}`)).toMatchObject({ votes_up: 0, votes_down: 1 });
   });
 
+  it("recreates the vote when it disappears between read and commit", async () => {
+    const id = exampleExample("race");
+    fake.seed(`essayExamples/${id}`, exampleFields({ body: "Race" }));
+    await voteEssayExample(session(), { exampleId: id, value: 1 });
+
+    const voteId = `essayVotes/${essayVoteDocumentId(id, USER_ID)}`;
+    expect(fake.read(voteId)).not.toBeNull();
+    fake.docs.delete(voteId);
+
+    const result = await voteEssayExample(session(), { exampleId: id, value: -1 });
+
+    expect(result).toMatchObject({ votesUp: 1, votesDown: 1, myVote: -1 });
+    expect(fake.read(voteId)).toMatchObject({ value: -1 });
+    expect(fake.read(`essayExamples/${id}`)).toMatchObject({ votes_up: 1, votes_down: 1 });
+  });
+
   it("clamps negative counters and rejects missing examples", async () => {
     const id = exampleExample("negative");
     fake.seed(`essayExamples/${id}`, exampleFields({ votes_up: -2 }));

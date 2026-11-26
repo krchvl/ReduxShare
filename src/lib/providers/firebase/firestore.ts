@@ -37,7 +37,7 @@ export interface FirestoreWrite {
   update?: { name: string; fields?: Record<string, FirestoreValue> };
   updateMask?: { fieldPaths: string[] };
   updateTransforms?: FirestoreWriteTransform[];
-  currentDocument?: { exists: boolean };
+  currentDocument?: { exists?: boolean; updateTime?: string };
   transform?: { document: string; fieldTransforms: FirestoreWriteTransform[] };
   delete?: string;
 }
@@ -264,6 +264,17 @@ function incrementTransform(fieldPath: string, delta: number): FirestoreWriteTra
   };
 }
 
+export function preconditionOf(options: { exists?: boolean; updateTime?: string }): {
+  exists: boolean;
+  updateTime?: string;
+} {
+  if (options.updateTime) {
+    return { exists: true, updateTime: options.updateTime };
+  }
+
+  return { exists: options.exists ?? true };
+}
+
 export function createDocumentWrite(
   projectId: string,
   path: string,
@@ -283,6 +294,7 @@ export function updateDocumentWrite(
   path: string,
   data: Record<string, unknown>,
   fieldPaths?: string[],
+  options?: { exists?: boolean; updateTime?: string },
 ): FirestoreWrite {
   const name = documentResourceName(projectId, path);
   const fields = encodeFirestoreFields(omitTimestampFields(data));
@@ -292,6 +304,7 @@ export function updateDocumentWrite(
     update: { name, fields },
     updateMask: { fieldPaths: mask },
     updateTransforms: [serverTimestampTransform("updated")],
+    ...(options ? { currentDocument: preconditionOf(options) } : {}),
   };
 }
 
@@ -351,8 +364,15 @@ export function updateDocumentWithIncrementsWrite(
   };
 }
 
-export function deleteDocumentWrite(projectId: string, path: string): FirestoreWrite {
-  return { delete: documentResourceName(projectId, path) };
+export function deleteDocumentWrite(
+  projectId: string,
+  path: string,
+  options?: { exists?: boolean },
+): FirestoreWrite {
+  return {
+    delete: documentResourceName(projectId, path),
+    ...(options?.exists === undefined ? {} : { currentDocument: { exists: options.exists } }),
+  };
 }
 
 interface QueryResult {

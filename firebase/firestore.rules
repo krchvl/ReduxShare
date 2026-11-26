@@ -25,7 +25,10 @@ service cloud.firestore {
 
     match /taskVotes/{voteId} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.user == request.auth.uid
+        && request.resource.data.user == request.auth.uid;
       allow delete: if signedIn() && resource.data.user == request.auth.uid;
     }
 
@@ -41,13 +44,21 @@ service cloud.firestore {
     match /essayExamples/{exampleId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.user == request.auth.uid;
-      allow update: if signedIn() && resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && request.resource.data.user == resource.data.user
+        && (
+          resource.data.user == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes_up', 'votes_down', 'updated'])
+        );
       allow delete: if signedIn() && resource.data.user == request.auth.uid;
     }
 
     match /essayVotes/{voteId} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.user == request.auth.uid
+        && request.resource.data.user == request.auth.uid;
       allow delete: if signedIn() && resource.data.user == request.auth.uid;
     }
 

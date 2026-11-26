@@ -15,6 +15,17 @@ interface VoteDecision {
   myVote: 1 | -1 | 0;
 }
 
+function votePrecondition(options: {
+  existingValue: 1 | -1 | null;
+  existingUpdateTime: string | null;
+}): { exists?: boolean; updateTime?: string } {
+  if (options.existingValue !== null && options.existingUpdateTime) {
+    return { updateTime: options.existingUpdateTime };
+  }
+
+  return { exists: options.existingValue !== null };
+}
+
 function buildVoteDecision(options: {
   projectId: string;
   votePath: string;
@@ -22,6 +33,7 @@ function buildVoteDecision(options: {
   voteFields: (value: 1 | -1) => Record<string, unknown>;
   value: 1 | -1;
   existingValue: 1 | -1 | null;
+  existingUpdateTime: string | null;
 }): VoteDecision {
   if (options.existingValue === null) {
     return {
@@ -34,9 +46,11 @@ function buildVoteDecision(options: {
     };
   }
 
+  const precondition = votePrecondition(options);
+
   if (options.existingValue === options.value) {
     return {
-      writes: [deleteDocumentWrite(options.projectId, options.votePath)],
+      writes: [deleteDocumentWrite(options.projectId, options.votePath, precondition)],
       upDelta: options.value === 1 ? -1 : 0,
       downDelta: options.value === -1 ? -1 : 0,
       myVote: 0,
@@ -44,7 +58,15 @@ function buildVoteDecision(options: {
   }
 
   return {
-    writes: [updateDocumentWrite(options.projectId, options.votePath, { value: options.value })],
+    writes: [
+      updateDocumentWrite(
+        options.projectId,
+        options.votePath,
+        { value: options.value },
+        undefined,
+        precondition,
+      ),
+    ],
     upDelta: options.value === 1 ? 1 : -1,
     downDelta: options.value === 1 ? -1 : 1,
     myVote: options.value,
@@ -84,7 +106,8 @@ export async function performVoteToggle(options: {
   const { client, projectId, votePath, documentPath, value } = options;
   const existingVote = await client.getDocument(votePath);
   const existingValue = existingVote ? (existingVote.fields.value === -1 ? -1 : 1) : null;
-  let decision = buildVoteDecision({ ...options, existingValue });
+  const existingUpdateTime = existingVote?.updateTime ?? null;
+  let decision = buildVoteDecision({ ...options, existingValue, existingUpdateTime });
 
   try {
     await commitVoteDecision(client, projectId, documentPath, decision);
@@ -104,7 +127,11 @@ export async function performVoteToggle(options: {
     decision =
       winnerValue === value
         ? { writes: [], upDelta: 0, downDelta: 0, myVote: value }
-        : buildVoteDecision({ ...options, existingValue: winnerValue });
+        : buildVoteDecision({
+            ...options,
+            existingValue: winnerValue,
+            existingUpdateTime: winner.updateTime ?? null,
+          });
     await commitVoteDecision(client, projectId, documentPath, decision);
   }
 
