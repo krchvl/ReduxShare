@@ -196,6 +196,7 @@ export interface StoredState {
   latestQuizAttemptContext?: QuizAttemptContext | null;
   updateState?: UpdateState | null;
   popupState?: PopupState | null;
+  guestMode?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -244,6 +245,7 @@ export const DEFAULT_STORED_STATE: StoredState = {
   userProfile: null,
   latestQuizAttemptContext: null,
   updateState: DEFAULT_UPDATE_STATE,
+  guestMode: false,
 };
 
 export function isLanguageSetting(value: unknown): value is LanguageSetting {

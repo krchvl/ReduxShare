@@ -281,6 +281,53 @@ describe("guest access through the popup entry", () => {
     expect(container!.querySelector(".auth-gated__message")?.textContent).toBe(gateMessages.ru);
   });
 
+  it("remembers the guest choice when the popup is opened again", async () => {
+    appMocks.loadStoredState.mockResolvedValue({
+      settings: DEFAULT_SETTINGS,
+      authSession: null,
+      userProfile: null,
+    });
+
+    await renderApp();
+
+    await act(async () => {
+      container!
+        .querySelector<HTMLButtonElement>(".auth-button--guest")!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (container.querySelector(".settings-tab")) {
+        break;
+      }
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+    }
+
+    expect(appMocks.saveStoredState).toHaveBeenCalledWith(
+      expect.objectContaining({ guestMode: true }),
+    );
+
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+
+    appMocks.loadStoredState.mockResolvedValue({
+      settings: DEFAULT_SETTINGS,
+      authSession: null,
+      userProfile: null,
+      guestMode: true,
+    });
+
+    await renderApp();
+
+    expect(container!.querySelector(".auth-button--guest")).toBeNull();
+    expect(container!.querySelectorAll(".settings-tab").length).toBeGreaterThan(0);
+  });
+
   it("skips the login screen for a stored session and leaves the stats tab ungated", async () => {
     appMocks.loadStoredState.mockResolvedValue({
       settings: DEFAULT_SETTINGS,

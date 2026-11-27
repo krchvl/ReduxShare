@@ -84,10 +84,12 @@ export function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>(DEFAULT_UPDATE_STATE);
   const [popupState, setPopupState] = useState<PopupState | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
   const persistedSnapshotRef = useRef<{
     settings: Settings;
     authSession: AuthSession | null;
     userProfile: UserProfile | null;
+    guestMode: boolean;
   } | null>(null);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -151,7 +153,8 @@ export function App() {
         setAuthSession(nextState.authSession);
         setUserProfile(nextState.userProfile);
         setUpdateState(nextState.updateState ?? DEFAULT_UPDATE_STATE);
-        setView(nextState.authSession ? "main" : "login");
+        setGuestMode(Boolean(nextState.guestMode));
+        setView(nextState.authSession || nextState.guestMode ? "main" : "login");
         setHydrated(true);
       })
       .catch((error: unknown) => {
@@ -169,7 +172,7 @@ export function App() {
     }
 
     const previousState = persistedSnapshotRef.current;
-    persistedSnapshotRef.current = { settings, authSession, userProfile };
+    persistedSnapshotRef.current = { settings, authSession, userProfile, guestMode };
 
     const patch: StoredStatePatch = {};
 
@@ -185,10 +188,14 @@ export function App() {
       patch.userProfile = userProfile;
     }
 
+    if (!previousState || previousState.guestMode !== guestMode) {
+      patch.guestMode = guestMode;
+    }
+
     if (Object.keys(patch).length > 0) {
       void patchStoredState(patch);
     }
-  }, [authSession, hydrated, settings, userProfile]);
+  }, [authSession, guestMode, hydrated, settings, userProfile]);
 
   useEffect(() => {
     if (isFirebaseBackend()) {
@@ -278,6 +285,7 @@ export function App() {
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
+      setGuestMode(false);
       setView("main");
     } catch (error) {
       setLoginError(getLocalizedErrorMessage(error, t, "errors.loginGeneric"));
@@ -318,6 +326,7 @@ export function App() {
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
+      setGuestMode(false);
       setView("main");
     } catch (error) {
       setRegisterMessage(getLocalizedErrorMessage(error, t, "errors.registerFailed"));
@@ -332,6 +341,7 @@ export function App() {
     void logout(authSession);
     setAuthSession(null);
     setUserProfile(null);
+    setGuestMode(false);
     setLoginError(null);
     setRegisterMessage(null);
 
@@ -343,6 +353,7 @@ export function App() {
   function handleContinueAsGuest() {
     setLoginError(null);
     setRegisterMessage(null);
+    setGuestMode(true);
     setView("main");
   }
 
