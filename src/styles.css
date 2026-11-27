@@ -676,12 +676,19 @@ button:focus-visible {
 }
 
 .popup-shell:has(.main-content[data-view="menu"]) {
-  justify-content: center;
+  min-height: 100vh;
+  justify-content: safe center;
+}
+
+html:has(.main-content[data-view="menu"]),
+body:has(.main-content[data-view="menu"]),
+body:has(.main-content[data-view="menu"]) #root {
+  min-height: 100vh;
 }
 
 .main-content[data-view="menu"] {
   margin-top: 24px;
-  margin-bottom: 24px;
+  margin-bottom: 40px;
 }
 
 .main-content[data-view="menu"] .settings-panel {
