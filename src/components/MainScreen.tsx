@@ -131,7 +131,7 @@ function resolveInitialAiDraft(
 ): AiSettings {
   const draft = createRestoredAiDraft(settings, restored);
 
-  return officialAiAvailable ? { ...draft, accessMode: "custom" } : draft;
+  return officialAiAvailable ? draft : { ...draft, accessMode: "custom" };
 }
 
 interface TabConfig {
@@ -509,6 +509,7 @@ export function MainScreen({
 
   const changeAiAccessMode = (mode: AiAccessMode) => {
     setAiAccessMode(mode);
+    setAiDraft((draft) => ({ ...draft, accessMode: mode }));
     updateSetting("ai", normalizeAiSettings({ ...settings.ai, accessMode: mode }));
   };
 
@@ -521,7 +522,7 @@ export function MainScreen({
       return;
     }
 
-    setAiDraft(officialAiAvailable ? { ...normalizedAi, accessMode: "custom" } : normalizedAi);
+    setAiDraft(officialAiAvailable ? normalizedAi : { ...normalizedAi, accessMode: "custom" });
     setAiTestState({
       status: settings.ai.connectionVerified ? "saved" : "idle",
       message: null,
@@ -875,7 +876,7 @@ export function MainScreen({
   }
 
   async function handleTestAiConnection() {
-    const isOfficialFlow = aiDraft.accessMode === "official";
+    const isOfficialFlow = effectiveAiAccessMode === "official";
     const broadRequired =
       !isOfficialFlow &&
       (isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint));
@@ -910,6 +911,7 @@ export function MainScreen({
       const verifiedAt = new Date().toISOString();
       const response = await requestAiConnectionTest({
         ...aiDraft,
+        accessMode: effectiveAiAccessMode,
         apiKey: aiDraft.apiKey.trim(),
         connectionVerified: true,
         verifiedAt,
@@ -943,7 +945,11 @@ export function MainScreen({
       return;
     }
 
-    if (isCustomProviderFlow(aiDraft) && !isBroadHostPermissionGrantedSync()) {
+    if (
+      effectiveAiAccessMode === "custom" &&
+      isCustomProviderFlow(aiDraft) &&
+      !isBroadHostPermissionGrantedSync()
+    ) {
       setAiTestState({
         status: "error",
         message: t("settings.ai.status.permissionDenied"),
@@ -954,6 +960,7 @@ export function MainScreen({
 
     const nextAiSettings = normalizeAiSettings({
       ...aiDraft,
+      accessMode: effectiveAiAccessMode,
       apiKey: aiDraft.apiKey.trim(),
       connectionVerified: true,
       verifiedAt: aiTestState.verifiedAt,
