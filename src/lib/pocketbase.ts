@@ -185,6 +185,7 @@ export function mapPocketBaseSession(pb: PocketBase): AuthSession | null {
   const model = pb.authStore.model as AuthModel & { email?: unknown };
 
   return {
+    provider: "pocketbase",
     accessToken: pb.authStore.token,
 
     refreshToken: pb.authStore.token,

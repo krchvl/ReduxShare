@@ -4,7 +4,7 @@ import {
   normalizeHotkeyCode,
   normalizeHotkeyValue,
 } from "./lib/hotkeys";
-import { BUILTIN_SERVER_ID, getBuiltinServerConfig } from "./lib/envConfig";
+import { BUILTIN_SERVER_ID, getBuiltinServerConfig, type DataProviderId } from "./lib/envConfig";
 
 export type ViewName = "login" | "register" | "main";
 
@@ -135,6 +135,7 @@ export interface RegisterCredentials {
 }
 
 export interface AuthSession {
+  provider?: DataProviderId;
   accessToken: string;
   refreshToken: string;
   expiresAt: number | null;

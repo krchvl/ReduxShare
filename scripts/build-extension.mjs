@@ -1,11 +1,24 @@
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { loadEnv } from "vite";
 
 const VALID_TARGETS = new Set(["chrome", "firefox"]);
 const requestedTarget = process.argv[2] ?? "chrome";
 const targets = requestedTarget === "all" ? ["chrome", "firefox"] : [requestedTarget];
 const rootDir = resolve(import.meta.dirname, "..");
+const buildEnv = loadEnv("production", rootDir, "VITE_");
+const buildDataProvider =
+  readBuildEnv("VITE_DATA_PROVIDER").toLowerCase() === "firebase" ? "firebase" : "pocketbase";
+const FIREBASE_HOST_PERMISSIONS = [
+  "https://identitytoolkit.googleapis.com/*",
+  "https://securetoken.googleapis.com/*",
+  "https://firestore.googleapis.com/*",
+];
+
+function readBuildEnv(name) {
+  return (process.env[name] ?? buildEnv[name] ?? "").trim();
+}
 
 for (const target of targets) {
   if (!VALID_TARGETS.has(target)) {
@@ -17,7 +30,7 @@ for (const target of targets) {
 
 await removeDistRootArtifacts(targets);
 run("npx", ["tsc", "-b"]);
-await checkPocketBaseUrl(rootDir);
+checkBackendConfig();
 
 for (const target of targets) {
   run("npx", ["vite", "build"], {
@@ -30,7 +43,27 @@ for (const target of targets) {
   await removeBuildJunk(resolve(rootDir, "dist", target));
   const manifest = await writeTargetManifest(target);
   await assertContentScriptsAreSelfContained(resolve(rootDir, "dist", target));
+  await assertNoLegacyFirestoreFields(resolve(rootDir, "dist", target));
   await createTargetArchive(target, manifest.version);
+}
+
+async function assertNoLegacyFirestoreFields(targetDir) {
+  const assetsDir = resolve(targetDir, "assets");
+  const files = await readdir(assetsDir);
+
+  for (const file of files) {
+    if (!file.endsWith(".js")) {
+      continue;
+    }
+
+    const source = await readFile(resolve(assetsDir, file), "utf8");
+
+    if (source.includes("setToServerTimestamp")) {
+      console.error(`${file} contains the legacy Firestore REST field "setToServerTimestamp".`);
+      console.error('Firestore REST expects "setToServerValue": "REQUEST_TIME".');
+      process.exit(1);
+    }
+  }
 }
 
 async function assertContentScriptsAreSelfContained(targetDir) {
@@ -50,17 +83,23 @@ async function assertContentScriptsAreSelfContained(targetDir) {
   }
 }
 
-async function checkPocketBaseUrl(rootDir) {
-  let envFile;
+function checkBackendConfig() {
+  if (buildDataProvider === "firebase") {
+    const apiKey = readBuildEnv("VITE_FIREBASE_API_KEY");
+    const projectId = readBuildEnv("VITE_FIREBASE_PROJECT_ID");
 
-  try {
-    envFile = await readFile(resolve(rootDir, ".env"), "utf8");
-  } catch {
-    envFile = "";
+    if (!apiKey || !projectId) {
+      console.warn(
+        "WARNING: VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID are not set. " +
+          'The built extension will show "Firebase is not configured" and all backend features will fail. ' +
+          "Copy .env.example to .env, set the Firebase project values, then rebuild.",
+      );
+    }
+
+    return;
   }
 
-  const match = envFile.match(/^\s*VITE_POCKETBASE_URL\s*=\s*(.+?)\s*$/m);
-  const url = (match?.[1] ?? process.env.VITE_POCKETBASE_URL ?? "").trim().replace(/\/+$/, "");
+  const url = readBuildEnv("VITE_POCKETBASE_URL").replace(/\/+$/, "");
 
   if (!url) {
     console.warn(
@@ -128,6 +167,12 @@ async function writeTargetManifest(target) {
       type: "module",
     };
     delete manifest.browser_specific_settings;
+  }
+
+  if (buildDataProvider === "firebase") {
+    manifest.host_permissions = [
+      ...new Set([...(manifest.host_permissions ?? []), ...FIREBASE_HOST_PERMISSIONS]),
+    ];
   }
 
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

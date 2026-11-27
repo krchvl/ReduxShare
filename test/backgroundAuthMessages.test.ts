@@ -13,7 +13,7 @@ const pingMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof AuthLib>();
-  return { ...actual, loginWithPocketBase: loginMock, registerWithPocketBase: registerMock };
+  return { ...actual, login: loginMock, register: registerMock };
 });
 
 vi.mock("../src/lib/userProfiles", async (importOriginal) => {

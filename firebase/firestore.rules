@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    match /usernames/{name} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /tasks/{taskId} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+
+    match /taskVotes/{voteId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.user == request.auth.uid
+        && request.resource.data.user == request.auth.uid;
+      allow delete: if signedIn() && resource.data.user == request.auth.uid;
+    }
+
+    match /reviewImports/{importId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.user == request.auth.uid
+        && request.resource.data.user == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /essayExamples/{exampleId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && request.resource.data.user == resource.data.user
+        && (
+          resource.data.user == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes_up', 'votes_down', 'updated'])
+        );
+      allow delete: if signedIn() && resource.data.user == request.auth.uid;
+    }
+
+    match /essayVotes/{voteId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.user == request.auth.uid
+        && request.resource.data.user == request.auth.uid;
+      allow delete: if signedIn() && resource.data.user == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { isAbortError } from "./externalProvider";
 import { ClientResponseError } from "pocketbase";
 import { I18nError } from "../i18n";
 import { getPocketBaseUrl, withPocketBaseSessionRetry } from "./pocketbase";
+import { isFirebaseBackend } from "./envConfig";
 import {
   AI_PLANS,
   DEFAULT_OFFICIAL_AI_USAGE,
@@ -1318,6 +1319,10 @@ async function generateOfficialAiText(
 ): Promise<AiTextOutcome> {
   const authSession = context?.authSession ?? null;
 
+  if (isFirebaseBackend()) {
+    throw new I18nError("errors.aiOfficialUnavailable");
+  }
+
   if (!authSession?.accessToken) {
     throw new I18nError("errors.aiOfficialUnauthorized");
   }
@@ -1446,6 +1451,10 @@ function normalizeOfficialAiUsage(body: unknown): OfficialAiUsageState {
 export async function fetchOfficialAiUsage(
   authSession: AuthSession,
 ): Promise<{ usage: OfficialAiUsageState; authSession: AuthSession }> {
+  if (isFirebaseBackend()) {
+    throw new I18nError("errors.aiOfficialUnavailable");
+  }
+
   const endpoint = getPocketBaseUrl() + OFFICIAL_AI_USAGE_PATH;
 
   const { authSession: nextAuthSession, result: usage } = await withPocketBaseSessionRetry(

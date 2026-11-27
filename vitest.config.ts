@@ -6,6 +6,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["test/setup.ts"],
     include: ["test/**/*.test.ts"],
+    env: {
+      VITE_DATA_PROVIDER: "pocketbase",
+    },
     restoreMocks: true,
     clearMocks: true,
     coverage: {

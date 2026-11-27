@@ -30,6 +30,7 @@ import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels, requestOfficialAiUsage } from "../lib/ai";
+import { isFirebaseBackend } from "../lib/envConfig";
 import { AI_PLAN_LIMITS, AI_PLANS, type OfficialAiUsageState } from "../shared/aiOfficial";
 
 const AI_PLAN_LABEL_KEYS = {
@@ -310,6 +311,8 @@ export function MainScreen({
   const [activeTab, setActiveTab] = useState<SettingsTab>("main");
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
   const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(settings.ai.accessMode);
+  const officialAiAvailable = !isFirebaseBackend();
+  const effectiveAiAccessMode = officialAiAvailable ? aiAccessMode : "custom";
   const [aiDraft, setAiDraft] = useState<AiSettings>(() => normalizeAiSettings(settings.ai));
   const [aiTestState, setAiTestState] = useState<AiTestState>({
     status: settings.ai.connectionVerified ? "saved" : "idle",
@@ -393,13 +396,14 @@ export function MainScreen({
   };
 
   useEffect(() => {
-    setAiDraft(normalizeAiSettings(settings.ai));
+    const normalizedAi = normalizeAiSettings(settings.ai);
+    setAiDraft(officialAiAvailable ? { ...normalizedAi, accessMode: "custom" } : normalizedAi);
     setAiTestState({
       status: settings.ai.connectionVerified ? "saved" : "idle",
       message: null,
       verifiedAt: settings.ai.verifiedAt,
     });
-  }, [settings.ai]);
+  }, [officialAiAvailable, settings.ai]);
 
   useEffect(() => {
     if (!isBindingHotkey) {
@@ -454,7 +458,7 @@ export function MainScreen({
     Boolean(aiDraft.apiKey.trim()) && hasAiConnectionTarget && !isAiConnectionChecking;
   const hasSavedAiKey = settings.ai.connectionVerified && Boolean(settings.ai.apiKey.trim());
   const aiSummaryState =
-    settings.ai.accessMode === "official" ? "official" : hasSavedAiKey ? "saved" : "missing";
+    effectiveAiAccessMode === "official" ? "official" : hasSavedAiKey ? "saved" : "missing";
 
   function updateAiDraft(patch: Partial<AiSettings>) {
     setAiDraft((draft) => ({
@@ -579,10 +583,15 @@ export function MainScreen({
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === "ai" && aiAccessMode === "official") {
+    if (
+      officialAiAvailable &&
+      isAuthenticated &&
+      activeTab === "ai" &&
+      aiAccessMode === "official"
+    ) {
       void loadOfficialAiUsage();
     }
-  }, [activeTab, aiAccessMode, isAuthenticated, loadOfficialAiUsage]);
+  }, [activeTab, aiAccessMode, isAuthenticated, officialAiAvailable, loadOfficialAiUsage]);
 
   const serverOfficialModels = officialUsage?.models ?? [];
   const selectedOfficialModels =
@@ -993,21 +1002,23 @@ export function MainScreen({
                   </>
                 )}
               </div>
-              <TabCardGroup label={t("settings.ai.mode.title")} columns={2}>
-                <TabCard
-                  icon={<AiAccessModeIcon mode="official" />}
-                  label={t("settings.ai.mode.official")}
-                  active={aiAccessMode === "official"}
-                  onClick={() => changeAiAccessMode("official")}
-                />
-                <TabCard
-                  icon={<AiAccessModeIcon mode="custom" />}
-                  label={t("settings.ai.mode.custom")}
-                  active={aiAccessMode === "custom"}
-                  onClick={() => changeAiAccessMode("custom")}
-                />
-              </TabCardGroup>
-              {isAuthenticated && aiAccessMode === "official" && (
+              {officialAiAvailable && (
+                <TabCardGroup label={t("settings.ai.mode.title")} columns={2}>
+                  <TabCard
+                    icon={<AiAccessModeIcon mode="official" />}
+                    label={t("settings.ai.mode.official")}
+                    active={aiAccessMode === "official"}
+                    onClick={() => changeAiAccessMode("official")}
+                  />
+                  <TabCard
+                    icon={<AiAccessModeIcon mode="custom" />}
+                    label={t("settings.ai.mode.custom")}
+                    active={aiAccessMode === "custom"}
+                    onClick={() => changeAiAccessMode("custom")}
+                  />
+                </TabCardGroup>
+              )}
+              {officialAiAvailable && isAuthenticated && effectiveAiAccessMode === "official" && (
                 <div className="ai-official__models">
                   <span className="ai-official__models-title">
                     {t("settings.ai.official.models.title")}
@@ -1080,7 +1091,7 @@ export function MainScreen({
                 </div>
               )}
             </div>
-            {aiAccessMode === "custom" ? (
+            {effectiveAiAccessMode === "custom" ? (
               <div className="ai-settings-form">
                 <div className="ai-field">
                   <span>{t("settings.ai.provider")}</span>
@@ -1434,17 +1445,19 @@ export function MainScreen({
               </div>
             </div>
           )}
-          <SettingPanelRow
-            title={t("settings.server.title")}
-            lines={[t("settings.server.line1"), t("settings.server.line2")]}
-            control={
-              <ServerPicker
-                settings={settings}
-                onSettingsChange={onSettingsChange}
-                onLogout={onLogout}
-              />
-            }
-          />
+          {!isFirebaseBackend() && (
+            <SettingPanelRow
+              title={t("settings.server.title")}
+              lines={[t("settings.server.line1"), t("settings.server.line2")]}
+              control={
+                <ServerPicker
+                  settings={settings}
+                  onSettingsChange={onSettingsChange}
+                  onLogout={onLogout}
+                />
+              }
+            />
+          )}
           <SettingPanelRow
             title={t("updates.title")}
             lines={getUpdateLines(updateState, resolvedLanguage, t)}
