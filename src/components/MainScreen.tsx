@@ -301,57 +301,6 @@ function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
   );
 }
 
-function formatUpdateDate(value: string | null, locale: string, t: TranslateFn) {
-  if (!value) {
-    return t("updates.date.never");
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function getUpdateLines(
-  updateState: UpdateState,
-  locale: string,
-  t: TranslateFn,
-): [string, string] {
-  if (updateState.status === "checking") {
-    return [t("updates.checking.line1"), t("updates.checking.line2")];
-  }
-
-  if (updateState.status === "available") {
-    return [
-      t("updates.available.line1", {
-        version: updateState.latestVersion ?? updateState.currentVersion,
-      }),
-      t("updates.available.line2", {
-        currentVersion: updateState.currentVersion,
-        date: formatUpdateDate(updateState.checkedAt, locale, t),
-      }),
-    ];
-  }
-
-  if (updateState.status === "error") {
-    return [
-      updateState.error ?? t("updates.error.fallback"),
-      t("updates.error.line2", { date: formatUpdateDate(updateState.nextCheckAt, locale, t) }),
-    ];
-  }
-
-  if (updateState.status === "up-to-date") {
-    return [
-      t("updates.uptodate.line1", { version: updateState.currentVersion }),
-      t("updates.uptodate.line2", { date: formatUpdateDate(updateState.checkedAt, locale, t) }),
-    ];
-  }
-
-  return [t("updates.idle.line1"), t("updates.idle.line2")];
-}
-
 function getAiProviderLabel(provider: AiSettings["provider"], t: TranslateFn) {
   if (provider === "custom") {
     return t("settings.ai.provider.custom");
@@ -423,7 +372,7 @@ export function MainScreen({
   onLogout,
   onOpenLogin = () => {},
 }: MainScreenProps) {
-  const { resolvedLanguage, t } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>(popupState?.activeTab ?? "main");
   const [menuOpen, setMenuOpen] = useState(!popupState?.activeTab);
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
@@ -457,7 +406,7 @@ export function MainScreen({
   const [modelsActiveIndex, setModelsActiveIndex] = useState(0);
   const modelsAddButtonRef = useRef<HTMLButtonElement | null>(null);
   const modelsPopoverRef = useRef<HTMLDivElement | null>(null);
-  const [updateToastDismissed, setUpdateToastDismissed] = useState(false);
+  const [dismissedUpdateToast, setDismissedUpdateToast] = useState<string | null>(null);
 
   const aiDraftRef = useRef(aiDraft);
   const aiTestRequestRef = useRef(0);
@@ -1604,60 +1553,8 @@ export function MainScreen({
     }
 
     if (activeTab === "extra") {
-      const releaseUrl = updateState.status === "available" ? updateState.releaseUrl : null;
-      const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
-      const previewUpdateState: UpdateState =
-        isDevBuild && updateState.status !== "available"
-          ? {
-              ...updateState,
-              status: "available",
-              latestVersion: "9.9.9-dev",
-              releaseUrl: null,
-            }
-          : updateState;
-      const showUpdateToast =
-        isDevBuild &&
-        previewUpdateState.status === "available" &&
-        previewUpdateState.latestVersion !== null &&
-        !updateToastDismissed;
-      const previewReleaseUrl = previewUpdateState.releaseUrl;
-
-      const dismissUpdateToast = () => {
-        setUpdateToastDismissed(true);
-
-        if (
-          typeof chrome !== "undefined" &&
-          chrome.storage?.local &&
-          previewUpdateState.checkedAt !== null
-        ) {
-          void chrome.storage.local.set({
-            [UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]: previewUpdateState.checkedAt,
-          });
-        }
-      };
-
       return (
         <div className="settings-panel__rows">
-          {showUpdateToast && (
-            <div className="update-toast" role="status">
-              <div className="update-toast__title">{t("updates.toast.title")}</div>
-              <div className="update-toast__body">
-                {t("updates.toast.body", {
-                  version: previewUpdateState.latestVersion ?? "",
-                })}
-              </div>
-              <div className="update-toast__actions">
-                {previewReleaseUrl && (
-                  <Button variant="primary" onClick={() => openExternalUrl(previewReleaseUrl)}>
-                    {t("updates.toast.open")}
-                  </Button>
-                )}
-                <Button variant="outline" onClick={dismissUpdateToast}>
-                  {t("updates.toast.later")}
-                </Button>
-              </div>
-            </div>
-          )}
           {officialAiAvailable && (
             <SettingPanelRow
               title={t("settings.server.title")}
@@ -1671,31 +1568,6 @@ export function MainScreen({
               }
             />
           )}
-          <SettingPanelRow
-            title={t("updates.title")}
-            lines={getUpdateLines(updateState, resolvedLanguage, t)}
-            control={
-              <Button
-                className="secondary-wide-button"
-                variant="outline"
-                disabled={isUpdateCheckInProgress}
-                onClick={() => {
-                  if (releaseUrl) {
-                    openExternalUrl(releaseUrl);
-                    return;
-                  }
-
-                  onCheckUpdates();
-                }}
-              >
-                {isUpdateCheckInProgress
-                  ? t("updates.action.checking")
-                  : releaseUrl
-                    ? t("updates.action.openRelease")
-                    : t("updates.action.check")}
-              </Button>
-            }
-          />
           <div className="settings-panel__account-actions">
             <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
               {t("settings.actions.reset")}
@@ -1894,9 +1766,77 @@ export function MainScreen({
   }
 
   const activeTabConfig = SETTINGS_TABS.find((tab) => tab.key === activeTab) ?? SETTINGS_TABS[1]!;
+  const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
+  const previewUpdateState: UpdateState =
+    isDevBuild && !isUpdateCheckInProgress && updateState.status !== "available"
+      ? {
+          ...updateState,
+          status: "available",
+          latestVersion: "9.9.9-dev",
+          releaseUrl: null,
+        }
+      : updateState;
+  const updateToastStatus = isUpdateCheckInProgress ? "checking" : previewUpdateState.status;
+  const updateToastSignature = `${updateToastStatus}:${previewUpdateState.checkedAt ?? ""}:${
+    previewUpdateState.latestVersion ?? ""
+  }`;
+  const updateToastReleaseUrl =
+    updateToastStatus === "available" ? previewUpdateState.releaseUrl : null;
+  const showUpdateToast =
+    updateToastStatus !== "idle" && dismissedUpdateToast !== updateToastSignature;
+
+  const dismissUpdateToast = (dismissedFor: string) => {
+    setDismissedUpdateToast(dismissedFor);
+
+    if (
+      updateToastStatus === "available" &&
+      previewUpdateState.checkedAt !== null &&
+      typeof chrome !== "undefined" &&
+      chrome.storage?.local
+    ) {
+      void chrome.storage.local.set({
+        [UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]: previewUpdateState.checkedAt,
+      });
+    }
+  };
 
   return (
     <div className="main-content" data-view={menuOpen ? "menu" : "panel"}>
+      {showUpdateToast && (
+        <div className={`update-pill update-pill--${updateToastStatus}`} role="status">
+          <span className="update-pill__text">
+            {updateToastStatus === "checking" && t("updates.toast.checking")}
+            {updateToastStatus === "available" &&
+              t("updates.toast.body", { version: previewUpdateState.latestVersion ?? "" })}
+            {updateToastStatus === "error" &&
+              (previewUpdateState.error ?? t("updates.error.fallback"))}
+            {updateToastStatus === "up-to-date" &&
+              t("updates.toast.uptodate", { version: previewUpdateState.currentVersion })}
+          </span>
+          {updateToastReleaseUrl && (
+            <button
+              type="button"
+              className="update-pill__action"
+              onClick={() => openExternalUrl(updateToastReleaseUrl)}
+            >
+              {t("updates.toast.open")}
+            </button>
+          )}
+          {(updateToastStatus === "error" || updateToastStatus === "up-to-date") && (
+            <button type="button" className="update-pill__action" onClick={onCheckUpdates}>
+              {t("updates.action.check")}
+            </button>
+          )}
+          <button
+            type="button"
+            className="update-pill__close"
+            aria-label={t("updates.toast.dismiss")}
+            onClick={() => dismissUpdateToast(updateToastSignature)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <nav
         className="settings-tabs"
         data-view={menuOpen ? "menu" : "panel"}
