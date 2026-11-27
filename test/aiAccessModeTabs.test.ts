@@ -3,8 +3,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "../src/i18n/react";
-import { MainScreen } from "../src/components/MainScreen";
-import { DEFAULT_SETTINGS, type Settings } from "../src/types";
+import { createRestoredAiDraft, MainScreen } from "../src/components/MainScreen";
+import { DEFAULT_SETTINGS, type PopupState, type Settings } from "../src/types";
+import { APP_STORAGE_KEY } from "../src/shared/storageKeys";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -18,6 +19,8 @@ function renderMainScreen(
   initialSettings: Settings = baseSettings,
   overrides: {
     onSettingsChange?: (settings: Settings) => void;
+    popupState?: PopupState | null;
+    onPopupStateChange?: (popupState: PopupState) => void;
     stateful?: boolean;
   } = {},
 ) {
@@ -43,6 +46,8 @@ function renderMainScreen(
             error: null,
           },
           isCheckingUpdates: false,
+          popupState: overrides.popupState ?? null,
+          onPopupStateChange: overrides.onPopupStateChange,
           onSettingsChange: (next) => {
             overrides.onSettingsChange?.(next);
             if (overrides.stateful) {
@@ -419,5 +424,265 @@ describe("MainScreen AI access mode tabs", () => {
     } finally {
       chrome.runtime.sendMessage = originalSendMessage;
     }
+  });
+
+  it("restores the active tab from the stored popup state", () => {
+    renderMainScreen(baseSettings, { popupState: { activeTab: "ui", aiDraft: null } });
+
+    expect(container!.querySelector(".settings-tabs")?.getAttribute("data-active-tab")).toBe("ui");
+    expect(container!.querySelectorAll(".settings-tab")[2]!.getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
+  it("reports tab switches through onPopupStateChange", () => {
+    const onPopupStateChange = vi.fn();
+    renderMainScreen(baseSettings, { onPopupStateChange });
+
+    act(() => {
+      container!
+        .querySelectorAll<HTMLButtonElement>(".settings-tab")[2]!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(onPopupStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ activeTab: "ui" }),
+    );
+  });
+
+  it("restores an unsaved AI draft from the stored popup state", () => {
+    const onPopupStateChange = vi.fn();
+    renderMainScreen(
+      { ...baseSettings, ai: { ...baseSettings.ai, accessMode: "custom" } },
+      {
+        onPopupStateChange,
+        popupState: {
+          activeTab: "ai",
+          aiDraft: {
+            provider: "custom",
+            model: "draft-model",
+            apiKey: "draft-key",
+            customEndpoint: "https://api.example.com/v1/chat/completions",
+            customModelName: "draft-model-name",
+          },
+        },
+      },
+    );
+
+    expect(
+      container!
+        .querySelector<HTMLButtonElement>(".ai-provider-tab[aria-label='Custom']")
+        ?.getAttribute("aria-checked"),
+    ).toBe("true");
+
+    const endpointInput = container!.querySelector<HTMLInputElement>(
+      ".ai-input[placeholder='https://api.example.com/v1/chat/completions']",
+    );
+    const modelNameInput = container!.querySelector<HTMLInputElement>(
+      ".ai-input[placeholder='gpt-4o...']",
+    );
+
+    expect(endpointInput?.value).toBe("https://api.example.com/v1/chat/completions");
+    expect(modelNameInput?.value).toBe("draft-model-name");
+    expect(container!.querySelector<HTMLInputElement>(".ai-input[type='password']")?.value).toBe(
+      "draft-key",
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(onPopupStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        activeTab: "ai",
+        aiDraft: {
+          provider: "custom",
+          model: "draft-model",
+          apiKey: "draft-key",
+          customEndpoint: "https://api.example.com/v1/chat/completions",
+          customModelName: "draft-model-name",
+        },
+      }),
+    );
+  });
+
+  it("persists typed AI draft values without pressing save", () => {
+    const onPopupStateChange = vi.fn();
+    const onSettingsChange = vi.fn();
+    renderMainScreen(
+      { ...baseSettings, ai: { ...baseSettings.ai, accessMode: "custom" } },
+      { onPopupStateChange, onSettingsChange },
+    );
+    openAiTab();
+
+    const keyInput = container!.querySelector<HTMLInputElement>(".ai-input[type='password']");
+    expect(keyInput).toBeTruthy();
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      setter.call(keyInput, "unsaved-key");
+      keyInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(onPopupStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        aiDraft: expect.objectContaining({
+          provider: baseSettings.ai.provider,
+          model: baseSettings.ai.model,
+          apiKey: "unsaved-key",
+          customEndpoint: "",
+          customModelName: "",
+        }),
+      }),
+    );
+    expect(onSettingsChange).not.toHaveBeenCalled();
+  });
+
+  it("shows the custom panel when an unsaved draft is restored", () => {
+    renderMainScreen(
+      { ...baseSettings, ai: { ...baseSettings.ai, accessMode: "official" } },
+      {
+        popupState: {
+          activeTab: "ai",
+          aiDraft: {
+            provider: "openai",
+            model: "gpt-4o",
+            apiKey: "draft-key",
+            customEndpoint: "",
+            customModelName: "",
+          },
+        },
+      },
+    );
+
+    expect(
+      container!
+        .querySelector<HTMLButtonElement>(`.tab-card[aria-label="Custom"]`)
+        ?.getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(container!.querySelector<HTMLInputElement>(".ai-input[type='password']")?.value).toBe(
+      "draft-key",
+    );
+  });
+
+  it("keeps a restored draft when the saved settings change", () => {
+    renderMainScreen(
+      { ...baseSettings, ai: { ...baseSettings.ai, accessMode: "custom" } },
+      {
+        stateful: true,
+        popupState: {
+          activeTab: "ai",
+          aiDraft: {
+            provider: "openai",
+            model: "gpt-4o",
+            apiKey: "draft-key",
+            customEndpoint: "",
+            customModelName: "",
+          },
+        },
+      },
+    );
+
+    clickModeTab("Official");
+    clickModeTab("Custom");
+
+    expect(container!.querySelector<HTMLInputElement>(".ai-input[type='password']")?.value).toBe(
+      "draft-key",
+    );
+  });
+
+  it("flushes the latest draft to storage on unmount", async () => {
+    renderMainScreen({ ...baseSettings, ai: { ...baseSettings.ai, accessMode: "custom" } });
+    openAiTab();
+
+    const keyInput = container!.querySelector<HTMLInputElement>(".ai-input[type='password']")!;
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      setter.call(keyInput, "flushed-key");
+      keyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    act(() => {
+      root!.unmount();
+      root = null;
+    });
+
+    await act(async () => {});
+
+    const stored = await chrome.storage.local.get(APP_STORAGE_KEY);
+    expect(stored[APP_STORAGE_KEY]?.popupState?.aiDraft?.apiKey).toBe("flushed-key");
+  });
+});
+
+describe("createRestoredAiDraft", () => {
+  const verifiedSettings: Settings = {
+    ...baseSettings,
+    ai: {
+      ...DEFAULT_SETTINGS.ai,
+      provider: "openai",
+      model: "gpt-4o",
+      apiKey: "verified-key",
+      connectionVerified: true,
+      verifiedAt: "2026-01-01T00:00:00.000Z",
+    },
+  };
+
+  const draft = {
+    provider: "openai" as const,
+    model: "gpt-4o",
+    apiKey: "verified-key",
+    customEndpoint: "",
+    customModelName: "",
+  };
+
+  it("keeps verification for the verified connection target", () => {
+    const restored = createRestoredAiDraft(verifiedSettings, draft);
+
+    expect(restored.connectionVerified).toBe(true);
+    expect(restored.verifiedAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("drops verification when the restored model differs", () => {
+    const restored = createRestoredAiDraft(verifiedSettings, { ...draft, model: "gpt-4.1" });
+
+    expect(restored.connectionVerified).toBe(false);
+    expect(restored.verifiedAt).toBeNull();
+  });
+
+  it("drops verification when the restored endpoint differs", () => {
+    const customSettings: Settings = {
+      ...verifiedSettings,
+      ai: {
+        ...verifiedSettings.ai,
+        provider: "custom",
+        customEndpoint: "https://api.example.com/v1/chat/completions",
+        customModelName: "verified-model",
+      },
+    };
+
+    const restored = createRestoredAiDraft(customSettings, {
+      ...draft,
+      provider: "custom",
+      customEndpoint: "https://api.other.example.com/v1/chat/completions",
+      customModelName: "verified-model",
+    });
+
+    expect(restored.connectionVerified).toBe(false);
+    expect(restored.verifiedAt).toBeNull();
   });
 });

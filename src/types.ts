@@ -175,12 +175,28 @@ export interface QuizAttemptContext {
   questions: QuizQuestionSummary[];
 }
 
+export type PopupTab = "main" | "stats" | "ui" | "security" | "ai" | "extra";
+
+export interface AiSettingsDraft {
+  provider: AiProvider;
+  model: string;
+  apiKey: string;
+  customEndpoint: string;
+  customModelName: string;
+}
+
+export interface PopupState {
+  activeTab: PopupTab;
+  aiDraft: AiSettingsDraft | null;
+}
+
 export interface StoredState {
   settings: Settings & Partial<LegacyStoredSettings>;
   authSession: AuthSession | null;
   userProfile: UserProfile | null;
   latestQuizAttemptContext?: QuizAttemptContext | null;
   updateState?: UpdateState | null;
+  popupState?: PopupState | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -328,6 +344,38 @@ export function normalizeAiSettings(settings: Partial<AiSettings> | undefined): 
     customModelName,
     accessMode,
     officialModels: Array.isArray(settings?.officialModels) ? officialModelsUnique : undefined,
+  };
+}
+
+const POPUP_TABS: PopupTab[] = ["main", "stats", "ui", "security", "ai", "extra"];
+
+function normalizeAiDraft(value: unknown): AiSettingsDraft | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const raw = value as Partial<AiSettingsDraft>;
+
+  return {
+    provider: isAiProvider(raw.provider) ? raw.provider : DEFAULT_SETTINGS.ai.provider,
+    model: typeof raw.model === "string" ? raw.model : "",
+    apiKey: typeof raw.apiKey === "string" ? raw.apiKey : "",
+    customEndpoint: typeof raw.customEndpoint === "string" ? raw.customEndpoint : "",
+    customModelName: typeof raw.customModelName === "string" ? raw.customModelName : "",
+  };
+}
+
+export function normalizePopupState(value: unknown): PopupState | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const raw = value as Partial<PopupState>;
+  const activeTab = POPUP_TABS.find((tab) => tab === raw.activeTab) ?? "main";
+
+  return {
+    activeTab,
+    aiDraft: normalizeAiDraft(raw.aiDraft),
   };
 }
 

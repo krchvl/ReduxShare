@@ -24,6 +24,7 @@ vi.mock("../src/lib/updates", async () => {
 vi.mock("../src/lib/storage", () => ({
   loadStoredState: appMocks.loadStoredState,
   saveStoredState: appMocks.saveStoredState,
+  patchStoredState: appMocks.saveStoredState,
 }));
 
 async function importApp() {
