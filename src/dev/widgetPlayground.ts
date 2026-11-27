@@ -41,7 +41,7 @@ function injectViewPageFixture() {
   document.body.append(host);
 
   const moodleConfigScript = document.createElement("script");
-  moodleConfigScript.textContent = 'M.cfg = {"courseId":66,"contextInstanceId":789};';
+  moodleConfigScript.textContent = 'window.M = { cfg: {"courseId":66,"contextInstanceId":789} };';
   document.body.append(moodleConfigScript);
 }
 
@@ -60,6 +60,8 @@ async function boot() {
   seedEssayExamples();
 
   await chrome.storage.local.set({ [APP_STORAGE_KEY]: buildStoredState() });
+
+  await import("../content/quizAttempt");
 
   const api = (globalThis as unknown as { __reduxshareQuizAttemptTestApi?: QuizAttemptDemoApi })
     .__reduxshareQuizAttemptTestApi;
