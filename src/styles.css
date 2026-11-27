@@ -612,7 +612,7 @@ button:focus-visible {
   display: grid;
   grid-template-columns: 54px minmax(0, 1fr);
   align-items: start;
-  margin-inline: 24px 30px;
+  margin-inline: 20px 14px;
   gap: 14px;
 }
 
@@ -962,7 +962,7 @@ button:focus-visible {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 6px 36px 20px;
+  padding: 6px 25px 20px;
   background: rgba(37, 38, 38, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
@@ -2161,7 +2161,7 @@ button:focus-visible {
   border-radius: 10px;
   background: var(--background-panel-soft);
   color: var(--white);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.2;
   text-align: left;
   cursor: pointer;
@@ -2259,7 +2259,7 @@ button:focus-visible {
   border-radius: 8px;
   padding: 5px 8px;
   color: var(--white);
-  font-size: 13px;
+  font-size: 15.5px;
   line-height: 1.25;
   cursor: pointer;
   transition:
@@ -2342,7 +2342,7 @@ button:focus-visible {
   padding: 0 10px;
   background: color-mix(in srgb, var(--background-main) 55%, transparent);
   color: var(--white);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .cselect__add-input:focus {
