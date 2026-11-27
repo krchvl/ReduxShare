@@ -137,8 +137,21 @@
 }
 
 :root[data-theme="light"] .settings-tabs__home {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--muted);
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(255, 255, 255, 0.9), transparent 58%),
+    rgba(255, 255, 255, 0.82);
+  color: var(--white);
+}
+
+:root[data-theme="light"] .settings-tabs__home:hover,
+:root[data-theme="light"] .settings-tabs__home:focus-visible {
+  background:
+    radial-gradient(
+      120% 140% at 12% 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 62%
+    ),
+    #ffffff;
 }
 
 :root[data-theme="light"] .settings-row {
@@ -932,8 +945,10 @@ button:focus-visible {
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.045);
-  color: var(--muted);
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(255, 255, 255, 0.05), transparent 58%),
+    rgba(31, 32, 32, 0.55);
+  color: var(--white);
   transition:
     border-color 180ms ease,
     background 180ms ease,
@@ -942,19 +957,25 @@ button:focus-visible {
 }
 
 .settings-tabs__home svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2;
+  stroke-width: 1.5;
 }
 
 .settings-tabs__home:hover,
 .settings-tabs__home:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background:
+    radial-gradient(
+      120% 140% at 12% 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 62%
+    ),
+    rgba(41, 42, 42, 0.92);
   color: var(--accent);
   outline: none;
   transform: translateX(3px);
