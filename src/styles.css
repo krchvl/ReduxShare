@@ -340,7 +340,7 @@ button:focus-visible {
   left: 50%;
   z-index: 25;
   display: flex;
-  max-width: min(440px, calc(100% - 20px));
+  max-width: calc(100% - 20px);
   align-items: center;
   gap: 8px;
   padding: 5px 6px 5px 14px;
@@ -356,10 +356,9 @@ button:focus-visible {
 
 .update-pill__text {
   min-width: 0;
-  overflow: hidden;
   padding: 3px 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .update-pill--checking .update-pill__text {

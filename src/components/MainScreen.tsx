@@ -1845,7 +1845,7 @@ export function MainScreen({
               {t("updates.toast.open")}
             </button>
           )}
-          {(updateToastStatus === "error" || updateToastStatus === "up-to-date") && (
+          {updateToastStatus === "error" && (
             <button type="button" className="update-pill__action" onClick={onCheckUpdates}>
               {t("updates.action.check")}
             </button>
