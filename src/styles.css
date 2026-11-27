@@ -2082,12 +2082,18 @@ button:focus-visible {
   background: var(--accent);
 }
 
-.settings-panel__account-actions {
+.settings-panel__actions {
   display: flex;
+  flex-direction: column;
   min-height: 116px;
+  justify-content: center;
+  gap: 12px;
+}
+
+.settings-panel__action-row {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
   gap: 18px;
 }
 

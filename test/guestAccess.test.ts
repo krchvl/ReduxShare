@@ -226,7 +226,7 @@ describe("guest access in MainScreen", () => {
     renderMainScreen({ isAuthenticated: false });
     clickTab(extraTab);
 
-    const actions = container!.querySelector(".settings-panel__account-actions");
+    const actions = container!.querySelector(".settings-panel__actions");
     expect(actions).toBeTruthy();
     expect(
       Array.from(actions!.querySelectorAll("button")).map((button) => button.textContent),
@@ -237,7 +237,7 @@ describe("guest access in MainScreen", () => {
     renderMainScreen({ isAuthenticated: true });
     clickTab(extraTab);
 
-    const actions = container!.querySelector(".settings-panel__account-actions");
+    const actions = container!.querySelector(".settings-panel__actions");
     expect(actions).toBeTruthy();
     expect(
       Array.from(actions!.querySelectorAll("button")).map((button) => button.textContent),

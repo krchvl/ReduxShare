@@ -149,7 +149,7 @@
   "settings.social.github": "GitHub автора",
   "settings.social.telegram": "Telegram автора",
   "updates.error.fallback": "Не удалось проверить обновления",
-  "updates.action.check": "Проверить",
+  "updates.action.check": "Проверить обновления",
   "updates.action.checking": "Проверяю…",
   "updates.action.openRelease": "Скачать обновление",
   "updates.badge.new": "Новое обновление",

@@ -121,9 +121,9 @@ describe("update pill", () => {
     const onCheckUpdates = renderPill(DEFAULT_UPDATE_STATE, false, "extra");
 
     const buttons = Array.from(
-      element.querySelectorAll<HTMLButtonElement>(".settings-panel__account-actions button"),
+      element.querySelectorAll<HTMLButtonElement>(".settings-panel__actions button"),
     );
-    const checkButton = buttons.find((button) => button.textContent === "Проверить");
+    const checkButton = buttons.find((button) => button.textContent === "Проверить обновления");
     expect(checkButton).toBeDefined();
 
     act(() => {
@@ -138,7 +138,7 @@ describe("update pill", () => {
     renderPill(DEFAULT_UPDATE_STATE, true, "extra");
 
     const buttons = Array.from(
-      element.querySelectorAll<HTMLButtonElement>(".settings-panel__account-actions button"),
+      element.querySelectorAll<HTMLButtonElement>(".settings-panel__actions button"),
     );
     const checkButton = buttons.find((button) => button.textContent === "Проверяю…");
     expect(checkButton?.disabled).toBe(true);

@@ -1568,54 +1568,58 @@ export function MainScreen({
               }
             />
           )}
-          <div className="settings-panel__account-actions">
-            <Button
-              className="secondary-wide-button"
-              variant="outline"
-              disabled={isUpdateCheckInProgress}
-              onClick={() => {
-                if (updateState.releaseUrl) {
-                  openExternalUrl(updateState.releaseUrl);
-                  return;
-                }
+          <div className="settings-panel__actions">
+            <div className="settings-panel__action-row">
+              <Button
+                className="secondary-wide-button"
+                variant="outline"
+                disabled={isUpdateCheckInProgress}
+                onClick={() => {
+                  if (updateState.releaseUrl) {
+                    openExternalUrl(updateState.releaseUrl);
+                    return;
+                  }
 
-                onCheckUpdates();
-              }}
-            >
-              {isUpdateCheckInProgress
-                ? t("updates.action.checking")
-                : updateState.releaseUrl
-                  ? t("updates.action.openRelease")
-                  : t("updates.action.check")}
-            </Button>
-            <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
-              {t("settings.actions.reset")}
-            </Button>
-            <Button
-              className="secondary-wide-button"
-              variant="outline"
-              onClick={isAuthenticated ? onLogout : onOpenLogin}
-            >
-              {isAuthenticated ? t("settings.actions.logout") : t("auth.gate.action")}
-            </Button>{" "}
-            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
-              <button
-                className="social-button"
-                type="button"
-                aria-label={t("settings.social.github")}
+                  onCheckUpdates();
+                }}
               >
-                <img src={githubIcon} alt="" />
-              </button>
-            </a>
-            <a href="https://t.me/a1b2c3d4e5f6g7h8i9j10k11l12m17" target="_blank">
-              <button
-                className="social-button"
-                type="button"
-                aria-label={t("settings.social.telegram")}
+                {isUpdateCheckInProgress
+                  ? t("updates.action.checking")
+                  : updateState.releaseUrl
+                    ? t("updates.action.openRelease")
+                    : t("updates.action.check")}
+              </Button>
+              <Button
+                className="secondary-wide-button"
+                variant="outline"
+                onClick={isAuthenticated ? onLogout : onOpenLogin}
               >
-                <img src={telegramIcon} alt="" />
-              </button>
-            </a>
+                {isAuthenticated ? t("settings.actions.logout") : t("auth.gate.action")}
+              </Button>
+            </div>
+            <div className="settings-panel__action-row">
+              <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
+                {t("settings.actions.reset")}
+              </Button>
+              <a href="https://github.com/krchvl/ReduxShare" target="_blank">
+                <button
+                  className="social-button"
+                  type="button"
+                  aria-label={t("settings.social.github")}
+                >
+                  <img src={githubIcon} alt="" />
+                </button>
+              </a>
+              <a href="https://t.me/a1b2c3d4e5f6g7h8i9j10k11l12m17" target="_blank">
+                <button
+                  className="social-button"
+                  type="button"
+                  aria-label={t("settings.social.telegram")}
+                >
+                  <img src={telegramIcon} alt="" />
+                </button>
+              </a>
+            </div>
           </div>
         </div>
       );

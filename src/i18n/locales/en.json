@@ -149,7 +149,7 @@
   "settings.social.github": "Author GitHub",
   "settings.social.telegram": "Author Telegram",
   "updates.error.fallback": "Could not check for updates",
-  "updates.action.check": "Check",
+  "updates.action.check": "Check for updates",
   "updates.action.checking": "Checking…",
   "updates.action.openRelease": "Download the update",
   "updates.badge.new": "New update",
