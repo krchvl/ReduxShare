@@ -866,7 +866,6 @@ export function MainScreen({
           <SettingPanelRow
             title={t("settings.theme.title")}
             lines={[t("settings.theme.line1"), t("settings.theme.line2")]}
-            help={{ text: t("settings.help.theme"), media: HELP_MEDIA.theme }}
             control={
               <ColorSchemeSelect
                 value={settings.colorScheme}
@@ -877,7 +876,6 @@ export function MainScreen({
           <SettingPanelRow
             title={t("settings.accent.title")}
             lines={[t("settings.accent.line1"), t("settings.accent.line2")]}
-            help={{ text: t("settings.help.accent"), media: HELP_MEDIA.accent }}
             control={
               <AccentColorPicker
                 value={settings.accentColor}
@@ -888,7 +886,6 @@ export function MainScreen({
           <SettingPanelRow
             title={t("settings.language.title")}
             lines={[t("settings.language.line1"), t("settings.language.line2")]}
-            help={{ text: t("settings.help.language"), media: HELP_MEDIA.language }}
             control={
               <LanguageSelect
                 value={settings.language}
@@ -920,6 +917,7 @@ export function MainScreen({
           />
           <SettingPanelRow
             title={t("settings.copyUnlock.title")}
+            help={{ text: t("settings.help.copyUnlock") }}
             lines={
               settings.copyUnlock
                 ? [t("settings.copyUnlock.on.line1"), t("settings.copyUnlock.on.line2")]
@@ -935,6 +933,7 @@ export function MainScreen({
           />
           <SettingPanelRow
             title={t("settings.hotkey.title")}
+            help={{ text: t("settings.help.hotkey") }}
             lines={hotkeyLines}
             control={
               <Button
@@ -1536,7 +1535,6 @@ export function MainScreen({
               ? [t("settings.extension.on.line1"), t("settings.extension.on.line2")]
               : [t("settings.extension.off.line1"), t("settings.extension.off.line2")]
           }
-          help={{ text: t("settings.help.extension"), media: HELP_MEDIA.extension }}
           control={
             <Switch
               checked={settings.extensionEnabled}
@@ -1552,7 +1550,6 @@ export function MainScreen({
               ? [t("settings.autoselect.on.line1"), t("settings.autoselect.on.line2")]
               : [t("settings.autoselect.off.line1"), t("settings.autoselect.off.line2")]
           }
-          help={{ text: t("settings.help.autoselect"), media: HELP_MEDIA.autoselect }}
           control={
             <Switch
               checked={settings.autoSelect}
