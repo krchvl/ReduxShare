@@ -127,6 +127,9 @@ type QuizAttemptTestApi = {
   ) => string;
   createEmptySourceAnswerData: () => SourceAnswerData;
   createEmptyVariantCounts: () => AnswerVariantCounts;
+  positionAnswerMenuPortal: (menuPortal: HTMLElement, trigger: HTMLElement) => void;
+  applyAnswerMenuHeightLimit: (menuPortal: HTMLElement) => void;
+  updateAnswerMenuFlyoutSide: (menuPortal: HTMLElement) => void;
   applyAutoPassStorageChanges: (
     changes: Record<string, { newValue?: unknown } | undefined>,
   ) => void;

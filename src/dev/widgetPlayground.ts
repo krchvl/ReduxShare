@@ -41,7 +41,7 @@ function injectViewPageFixture() {
   document.body.append(host);
 
   const moodleConfigScript = document.createElement("script");
-  moodleConfigScript.textContent = 'M.cfg = {"courseId":66,"contextInstanceId":789};';
+  moodleConfigScript.textContent = 'window.M = { cfg: {"courseId":66,"contextInstanceId":789} };';
   document.body.append(moodleConfigScript);
 }
 
@@ -63,6 +63,8 @@ async function boot() {
 
   const api = (globalThis as unknown as { __reduxshareQuizAttemptTestApi?: QuizAttemptDemoApi })
     .__reduxshareQuizAttemptTestApi;
+
+  await import("../content/quizAttempt");
 
   if (!api) {
     throw new Error("ReduxShare quizAttempt test API was not installed.");

@@ -1093,6 +1093,11 @@ export function getAnswerMenuMarkup(
         display: block;
       }
 
+      .menu-panel[data-scrollable="true"] {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
       @keyframes menu-panel-enter {
         from {
           opacity: 0;
@@ -1278,6 +1283,8 @@ export function getAnswerMenuMarkup(
           0 2px 8px rgba(0, 0, 0, 0.14);
         cursor: default;
         opacity: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 6px;
         pointer-events: auto;
         transform: translateX(-6px);

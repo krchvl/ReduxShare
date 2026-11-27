@@ -339,6 +339,9 @@ declare global {
         getHumanizedAnswerGapMs: typeof getHumanizedAnswerGapMs;
         createEmptySourceAnswerData: typeof createEmptySourceAnswerData;
         createEmptyVariantCounts: typeof createEmptyVariantCounts;
+        positionAnswerMenuPortal: typeof positionAnswerMenuPortal;
+        applyAnswerMenuHeightLimit: typeof applyAnswerMenuHeightLimit;
+        updateAnswerMenuFlyoutSide: typeof updateAnswerMenuFlyoutSide;
         flushQuestionSelections: typeof flushQuestionSelections;
         resolveSelectionVerdict: typeof resolveSelectionVerdict;
         applyAutoPassStorageChanges: typeof applyAutoPassStorageChanges;
@@ -796,14 +799,78 @@ function getPreferredSuggestionLabels(suggestions: SuggestionItem[]) {
   return Array.from(new Set(exactSuggestionLabels));
 }
 
+const ANSWER_MENU_BORDER_HEIGHT = 2;
+
+function getAnswerMenuViewportMargin(viewportWidth: number) {
+  return viewportWidth <= 640 ? 12 : 16;
+}
+
+function getAnswerMenuActivePanel(shadowRoot: ShadowRoot | null | undefined) {
+  return shadowRoot?.querySelector<HTMLElement>('.menu-panel[data-active="true"]') ?? null;
+}
+
+function getAnswerMenuNaturalHeight(menuPortal: HTMLElement) {
+  const shadowRoot = menuPortal.shadowRoot;
+  const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
+  const tabs = shadowRoot?.querySelector<HTMLElement>(".menu-tabs");
+  const activePanel = getAnswerMenuActivePanel(shadowRoot);
+
+  if (!menu) {
+    return 0;
+  }
+
+  if (!activePanel) {
+    return Math.max(1, Math.round(menu.getBoundingClientRect().height || menu.offsetHeight || 0));
+  }
+
+  const tabsHeight = Math.round(tabs?.getBoundingClientRect().height ?? 0);
+  const panelHeight = activePanel.scrollHeight;
+
+  return Math.max(1, tabsHeight + panelHeight + ANSWER_MENU_BORDER_HEIGHT);
+}
+
+function applyAnswerMenuHeightLimit(menuPortal: HTMLElement) {
+  const shadowRoot = menuPortal.shadowRoot;
+  const activePanel = getAnswerMenuActivePanel(shadowRoot);
+  const tabs = shadowRoot?.querySelector<HTMLElement>(".menu-tabs");
+
+  if (!activePanel) {
+    return;
+  }
+
+  const margin = getAnswerMenuViewportMargin(document.documentElement.clientWidth);
+  const availableHeight = window.innerHeight - margin * 2;
+  const tabsHeight = Math.round(tabs?.getBoundingClientRect().height ?? 0);
+  const nextMaxHeight =
+    tabsHeight + activePanel.scrollHeight + ANSWER_MENU_BORDER_HEIGHT > availableHeight
+      ? `${Math.max(96, Math.round(availableHeight - tabsHeight - ANSWER_MENU_BORDER_HEIGHT))}px`
+      : "";
+
+  if (activePanel.style.maxHeight !== nextMaxHeight) {
+    if (nextMaxHeight) {
+      activePanel.style.maxHeight = nextMaxHeight;
+    } else {
+      activePanel.style.removeProperty("max-height");
+    }
+  }
+
+  const isScrollable = Boolean(nextMaxHeight);
+
+  if (activePanel.dataset.scrollable !== String(isScrollable)) {
+    activePanel.dataset.scrollable = String(isScrollable);
+  }
+}
+
 function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement) {
+  applyAnswerMenuHeightLimit(menuPortal);
+
   const triggerRect = trigger.getBoundingClientRect();
   const shadowRoot = menuPortal.shadowRoot;
   const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
   const flyout = shadowRoot?.querySelector<HTMLElement>(".flyout");
   const viewportWidth = document.documentElement.clientWidth;
   const viewportHeight = window.innerHeight;
-  const margin = viewportWidth <= 640 ? 12 : 16;
+  const margin = getAnswerMenuViewportMargin(viewportWidth);
   const gap = 8;
   const menuRect = menu?.getBoundingClientRect();
   const flyoutRect = flyout?.getBoundingClientRect();
@@ -811,7 +878,10 @@ function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement)
     1,
     Math.round(menuRect?.width ?? menu?.offsetWidth ?? (viewportWidth <= 640 ? 304 : 348)),
   );
-  const menuHeight = Math.max(1, Math.round(menuRect?.height ?? menu?.offsetHeight ?? 0));
+  const menuHeight = Math.max(
+    1,
+    Math.round(getAnswerMenuNaturalHeight(menuPortal) || menuRect?.height || 0),
+  );
   const flyoutWidth = Math.max(
     1,
     Math.round(flyoutRect?.width ?? flyout?.offsetWidth ?? (viewportWidth <= 640 ? 170 : 190)),
@@ -854,9 +924,10 @@ function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement)
     }
   }
 
+  const effectiveHeight = Math.min(menuHeight, viewportHeight - margin * 2);
   const preferredBelowTop = Math.round(triggerRect.bottom + gap);
-  const preferredAboveTop = Math.round(triggerRect.top - menuHeight - gap);
-  const maxTop = Math.max(margin, viewportHeight - menuHeight - margin);
+  const preferredAboveTop = Math.round(triggerRect.top - effectiveHeight - gap);
+  const maxTop = Math.max(margin, viewportHeight - effectiveHeight - margin);
   const top =
     preferredBelowTop <= maxTop
       ? preferredBelowTop
@@ -1010,7 +1081,7 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   const activeItem = shadowRoot?.querySelector<HTMLElement>('.menu-item[data-active="true"]');
   const activeFlyout = activeItem?.querySelector<HTMLElement>(".flyout");
 
-  if (!menu || !activeFlyout) {
+  if (!menu || !activeItem || !activeFlyout) {
     return;
   }
 
@@ -1035,6 +1106,18 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   );
 
   menuPortal.dataset.flyoutSide = nextFlyoutSide;
+
+  const itemRect = activeItem.getBoundingClientRect();
+  const margin = getAnswerMenuViewportMargin(viewportWidth);
+  const availableFlyoutHeight = Math.round(
+    window.innerHeight - margin - Math.max(itemRect.top, margin),
+  );
+  const nextFlyoutMaxHeight = `${Math.max(96, availableFlyoutHeight)}px`;
+
+  if (activeFlyout.style.maxHeight !== nextFlyoutMaxHeight) {
+    activeFlyout.style.maxHeight = nextFlyoutMaxHeight;
+  }
+
   clampAnswerMenuPortalToViewport(menuPortal);
 }
 
@@ -1708,11 +1791,37 @@ function openAnswerMenuPortal(
     }
   };
 
+  let repositionFrame = 0;
+  const scheduleReposition = () => {
+    if (repositionFrame) {
+      return;
+    }
+
+    repositionFrame = window.requestAnimationFrame(() => {
+      repositionFrame = 0;
+      handleReposition();
+    });
+  };
+  const menuBox = shadowRoot.querySelector<HTMLElement>(".menu");
+  const menuMutationObserver =
+    typeof MutationObserver === "function" && menuBox
+      ? new MutationObserver(scheduleReposition)
+      : null;
+
+  menuMutationObserver?.observe(menuBox as HTMLElement, {
+    attributes: true,
+    characterData: true,
+    childList: true,
+    subtree: true,
+  });
+
   closePortal = () => {
     document.removeEventListener("click", handleDocumentClick);
     document.removeEventListener("keydown", handleEscape);
     window.removeEventListener("resize", handleReposition);
     window.removeEventListener("scroll", handleReposition, true);
+    menuMutationObserver?.disconnect();
+    window.cancelAnimationFrame(repositionFrame);
     menuBehavior.dispose();
     trigger.setAttribute("aria-expanded", "false");
     menuPortal.remove();
@@ -3062,6 +3171,9 @@ function installQuizAttemptTestApi() {
     getHumanizedAnswerGapMs,
     createEmptySourceAnswerData,
     createEmptyVariantCounts,
+    positionAnswerMenuPortal,
+    applyAnswerMenuHeightLimit,
+    updateAnswerMenuFlyoutSide,
     flushQuestionSelections,
     resolveSelectionVerdict,
     estimateQuestionReadingSeconds,
