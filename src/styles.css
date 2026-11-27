@@ -813,6 +813,14 @@ button:focus-visible {
   background: var(--background-panel-soft);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
   pointer-events: auto;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.help-hint__popover--visible {
+  opacity: 1;
+  transform: none;
 }
 
 .help-hint__popover p {
@@ -831,6 +839,13 @@ button:focus-visible {
   margin-bottom: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help-hint__popover {
+    transition: none;
+    transform: none;
+  }
 }
 
 .server-picker__select {
