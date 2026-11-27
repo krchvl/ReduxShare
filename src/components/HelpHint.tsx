@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -22,6 +23,7 @@ interface HelpHintProps {
 }
 
 export function HelpHint({ text, media, label }: HelpHintProps) {
+  const popoverId = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -29,6 +31,9 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const unmountTimerRef = useRef<number | null>(null);
+  const triggerHoveredRef = useRef(false);
+  const triggerFocusedRef = useRef(false);
+  const popoverHoveredRef = useRef(false);
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current !== null) {
@@ -44,6 +49,17 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
     }
   }, []);
 
+  const hideNow = useCallback(() => {
+    cancelClose();
+    cancelUnmount();
+    triggerHoveredRef.current = false;
+    triggerFocusedRef.current = false;
+    popoverHoveredRef.current = false;
+    setIsVisible(false);
+    setIsOpen(false);
+    setAnchor(null);
+  }, [cancelClose, cancelUnmount]);
+
   const mountAndShow = useCallback(() => {
     cancelUnmount();
     setIsOpen(true);
@@ -54,6 +70,9 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
     cancelClose();
     closeTimerRef.current = window.setTimeout(() => {
       closeTimerRef.current = null;
+      if (triggerHoveredRef.current || triggerFocusedRef.current || popoverHoveredRef.current) {
+        return;
+      }
       setIsVisible(false);
       unmountTimerRef.current = window.setTimeout(() => {
         unmountTimerRef.current = null;
@@ -62,6 +81,13 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
       }, UNMOUNT_DELAY_MS);
     }, CLOSE_DELAY_MS);
   }, [cancelClose]);
+
+  const releaseInteraction = useCallback(() => {
+    if (triggerHoveredRef.current || triggerFocusedRef.current || popoverHoveredRef.current) {
+      return;
+    }
+    scheduleClose();
+  }, [scheduleClose]);
 
   const openAt = useCallback(
     (x: number, y: number) => {
@@ -104,11 +130,7 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        cancelClose();
-        cancelUnmount();
-        setIsVisible(false);
-        setIsOpen(false);
-        setAnchor(null);
+        hideNow();
       }
     };
 
@@ -117,16 +139,15 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, cancelClose, cancelUnmount]);
+  }, [isOpen, hideNow]);
 
   useEffect(
     () => () => {
+      cancelClose();
       cancelUnmount();
     },
-    [cancelUnmount],
+    [cancelClose, cancelUnmount],
   );
-
-  useEffect(() => cancelClose, [cancelClose]);
 
   return (
     <>
@@ -134,15 +155,23 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
         type="button"
         className="help-hint__trigger"
         aria-label={label}
-        onMouseEnter={(event) => openAt(event.clientX, event.clientY)}
-        onMouseLeave={scheduleClose}
+        aria-describedby={isOpen ? popoverId : undefined}
+        onMouseEnter={(event) => {
+          triggerHoveredRef.current = true;
+          openAt(event.clientX, event.clientY);
+        }}
+        onMouseLeave={() => {
+          triggerHoveredRef.current = false;
+          releaseInteraction();
+        }}
         onFocus={(event) => {
+          triggerFocusedRef.current = true;
           const rect = event.currentTarget.getBoundingClientRect();
           openAt(rect.right, rect.top);
         }}
         onBlur={() => {
-          setIsVisible(false);
-          setIsOpen(false);
+          triggerFocusedRef.current = false;
+          releaseInteraction();
         }}
       >
         <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -156,13 +185,22 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
         createPortal(
           <div
             ref={popoverRef}
+            id={popoverId}
             className={
               isVisible ? "help-hint__popover help-hint__popover--visible" : "help-hint__popover"
             }
             style={popoverStyle}
             role="tooltip"
-            onMouseEnter={cancelClose}
-            onMouseLeave={scheduleClose}
+            onMouseEnter={() => {
+              popoverHoveredRef.current = true;
+              cancelClose();
+              cancelUnmount();
+              setIsVisible(true);
+            }}
+            onMouseLeave={() => {
+              popoverHoveredRef.current = false;
+              releaseInteraction();
+            }}
           >
             {media && (
               <img
