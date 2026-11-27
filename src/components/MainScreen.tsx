@@ -1076,38 +1076,112 @@ export function MainScreen({
     if (activeTab === "security") {
       return (
         <div className="settings-panel__rows">
-          <SettingPanelRow
-            title={t("settings.copyUnlock.title")}
-            lines={
-              settings.copyUnlock
-                ? [t("settings.copyUnlock.on.line1"), t("settings.copyUnlock.on.line2")]
-                : [t("settings.copyUnlock.off.line1"), t("settings.copyUnlock.off.line2")]
-            }
-            control={
-              <Switch
-                checked={settings.copyUnlock}
-                label={t("settings.copyUnlock.title")}
-                onChange={(checked) => updateSetting("copyUnlock", checked)}
-              />
-            }
-          />
-          <SettingPanelRow
-            title={t("settings.hotkey.title")}
-            lines={hotkeyLines}
-            control={
-              <Button
-                className={`hotkey-button ${isBindingHotkey ? "hotkey-button--binding" : ""}`}
-                variant="outline"
-                aria-label={t("settings.hotkey.title")}
-                aria-pressed={isBindingHotkey}
-                tabIndex={-1}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setIsBindingHotkey(true)}
-              >
-                {isBindingHotkey ? "..." : settings.hotkey}
-              </Button>
-            }
-          />
+          {settings.autoSelect && (
+            <SettingPanelRow
+              title={t("settings.autoselectAvg.title")}
+              lines={[t("settings.autoselectAvg.line"), ""]}
+              control={
+                <div className="autoselect-timing">
+                  <div
+                    className="autoselect-timing__chips"
+                    role="group"
+                    aria-label={t("settings.autoselectAvg.title")}
+                  >
+                    {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map(
+                      (preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          className={`autoselect-timing__chip ${
+                            settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
+                              ? "autoselect-timing__chip--active"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])
+                          }
+                        >
+                          {t(`settings.autoselectTempo.${preset}`)}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  <div className="autoselect-timing__slider">
+                    <div className="autoselect-timing__field">
+                      <input
+                        className="opacity-slider"
+                        type="range"
+                        min={AUTO_SELECT_SLIDER_POSITION_MIN}
+                        max={AUTO_SELECT_SLIDER_POSITION_MAX}
+                        step={1}
+                        value={autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds)}
+                        aria-label={t("settings.autoselectAvg.title")}
+                        style={
+                          {
+                            "--slider-fill": `${
+                              ((autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds) -
+                                AUTO_SELECT_SLIDER_POSITION_MIN) *
+                                100) /
+                              (AUTO_SELECT_SLIDER_POSITION_MAX - AUTO_SELECT_SLIDER_POSITION_MIN)
+                            }%`,
+                          } as CSSProperties
+                        }
+                        onChange={(event) =>
+                          updateSetting(
+                            "autoSelectAvgSeconds",
+                            autoSelectTempoPositionToSeconds(Number(event.target.value)),
+                          )
+                        }
+                      />
+                      <div className="autoselect-timing__scale" aria-hidden="true">
+                        {(
+                          [
+                            ["brisk", "10px"],
+                            ["balanced", "calc(10px + (100% - 16px) * 0.5)"],
+                            ["realistic", "calc(100% - 6px)"],
+                          ] as const
+                        ).map(([preset, position]) => (
+                          <span
+                            key={preset}
+                            className="autoselect-timing__tick"
+                            style={{ left: position }}
+                          >
+                            {t(`settings.autoselectTempo.${preset}`)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
+                  </div>
+                </div>
+              }
+            />
+          )}
+          {settings.autoSelect && (
+            <SettingPanelRow
+              title={t("settings.human.title")}
+              lines={[t("settings.human.line1"), t("settings.human.line2")]}
+              control={
+                <TabCardGroup label={t("settings.human.title")} columns={2}>
+                  {(
+                    [
+                      ["humanTyping", "settings.humanTyping"],
+                      ["humanPrecursors", "settings.humanPrecursors"],
+                    ] as const
+                  ).map(([settingKey, keyPrefix]) => (
+                    <TabCard
+                      key={settingKey}
+                      icon={<HumanizationIcon option={settingKey} />}
+                      label={t(`${keyPrefix}.title`)}
+                      role="switch"
+                      active={settings[settingKey]}
+                      onClick={() => updateSetting(settingKey, !settings[settingKey])}
+                    />
+                  ))}
+                </TabCardGroup>
+              }
+            />
+          )}
         </div>
       );
     }
@@ -1560,6 +1634,38 @@ export function MainScreen({
     if (activeTab === "extra") {
       return (
         <div className="settings-panel__rows">
+          <SettingPanelRow
+            title={t("settings.copyUnlock.title")}
+            lines={
+              settings.copyUnlock
+                ? [t("settings.copyUnlock.on.line1"), t("settings.copyUnlock.on.line2")]
+                : [t("settings.copyUnlock.off.line1"), t("settings.copyUnlock.off.line2")]
+            }
+            control={
+              <Switch
+                checked={settings.copyUnlock}
+                label={t("settings.copyUnlock.title")}
+                onChange={(checked) => updateSetting("copyUnlock", checked)}
+              />
+            }
+          />
+          <SettingPanelRow
+            title={t("settings.hotkey.title")}
+            lines={hotkeyLines}
+            control={
+              <Button
+                className={`hotkey-button ${isBindingHotkey ? "hotkey-button--binding" : ""}`}
+                variant="outline"
+                aria-label={t("settings.hotkey.title")}
+                aria-pressed={isBindingHotkey}
+                tabIndex={-1}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setIsBindingHotkey(true)}
+              >
+                {isBindingHotkey ? "..." : settings.hotkey}
+              </Button>
+            }
+          />
           {officialAiAvailable && (
             <SettingPanelRow
               title={t("settings.server.title")}
@@ -1662,112 +1768,6 @@ export function MainScreen({
             />
           }
         />
-        {settings.autoSelect && (
-          <SettingPanelRow
-            title={t("settings.autoselectAvg.title")}
-            lines={[t("settings.autoselectAvg.line"), ""]}
-            control={
-              <div className="autoselect-timing">
-                <div
-                  className="autoselect-timing__chips"
-                  role="group"
-                  aria-label={t("settings.autoselectAvg.title")}
-                >
-                  {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map(
-                    (preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        className={`autoselect-timing__chip ${
-                          settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
-                            ? "autoselect-timing__chip--active"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])
-                        }
-                      >
-                        {t(`settings.autoselectTempo.${preset}`)}
-                      </button>
-                    ),
-                  )}
-                </div>
-                <div className="autoselect-timing__slider">
-                  <div className="autoselect-timing__field">
-                    <input
-                      className="opacity-slider"
-                      type="range"
-                      min={AUTO_SELECT_SLIDER_POSITION_MIN}
-                      max={AUTO_SELECT_SLIDER_POSITION_MAX}
-                      step={1}
-                      value={autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds)}
-                      aria-label={t("settings.autoselectAvg.title")}
-                      style={
-                        {
-                          "--slider-fill": `${
-                            ((autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds) -
-                              AUTO_SELECT_SLIDER_POSITION_MIN) *
-                              100) /
-                            (AUTO_SELECT_SLIDER_POSITION_MAX - AUTO_SELECT_SLIDER_POSITION_MIN)
-                          }%`,
-                        } as CSSProperties
-                      }
-                      onChange={(event) =>
-                        updateSetting(
-                          "autoSelectAvgSeconds",
-                          autoSelectTempoPositionToSeconds(Number(event.target.value)),
-                        )
-                      }
-                    />
-                    <div className="autoselect-timing__scale" aria-hidden="true">
-                      {(
-                        [
-                          ["brisk", "10px"],
-                          ["balanced", "calc(10px + (100% - 16px) * 0.5)"],
-                          ["realistic", "calc(100% - 6px)"],
-                        ] as const
-                      ).map(([preset, position]) => (
-                        <span
-                          key={preset}
-                          className="autoselect-timing__tick"
-                          style={{ left: position }}
-                        >
-                          {t(`settings.autoselectTempo.${preset}`)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
-                </div>
-              </div>
-            }
-          />
-        )}
-        {settings.autoSelect && (
-          <SettingPanelRow
-            title={t("settings.human.title")}
-            lines={[t("settings.human.line1"), t("settings.human.line2")]}
-            control={
-              <TabCardGroup label={t("settings.human.title")} columns={2}>
-                {(
-                  [
-                    ["humanTyping", "settings.humanTyping"],
-                    ["humanPrecursors", "settings.humanPrecursors"],
-                  ] as const
-                ).map(([settingKey, keyPrefix]) => (
-                  <TabCard
-                    key={settingKey}
-                    icon={<HumanizationIcon option={settingKey} />}
-                    label={t(`${keyPrefix}.title`)}
-                    role="switch"
-                    active={settings[settingKey]}
-                    onClick={() => updateSetting(settingKey, !settings[settingKey])}
-                  />
-                ))}
-              </TabCardGroup>
-            }
-          />
-        )}
         <SettingPanelRow
           title={t("settings.attemptStatusPanel.title")}
           lines={

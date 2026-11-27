@@ -46,10 +46,10 @@ function renderMainScreen() {
   return onSettingsChange;
 }
 
-function clickSecurityTab() {
+function clickExtraTab() {
   const securityTab = Array.from(
     container!.querySelectorAll<HTMLButtonElement>(".settings-tab"),
-  ).find((tab) => tab.querySelector(".settings-tab__label")?.textContent === "Безопасность");
+  ).find((tab) => tab.querySelector(".settings-tab__label")?.textContent === "Прочее");
 
   if (!securityTab) {
     throw new Error("Security tab is not rendered");
@@ -66,10 +66,10 @@ function getCopyUnlockSwitch() {
   );
 }
 
-describe("MainScreen security tab", () => {
+describe("MainScreen extra tab", () => {
   it("renders the copy unlock switch and reports changes", () => {
     const onSettingsChange = renderMainScreen();
-    clickSecurityTab();
+    clickExtraTab();
 
     const copyUnlockSwitch = getCopyUnlockSwitch();
     expect(copyUnlockSwitch).toBeInstanceOf(HTMLButtonElement);
@@ -106,7 +106,7 @@ describe("MainScreen security tab", () => {
         ),
       );
     });
-    clickSecurityTab();
+    clickExtraTab();
 
     expect(getCopyUnlockSwitch()!.getAttribute("aria-checked")).toBe("true");
   });

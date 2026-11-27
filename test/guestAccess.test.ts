@@ -101,7 +101,7 @@ function clickTab(labels: string | string[]) {
 
 const statsTab = ["Stats", "Статистика"];
 const aiTab = ["AI", "ИИ"];
-const extraTab = ["Extra", "Дополнительно"];
+const extraTab = ["Other", "Прочее"];
 const gateMessages = {
   en: "Sign in for full access",
   ru: "Войдите для полного доступа к расширению",

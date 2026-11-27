@@ -89,7 +89,7 @@ describe("settings menu", () => {
       "Интерфейс",
       "Безопасность",
       "ИИ",
-      "Дополнительно",
+      "Прочее",
     ]);
     expect(
       tabs.every((tab) => Boolean(tab.querySelector(".settings-tab__desc")?.textContent?.trim())),
@@ -217,9 +217,7 @@ describe("settings menu", () => {
     });
 
     expect(getContent().dataset.view).toBe("panel");
-    expect(container!.querySelector(".settings-panel__heading h1")?.textContent).toBe(
-      "Дополнительно",
-    );
+    expect(container!.querySelector(".settings-panel__heading h1")?.textContent).toBe("Прочее");
     expect(window.localStorage.getItem(APP_STORAGE_KEY)).toBeNull();
   });
 });
