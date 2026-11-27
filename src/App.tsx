@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
@@ -7,7 +7,7 @@ import { I18nProvider } from "./i18n/react";
 import { logout, requestLogin, requestRegister } from "./lib/auth";
 import { isAuthSessionForProvider, isFirebaseBackend } from "./lib/envConfig";
 import { setActivePocketBaseUrl } from "./lib/pocketbase";
-import { loadStoredState, saveStoredState } from "./lib/storage";
+import { loadStoredState, patchStoredState, type StoredStatePatch } from "./lib/storage";
 import { getActiveTabHostname } from "./lib/tabs";
 import { normalizeUpdateState, requestUpdateCheck } from "./lib/updates";
 import { requestTouchUserProfile } from "./lib/userProfiles";
@@ -84,6 +84,11 @@ export function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>(DEFAULT_UPDATE_STATE);
   const [popupState, setPopupState] = useState<PopupState | null>(null);
+  const persistedSnapshotRef = useRef<{
+    settings: Settings;
+    authSession: AuthSession | null;
+    userProfile: UserProfile | null;
+  } | null>(null);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
@@ -163,8 +168,27 @@ export function App() {
       return;
     }
 
-    void saveStoredState({ settings, authSession, userProfile, popupState });
-  }, [authSession, hydrated, settings, userProfile, popupState]);
+    const previousState = persistedSnapshotRef.current;
+    persistedSnapshotRef.current = { settings, authSession, userProfile };
+
+    const patch: StoredStatePatch = {};
+
+    if (!previousState || previousState.settings !== settings) {
+      patch.settings = settings;
+    }
+
+    if (!previousState || previousState.authSession !== authSession) {
+      patch.authSession = authSession;
+    }
+
+    if (!previousState || previousState.userProfile !== userProfile) {
+      patch.userProfile = userProfile;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      void patchStoredState(patch);
+    }
+  }, [authSession, hydrated, settings, userProfile]);
 
   useEffect(() => {
     if (isFirebaseBackend()) {

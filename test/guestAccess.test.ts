@@ -20,6 +20,7 @@ const appMocks = vi.hoisted(() => ({
 vi.mock("../src/lib/storage", () => ({
   loadStoredState: appMocks.loadStoredState,
   saveStoredState: appMocks.saveStoredState,
+  patchStoredState: appMocks.saveStoredState,
 }));
 
 vi.mock("../src/lib/updates", async () => {

@@ -50,6 +50,7 @@ import {
   toOriginPermission,
 } from "../lib/optionalPermissions";
 import { formatHotkeyBindingFromKeyboardEvent } from "../lib/hotkeys";
+import { patchStoredState } from "../lib/storage";
 import {
   AUTO_SELECT_SLIDER_POSITION_MAX,
   AUTO_SELECT_SLIDER_POSITION_MIN,
@@ -77,6 +78,8 @@ interface MainScreenProps {
 
 type SettingsTab = "main" | "stats" | "ui" | "security" | "ai" | "extra";
 
+const POPUP_STATE_PERSIST_DELAY_MS = 300;
+
 function toAiDraft(draft: AiSettings): AiSettingsDraft {
   return {
     provider: draft.provider,
@@ -87,19 +90,27 @@ function toAiDraft(draft: AiSettings): AiSettingsDraft {
   };
 }
 
-function createRestoredAiDraft(settings: Settings, restored: AiSettingsDraft | null): AiSettings {
+export function createRestoredAiDraft(
+  settings: Settings,
+  restored: AiSettingsDraft | null,
+): AiSettings {
   const normalized = normalizeAiSettings(settings.ai);
 
   if (!restored) {
     return normalized;
   }
 
+  const restoredModel = restored.model.trim();
+  const restoredEndpoint = restored.customEndpoint.trim();
+  const restoredModelName = restored.customModelName.trim();
   const connectionVerified =
     normalized.connectionVerified &&
     normalized.provider === restored.provider &&
-    normalized.apiKey === restored.apiKey &&
+    normalized.apiKey === restored.apiKey.trim() &&
+    normalized.model.trim() === restoredModel &&
+    (normalized.customEndpoint ?? "") === restoredEndpoint &&
+    (normalized.customModelName ?? "") === restoredModelName &&
     restored.apiKey.trim() !== "";
-  const restoredModel = restored.model.trim();
 
   return normalizeAiSettings({
     ...normalized,
@@ -362,7 +373,9 @@ export function MainScreen({
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>(popupState?.activeTab ?? "main");
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
-  const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(settings.ai.accessMode);
+  const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(
+    popupState?.aiDraft ? "custom" : settings.ai.accessMode,
+  );
   const officialAiAvailable = !isFirebaseBackend();
   const effectiveAiAccessMode = officialAiAvailable ? aiAccessMode : "custom";
   const [aiDraft, setAiDraft] = useState<AiSettings>(() =>
@@ -394,6 +407,9 @@ export function MainScreen({
 
   const aiDraftRef = useRef(aiDraft);
   const aiModelsStateRef = useRef(aiModelsState);
+  const appliedPopupStateRef = useRef<PopupState | null>(popupState ?? null);
+  const reportedPopupStateRef = useRef<PopupState | null>(null);
+  const latestPopupStateRef = useRef<PopupState>({ activeTab, aiDraft: toAiDraft(aiDraft) });
 
   useEffect(() => {
     refreshBroadPermissionCache().catch(() => {});
@@ -437,8 +453,51 @@ export function MainScreen({
   }, [aiDraft]);
 
   useEffect(() => {
-    onPopupStateChange?.({ activeTab, aiDraft: toAiDraft(aiDraft) });
+    if (
+      !popupState ||
+      popupState === appliedPopupStateRef.current ||
+      popupState === reportedPopupStateRef.current
+    ) {
+      return;
+    }
+
+    appliedPopupStateRef.current = popupState;
+    setActiveTab(popupState.activeTab);
+
+    if (!popupState.aiDraft) {
+      return;
+    }
+
+    setAiAccessMode("custom");
+    const restoredDraft = resolveInitialAiDraft(settings, popupState.aiDraft, officialAiAvailable);
+    setAiDraft(restoredDraft);
+    setAiTestState({
+      status: restoredDraft.connectionVerified ? "saved" : "idle",
+      message: null,
+      verifiedAt: restoredDraft.verifiedAt,
+    });
+  }, [officialAiAvailable, popupState, settings]);
+
+  useEffect(() => {
+    const nextPopupState: PopupState = { activeTab, aiDraft: toAiDraft(aiDraft) };
+    latestPopupStateRef.current = nextPopupState;
+
+    const timeoutId = window.setTimeout(() => {
+      reportedPopupStateRef.current = nextPopupState;
+      onPopupStateChange?.(nextPopupState);
+      void patchStoredState({ popupState: nextPopupState });
+    }, POPUP_STATE_PERSIST_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
   }, [activeTab, aiDraft, onPopupStateChange]);
+
+  useEffect(() => {
+    return () => {
+      if (latestPopupStateRef.current !== reportedPopupStateRef.current) {
+        void patchStoredState({ popupState: latestPopupStateRef.current });
+      }
+    };
+  }, []);
 
   useEffect(() => {
     aiModelsStateRef.current = aiModelsState;
@@ -453,15 +512,15 @@ export function MainScreen({
     updateSetting("ai", normalizeAiSettings({ ...settings.ai, accessMode: mode }));
   };
 
-  const skipRestoredDraftResetRef = useRef(Boolean(popupState?.aiDraft));
-
   useEffect(() => {
-    if (skipRestoredDraftResetRef.current) {
-      skipRestoredDraftResetRef.current = false;
+    const normalizedAi = normalizeAiSettings(settings.ai);
+    const draftDiffersFromSettings =
+      JSON.stringify(toAiDraft(aiDraftRef.current)) !== JSON.stringify(toAiDraft(normalizedAi));
+
+    if (draftDiffersFromSettings) {
       return;
     }
 
-    const normalizedAi = normalizeAiSettings(settings.ai);
     setAiDraft(officialAiAvailable ? { ...normalizedAi, accessMode: "custom" } : normalizedAi);
     setAiTestState({
       status: settings.ai.connectionVerified ? "saved" : "idle",
