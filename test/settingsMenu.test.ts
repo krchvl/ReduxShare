@@ -96,7 +96,7 @@ describe("settings menu", () => {
     ).toBe(true);
   });
 
-  it("opens a section from a card and returns to the grid through the back button", () => {
+  it("opens a section from a card and returns to the grid through the home button", () => {
     renderMainScreen();
     const statsTab = getTabs()[0]!;
 
@@ -107,10 +107,11 @@ describe("settings menu", () => {
     expect(statsTab.getAttribute("aria-current")).toBe("true");
     expect(container!.querySelector(".settings-panel__heading h1")?.textContent).toBe("Статистика");
 
-    const back = container!.querySelector<HTMLButtonElement>(".settings-panel__back");
-    expect(back?.getAttribute("aria-label")).toBe("К разделам");
+    const home = container!.querySelector<HTMLButtonElement>(".settings-tabs__home");
+    expect(home?.getAttribute("aria-label")).toBe("На главную");
+    expect(getTabs()).toHaveLength(6);
 
-    click(back!);
+    click(home!);
 
     expect(getContent().dataset.view).toBe("menu");
     expect(getTabs()[0]?.getAttribute("aria-current")).toBe("true");

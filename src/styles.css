@@ -131,6 +131,11 @@
   border-bottom-color: rgba(15, 20, 35, 0.09);
 }
 
+:root[data-theme="light"] .settings-tabs__home {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+}
+
 :root[data-theme="light"] .settings-row {
   border-bottom-color: rgba(15, 20, 35, 0.09);
 }
@@ -885,7 +890,7 @@ button:focus-visible {
   .settings-tab__text,
   .settings-tab__chevron,
   .settings-panel__view,
-  .settings-panel__back {
+  .settings-tabs__home {
     animation: none;
     transition-duration: 1ms;
   }
@@ -904,20 +909,18 @@ button:focus-visible {
 .settings-panel__head {
   display: flex;
   align-items: center;
-  gap: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 14px 0 12px;
 }
 
-.settings-panel__back {
+.settings-tabs__home {
   display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
+  width: 100%;
+  height: 58px;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
   color: var(--muted);
   transition:
     border-color 180ms ease,
@@ -926,9 +929,9 @@ button:focus-visible {
     transform 180ms ease;
 }
 
-.settings-panel__back svg {
-  width: 18px;
-  height: 18px;
+.settings-tabs__home svg {
+  width: 22px;
+  height: 22px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -936,13 +939,13 @@ button:focus-visible {
   stroke-width: 2;
 }
 
-.settings-panel__back:hover,
-.settings-panel__back:focus-visible {
+.settings-tabs__home:hover,
+.settings-tabs__home:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
   outline: none;
-  transform: translateX(-2px);
+  transform: translateY(-2px);
 }
 
 .settings-panel__heading {

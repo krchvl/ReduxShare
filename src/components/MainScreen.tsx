@@ -225,6 +225,16 @@ function AiIcon() {
   );
 }
 
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 10.4 12 4l8 6.4" />
+      <path d="M6.5 9.4V19h11V9.4" />
+      <path d="M10 19v-4.4h4V19" />
+    </svg>
+  );
+}
+
 function ArrowLeftIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1895,6 +1905,17 @@ export function MainScreen({
         data-active-tab={activeTab}
         aria-label={t("main.tabs.aria")}
       >
+        {!menuOpen && (
+          <button
+            type="button"
+            className="settings-tabs__home"
+            aria-label={t("main.menu.home")}
+            title={t("main.menu.home")}
+            onClick={() => setMenuOpen(true)}
+          >
+            <HomeIcon />
+          </button>
+        )}
         {SETTINGS_TABS.map((tab, index) => {
           const isActive = activeTab === tab.key;
           const label = t(tab.label);
@@ -1925,15 +1946,6 @@ export function MainScreen({
       {!menuOpen && (
         <section className="settings-panel" aria-label={t("main.panel.aria")}>
           <div className="settings-panel__head">
-            <button
-              type="button"
-              className="settings-panel__back"
-              aria-label={t("main.menu.back")}
-              title={t("main.menu.back")}
-              onClick={() => setMenuOpen(true)}
-            >
-              <ArrowLeftIcon />
-            </button>
             <div className="settings-panel__heading">
               <span className="settings-panel__icon">{activeTabConfig.icon}</span>
               <h1>{t(activeTabConfig.label)}</h1>
