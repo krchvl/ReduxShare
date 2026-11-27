@@ -1895,7 +1895,6 @@ export function MainScreen({
         data-active-tab={activeTab}
         aria-label={t("main.tabs.aria")}
       >
-        <p className="settings-tabs__caption">{t("main.menu.title")}</p>
         {SETTINGS_TABS.map((tab, index) => {
           const isActive = activeTab === tab.key;
           const label = t(tab.label);

@@ -27,7 +27,6 @@
   "main.tabs.stats": "Stats",
   "main.tabs.extra": "Extra",
   "main.tabs.aria": "Settings sections",
-  "main.menu.title": "Settings sections",
   "main.menu.back": "Back to sections",
   "main.tabs.stats.desc": "Solved tests, accuracy and contribution",
   "main.tabs.basic.desc": "Extension and auto-pass",
