@@ -592,9 +592,10 @@ button:focus-visible {
 
 .main-content[data-view="panel"] {
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr);
+  grid-template-columns: 54px minmax(0, 1fr);
   align-items: start;
-  gap: 16px;
+  margin-inline: 0 30px;
+  gap: 14px;
 }
 
 .main-content[data-view="menu"] .settings-panel {
@@ -620,7 +621,8 @@ button:focus-visible {
 }
 
 .settings-tabs[data-view="panel"] {
-  grid-template-columns: 62px;
+  grid-template-columns: 54px;
+  margin-left: -12px;
   gap: 8px;
 }
 
@@ -800,7 +802,8 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   min-height: 46px;
-  border-radius: 10px;
+  border-left: 0;
+  border-radius: 18px 10px 10px 18px;
   padding: 9px 0;
   animation: none;
 }
@@ -822,13 +825,15 @@ button:focus-visible {
 .settings-tabs[data-view="panel"] .settings-tab:focus-visible {
   margin-inline: 0;
   padding-inline: 0;
-  transform: none;
+  background: color-mix(in srgb, var(--accent) 14%, rgba(41, 42, 42, 0.92));
+  transform: translateX(3px);
 }
 
 .settings-tabs[data-view="panel"] .settings-tab--active::before {
   top: 50%;
+  right: -1px;
   bottom: auto;
-  left: -1px;
+  left: auto;
   height: 22px;
   transform: translateY(-50%);
 }
@@ -880,12 +885,12 @@ button:focus-visible {
   }
 
   .main-content[data-view="panel"] {
-    grid-template-columns: 54px minmax(0, 1fr);
+    grid-template-columns: 48px minmax(0, 1fr);
     gap: 10px;
   }
 
   .settings-tabs[data-view="panel"] {
-    grid-template-columns: 54px;
+    grid-template-columns: 48px;
   }
 }
 
@@ -924,7 +929,8 @@ button:focus-visible {
   height: 46px;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-left: 0;
+  border-radius: 18px 10px 10px 18px;
   background: rgba(255, 255, 255, 0.045);
   color: var(--muted);
   transition:
@@ -950,7 +956,7 @@ button:focus-visible {
   background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
   outline: none;
-  transform: translateY(-2px);
+  transform: translateX(3px);
 }
 
 .settings-panel__heading {
