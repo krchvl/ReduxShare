@@ -48,7 +48,7 @@ describe("update pill outside a dev build", () => {
               checkedAt: "2026-11-28T10:00:00.000Z",
             },
             isCheckingUpdates: false,
-            popupState: { activeTab: "main" },
+            popupState: { activeTab: "extra" },
             onSettingsChange: () => {},
             onCheckUpdates: () => {},
             onResetSettings: () => {},
@@ -59,8 +59,19 @@ describe("update pill outside a dev build", () => {
     });
 
     const pill = container.querySelector(".update-pill");
-    expect(pill?.classList.contains("update-pill--up-to-date")).toBe(true);
-    expect(pill?.textContent).toContain("Версия 0.1.0 актуальна");
-    expect(pill?.querySelector(".update-pill__action")).toBeNull();
+    expect(pill).toBeNull();
+
+    act(() => {
+      Array.from(
+        container.querySelectorAll<HTMLButtonElement>(".settings-panel__action-row button"),
+      )
+        .find((button) => button.textContent === "Проверить обновления")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const shownPill = container.querySelector(".update-pill");
+    expect(shownPill?.classList.contains("update-pill--up-to-date")).toBe(true);
+    expect(shownPill?.textContent).toContain("Версия 0.1.0 актуальна");
+    expect(shownPill?.querySelector(".update-pill__action")).toBeNull();
   });
 });

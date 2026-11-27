@@ -407,6 +407,7 @@ export function MainScreen({
   const modelsAddButtonRef = useRef<HTMLButtonElement | null>(null);
   const modelsPopoverRef = useRef<HTMLDivElement | null>(null);
   const [dismissedUpdateToast, setDismissedUpdateToast] = useState<string | null>(null);
+  const [updateToastRequested, setUpdateToastRequested] = useState(false);
 
   const aiDraftRef = useRef(aiDraft);
   const aiTestRequestRef = useRef(0);
@@ -1580,7 +1581,7 @@ export function MainScreen({
                     return;
                   }
 
-                  onCheckUpdates();
+                  startUpdateCheck();
                 }}
               >
                 {isUpdateCheckInProgress
@@ -1806,7 +1807,14 @@ export function MainScreen({
   const updateToastReleaseUrl =
     updateToastStatus === "available" ? previewUpdateState.releaseUrl : null;
   const showUpdateToast =
-    updateToastStatus !== "idle" && dismissedUpdateToast !== updateToastSignature;
+    updateToastRequested &&
+    updateToastStatus !== "idle" &&
+    dismissedUpdateToast !== updateToastSignature;
+
+  const startUpdateCheck = () => {
+    setUpdateToastRequested(true);
+    onCheckUpdates();
+  };
 
   const dismissUpdateToast = (dismissedFor: string) => {
     setDismissedUpdateToast(dismissedFor);
@@ -1846,7 +1854,7 @@ export function MainScreen({
             </button>
           )}
           {updateToastStatus === "error" && (
-            <button type="button" className="update-pill__action" onClick={onCheckUpdates}>
+            <button type="button" className="update-pill__action" onClick={startUpdateCheck}>
               {t("updates.action.check")}
             </button>
           )}

@@ -52,6 +52,14 @@ function mount() {
   return container;
 }
 
+function pressCheckButton(element: HTMLElement) {
+  act(() => {
+    Array.from(element.querySelectorAll<HTMLButtonElement>(".settings-panel__action-row button"))
+      .find((button) => button.textContent === "Проверить обновления")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
 const availableState: UpdateState = {
   ...DEFAULT_UPDATE_STATE,
   status: "available",
@@ -61,13 +69,29 @@ const availableState: UpdateState = {
 };
 
 describe("update pill", () => {
-  it("shows the available version and disappears once dismissed", async () => {
+  it("stays hidden until a check is started", () => {
     const element = mount();
     renderPill(availableState);
 
+    expect(element.querySelector(".update-pill")).toBeNull();
+  });
+
+  it("shows the available version once the check is started", () => {
+    const element = mount();
+    const onCheckUpdates = renderPill(availableState, false, "extra");
+
+    pressCheckButton(element);
+
     const pill = element.querySelector(".update-pill");
+    expect(onCheckUpdates).toHaveBeenCalledTimes(1);
     expect(pill?.classList.contains("update-pill--available")).toBe(true);
     expect(pill?.textContent).toContain("9.9.9-dev");
+  });
+
+  it("disappears once dismissed and comes back for a newer check result", async () => {
+    const element = mount();
+    renderPill(availableState, false, "extra");
+    pressCheckButton(element);
 
     await act(async () => {
       element
@@ -78,59 +102,40 @@ describe("update pill", () => {
     expect(element.querySelector(".update-pill")).toBeNull();
     const stored = await chrome.storage.local.get(UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY);
     expect(stored[UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]).toBe(availableState.checkedAt);
-  });
 
-  it("brings the pill back for a newer check result", async () => {
-    const element = mount();
-    renderPill(availableState);
-
-    await act(async () => {
-      element
-        .querySelector<HTMLButtonElement>(".update-pill__close")
-        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(element.querySelector(".update-pill")).toBeNull();
-
-    renderPill({ ...availableState, checkedAt: "2026-11-28T11:00:00.000Z" });
+    renderPill({ ...availableState, checkedAt: "2026-11-28T11:00:00.000Z" }, false, "extra");
 
     expect(element.querySelector(".update-pill")).not.toBeNull();
   });
 
   it("shows the searching pill while the check runs", () => {
     const element = mount();
-    renderPill(DEFAULT_UPDATE_STATE, true);
+    renderPill(DEFAULT_UPDATE_STATE, false, "extra");
+    pressCheckButton(element);
+    renderPill(DEFAULT_UPDATE_STATE, true, "extra");
 
     const pill = element.querySelector(".update-pill");
     expect(pill?.classList.contains("update-pill--checking")).toBe(true);
     expect(pill?.textContent).toContain("Ищу новые обновления");
+    expect(pill?.querySelector(".update-pill__action")).toBeNull();
   });
 
   it("keeps the pill in the checking state reported by the update state", () => {
     const element = mount();
-    renderPill({
-      ...DEFAULT_UPDATE_STATE,
-      status: "checking",
-      checkedAt: "2026-11-28T10:00:00.000Z",
-    });
-
-    expect(element.querySelector(".update-pill__action")).toBeNull();
-  });
-
-  it("keeps a check button in the extra section", () => {
-    const element = mount();
-    const onCheckUpdates = renderPill(DEFAULT_UPDATE_STATE, false, "extra");
-
-    const buttons = Array.from(
-      element.querySelectorAll<HTMLButtonElement>(".settings-panel__actions button"),
+    renderPill(DEFAULT_UPDATE_STATE, false, "extra");
+    pressCheckButton(element);
+    renderPill(
+      {
+        ...DEFAULT_UPDATE_STATE,
+        status: "checking",
+        checkedAt: "2026-11-28T10:00:00.000Z",
+      },
+      false,
+      "extra",
     );
-    const checkButton = buttons.find((button) => button.textContent === "Проверить обновления");
-    expect(checkButton).toBeDefined();
 
-    act(() => {
-      checkButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(onCheckUpdates).toHaveBeenCalledTimes(1);
+    expect(element.querySelector(".update-pill")).not.toBeNull();
+    expect(element.querySelector(".update-pill__action")).toBeNull();
   });
 
   it("disables the extra section check button while the check runs", () => {
@@ -138,7 +143,7 @@ describe("update pill", () => {
     renderPill(DEFAULT_UPDATE_STATE, true, "extra");
 
     const buttons = Array.from(
-      element.querySelectorAll<HTMLButtonElement>(".settings-panel__actions button"),
+      element.querySelectorAll<HTMLButtonElement>(".settings-panel__action-row button"),
     );
     const checkButton = buttons.find((button) => button.textContent === "Проверяю…");
     expect(checkButton?.disabled).toBe(true);
