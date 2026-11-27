@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 
 const POPOVER_WIDTH = 280;
 const POPOVER_EDGE_PADDING = 12;
 const CURSOR_GAP = 14;
+const CLOSE_DELAY_MS = 150;
 
 interface HelpHintProps {
   text: string;
@@ -13,25 +21,54 @@ interface HelpHintProps {
 
 export function HelpHint({ text, media, label }: HelpHintProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
 
-  const openAt = useCallback((x: number, y: number) => {
+  const cancelClose = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      setIsOpen(false);
+    }, CLOSE_DELAY_MS);
+  }, [cancelClose]);
+
+  const openAt = useCallback(
+    (x: number, y: number) => {
+      cancelClose();
+      setAnchor({ x, y });
+      setIsOpen(true);
+    },
+    [cancelClose],
+  );
+
+  useLayoutEffect(() => {
+    if (!isOpen || !anchor) {
+      return;
+    }
+
     const height = popoverRef.current?.offsetHeight ?? 0;
     const maxLeft = window.innerWidth - POPOVER_WIDTH - POPOVER_EDGE_PADDING;
     const left = Math.max(
       POPOVER_EDGE_PADDING,
-      Math.min(x + CURSOR_GAP, Math.max(POPOVER_EDGE_PADDING, maxLeft)),
+      Math.min(anchor.x + CURSOR_GAP, Math.max(POPOVER_EDGE_PADDING, maxLeft)),
     );
-    const belowTop = y + CURSOR_GAP;
+    const belowTop = anchor.y + CURSOR_GAP;
     const top =
       height > 0 && belowTop + height <= window.innerHeight - POPOVER_EDGE_PADDING
         ? belowTop
-        : Math.max(POPOVER_EDGE_PADDING, y - height - CURSOR_GAP);
+        : Math.max(POPOVER_EDGE_PADDING, anchor.y - height - CURSOR_GAP);
 
     setPopoverStyle({ position: "fixed", top, left, width: POPOVER_WIDTH });
-    setIsOpen(true);
-  }, []);
+  }, [isOpen, anchor]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,6 +88,8 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
     };
   }, [isOpen]);
 
+  useEffect(() => cancelClose, [cancelClose]);
+
   return (
     <>
       <button
@@ -58,6 +97,7 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
         className="help-hint__trigger"
         aria-label={label}
         onMouseEnter={(event) => openAt(event.clientX, event.clientY)}
+        onMouseLeave={scheduleClose}
         onFocus={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           openAt(rect.right, rect.top);
@@ -71,15 +111,24 @@ export function HelpHint({ text, media, label }: HelpHintProps) {
         </svg>
       </button>
       {isOpen &&
+        anchor &&
         createPortal(
           <div
             ref={popoverRef}
             className="help-hint__popover"
             style={popoverStyle}
             role="tooltip"
-            onMouseLeave={() => setIsOpen(false)}
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
           >
-            {media && <img className="help-hint__media" src={media} alt="" />}
+            {media && (
+              <img
+                className="help-hint__media"
+                src={media}
+                alt=""
+                onLoad={() => setAnchor((current) => (current ? { ...current } : current))}
+              />
+            )}
             <p>{text}</p>
           </div>,
           document.body,
