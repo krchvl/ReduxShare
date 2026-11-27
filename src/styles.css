@@ -641,6 +641,19 @@ button:focus-visible {
 .settings-tabs[data-view="panel"] {
   grid-template-columns: 54px;
   gap: 8px;
+  animation: settings-rail-enter 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes settings-rail-enter {
+  from {
+    opacity: 0.5;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .settings-tab {
@@ -833,6 +846,10 @@ button:focus-visible {
   border-radius: 12px;
   padding: 9px 0;
   animation: none;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
 }
 
 .settings-tabs[data-view="panel"] .settings-tab svg {
@@ -880,9 +897,7 @@ button:focus-visible {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-50%) translateX(-6px);
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+  transition: opacity 180ms ease;
 }
 
 .settings-tabs[data-view="panel"] .settings-tab:hover .settings-tab__text,
@@ -921,6 +936,7 @@ button:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .settings-tabs,
   .settings-tab,
   .settings-tab__icon,
   .settings-tab__text,
@@ -1046,7 +1062,7 @@ button:focus-visible {
 @keyframes settings-panel-enter {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateX(10px);
   }
 
   to {
