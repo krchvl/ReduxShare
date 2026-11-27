@@ -24,6 +24,8 @@ import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
 import { ColorSchemeSelect } from "./ColorSchemeSelect";
 import { CustomSelect, getAnchoredFloatingStyle } from "./CustomSelect";
+import { HelpHint } from "./HelpHint";
+import { HELP_MEDIA } from "./helpMedia";
 import { ServerPicker } from "./ServerPicker";
 import { StatsPanel } from "./StatsPanel";
 import { TabCard, TabCardGroup } from "./TabCard";
@@ -83,6 +85,7 @@ interface SettingPanelRowProps {
   title: string;
   lines: [string, string];
   control: ReactNode;
+  help?: { text: string; media?: string };
 }
 
 function isCustomProviderFlow(draft: AiSettings): boolean {
@@ -174,11 +177,14 @@ const SETTINGS_TABS: TabConfig[] = [
   { key: "extra", label: "main.tabs.extra", icon: <DotsIcon /> },
 ];
 
-function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
+function SettingPanelRow({ title, lines, control, help }: SettingPanelRowProps) {
   return (
     <section className="settings-row">
       <div className="settings-row__text">
-        <h2>{title}</h2>
+        <h2 className="settings-row__title">
+          <span>{title}</span>
+          {help && <HelpHint text={help.text} media={help.media} label={`${title} — help`} />}
+        </h2>
         <p>{lines[0]}</p>
         <p>{lines[1]}</p>
       </div>
@@ -911,6 +917,7 @@ export function MainScreen({
           />
           <SettingPanelRow
             title={t("settings.copyUnlock.title")}
+            help={{ text: t("settings.help.copyUnlock") }}
             lines={
               settings.copyUnlock
                 ? [t("settings.copyUnlock.on.line1"), t("settings.copyUnlock.on.line2")]
@@ -926,6 +933,7 @@ export function MainScreen({
           />
           <SettingPanelRow
             title={t("settings.hotkey.title")}
+            help={{ text: t("settings.help.hotkey") }}
             lines={hotkeyLines}
             control={
               <Button
@@ -1449,6 +1457,7 @@ export function MainScreen({
             <SettingPanelRow
               title={t("settings.server.title")}
               lines={[t("settings.server.line1"), t("settings.server.line2")]}
+              help={{ text: t("settings.help.server"), media: HELP_MEDIA.server }}
               control={
                 <ServerPicker
                   settings={settings}
@@ -1553,6 +1562,7 @@ export function MainScreen({
           <SettingPanelRow
             title={t("settings.autoselectAvg.title")}
             lines={[t("settings.autoselectAvg.line"), ""]}
+            help={{ text: t("settings.help.autoselectAvg"), media: HELP_MEDIA.autoselectAvg }}
             control={
               <div className="autoselect-timing">
                 <div
@@ -1634,6 +1644,7 @@ export function MainScreen({
           <SettingPanelRow
             title={t("settings.human.title")}
             lines={[t("settings.human.line1"), t("settings.human.line2")]}
+            help={{ text: t("settings.help.human"), media: HELP_MEDIA.human }}
             control={
               <TabCardGroup label={t("settings.human.title")} columns={2}>
                 {(
@@ -1659,6 +1670,10 @@ export function MainScreen({
         )}
         <SettingPanelRow
           title={t("settings.attemptStatusPanel.title")}
+          help={{
+            text: t("settings.help.attemptStatusPanel"),
+            media: HELP_MEDIA.attemptStatusPanel,
+          }}
           lines={
             settings.attemptStatusPanelClosed
               ? [
