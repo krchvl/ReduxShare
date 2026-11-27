@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MainScreen } from "../src/components/MainScreen";
 import { I18nProvider } from "../src/i18n/react";
 import { DEFAULT_SETTINGS, DEFAULT_UPDATE_STATE, type UpdateState } from "../src/types";
+import type { PopupState } from "../src/types";
 import { UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY } from "../src/shared/storageKeys";
 
 let root: Root | null = null;
@@ -20,13 +21,17 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-function renderPill(updateState: UpdateState, isCheckingUpdates = false) {
+function renderPill(
+  updateState: UpdateState,
+  isCheckingUpdates = false,
+  activeTab: PopupState["activeTab"] = "main",
+) {
   const onCheckUpdates = vi.fn();
   const element = createElement(MainScreen, {
     settings: DEFAULT_SETTINGS,
     updateState,
     isCheckingUpdates,
-    popupState: { activeTab: "main" },
+    popupState: { activeTab },
     onSettingsChange: () => {},
     onCheckUpdates,
     onResetSettings: () => {},
@@ -109,5 +114,33 @@ describe("update pill", () => {
     });
 
     expect(element.querySelector(".update-pill__action")).toBeNull();
+  });
+
+  it("keeps a check button in the extra section", () => {
+    const element = mount();
+    const onCheckUpdates = renderPill(DEFAULT_UPDATE_STATE, false, "extra");
+
+    const buttons = Array.from(
+      element.querySelectorAll<HTMLButtonElement>(".settings-panel__account-actions button"),
+    );
+    const checkButton = buttons.find((button) => button.textContent === "Проверить");
+    expect(checkButton).toBeDefined();
+
+    act(() => {
+      checkButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onCheckUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the extra section check button while the check runs", () => {
+    const element = mount();
+    renderPill(DEFAULT_UPDATE_STATE, true, "extra");
+
+    const buttons = Array.from(
+      element.querySelectorAll<HTMLButtonElement>(".settings-panel__account-actions button"),
+    );
+    const checkButton = buttons.find((button) => button.textContent === "Проверяю…");
+    expect(checkButton?.disabled).toBe(true);
   });
 });

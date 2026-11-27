@@ -150,6 +150,8 @@
   "settings.social.telegram": "Telegram автора",
   "updates.error.fallback": "Не удалось проверить обновления",
   "updates.action.check": "Проверить",
+  "updates.action.checking": "Проверяю…",
+  "updates.action.openRelease": "Скачать обновление",
   "updates.badge.new": "Новое обновление",
   "updates.toast.uptodate": "Версия {version} актуальна",
   "updates.toast.body": "Вышла версия {version}",

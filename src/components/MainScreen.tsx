@@ -1569,6 +1569,25 @@ export function MainScreen({
             />
           )}
           <div className="settings-panel__account-actions">
+            <Button
+              className="secondary-wide-button"
+              variant="outline"
+              disabled={isUpdateCheckInProgress}
+              onClick={() => {
+                if (updateState.releaseUrl) {
+                  openExternalUrl(updateState.releaseUrl);
+                  return;
+                }
+
+                onCheckUpdates();
+              }}
+            >
+              {isUpdateCheckInProgress
+                ? t("updates.action.checking")
+                : updateState.releaseUrl
+                  ? t("updates.action.openRelease")
+                  : t("updates.action.check")}
+            </Button>
             <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
               {t("settings.actions.reset")}
             </Button>

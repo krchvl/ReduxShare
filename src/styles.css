@@ -2085,6 +2085,7 @@ button:focus-visible {
 .settings-panel__account-actions {
   display: flex;
   min-height: 116px;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 18px;
