@@ -38,7 +38,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/logic/runtime.ts", "src/content/stealthConsole.ts", "scripts/**/*.mjs"],
+    files: [
+      "src/logic/runtime.ts",
+      "src/content/stealthConsole.ts",
+      "src/shared/consoleFilter.ts",
+      "test/consoleFilter.test.ts",
+      "scripts/**/*.mjs",
+    ],
     rules: {
       "no-console": "off",
     },

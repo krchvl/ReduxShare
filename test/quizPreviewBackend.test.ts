@@ -120,7 +120,7 @@ describe("quiz preview backend contract", () => {
     );
 
     setCurrentStoredState({
-      settings: { extensionEnabled: true, stealthMode: false, language: "ru" },
+      settings: { extensionEnabled: true, language: "ru" },
     });
     showQuizPreviewQuestions(response!.questions as never, false);
 

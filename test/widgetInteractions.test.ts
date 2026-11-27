@@ -3,7 +3,7 @@ import type { AnswerSlotData, SourceAnswerData } from "../src/model";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 import { syncPageOverlayOpacity, syncAnswerWidgetHotkey } from "../src/content/quizAttempt";
 import {
   answerSlot,
@@ -99,7 +99,6 @@ describe("R-menu widget interactions", () => {
     api.setStoredState({
       settings: {
         extensionEnabled: true,
-        stealthMode: true,
         language: "ru",
         accentColor: "#9cb9f6",
       },
@@ -109,7 +108,7 @@ describe("R-menu widget interactions", () => {
     const currentState = api.getStoredState();
     setCurrentStoredState(currentState);
     syncLanguage(currentState);
-    syncStealthMode(currentState);
+    syncContentUi();
     syncAnswerWidgetHotkey(currentState);
     syncPageOverlayOpacity(currentState);
     api.mountAnswerWidgets("#9cb9f6");
@@ -127,7 +126,6 @@ describe("R-menu widget interactions", () => {
     const storedState = {
       settings: {
         extensionEnabled: true,
-        stealthMode: true,
         language: "ru",
         accentColor: "#9cb9f6",
       },
@@ -141,7 +139,6 @@ describe("R-menu widget interactions", () => {
       reduxshare: {
         settings: {
           extensionEnabled: true,
-          stealthMode: true,
           language: "ru",
           accentColor: "#ff0000",
         },
@@ -163,7 +160,6 @@ describe("R-menu widget interactions", () => {
     api.setStoredState({
       settings: {
         extensionEnabled: true,
-        stealthMode: true,
         language: "ru",
         colorScheme: "light",
       },
@@ -186,7 +182,6 @@ describe("R-menu widget interactions", () => {
     api.setStoredState({
       settings: {
         extensionEnabled: true,
-        stealthMode: true,
         language: "ru",
       },
       authSession: null,
@@ -1151,7 +1146,6 @@ describe("human-like auto-select scheduling", () => {
     return {
       settings: {
         extensionEnabled: true,
-        stealthMode: true,
         language: "ru",
         autoSelect: true,
         autoSelectAvgSeconds: 4,
@@ -1173,7 +1167,7 @@ describe("human-like auto-select scheduling", () => {
     const currentState = baseStoredState();
     setCurrentStoredState(currentState);
     syncLanguage(currentState);
-    syncStealthMode(currentState);
+    syncContentUi();
     syncAnswerWidgetHotkey(currentState);
     syncPageOverlayOpacity(currentState);
     api.setSourceAnswerData(

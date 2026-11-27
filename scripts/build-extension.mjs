@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { loadEnv } from "vite";
 
+const CONTENT_ENTRIES = ["stealthConsole", "quizAttempt"];
+
 const VALID_TARGETS = new Set(["chrome", "firefox"]);
 const requestedTarget = process.argv[2] ?? "chrome";
 const targets = requestedTarget === "all" ? ["chrome", "firefox"] : [requestedTarget];
@@ -36,10 +38,13 @@ for (const target of targets) {
   run("npx", ["vite", "build"], {
     REDUXSHARE_BROWSER_TARGET: target,
   });
-  run("npx", ["vite", "build"], {
-    REDUXSHARE_BROWSER_TARGET: target,
-    REDUXSHARE_BUNDLE: "content",
-  });
+  for (const entry of CONTENT_ENTRIES) {
+    run("npx", ["vite", "build"], {
+      REDUXSHARE_BROWSER_TARGET: target,
+      REDUXSHARE_BUNDLE: "content",
+      REDUXSHARE_CONTENT_ENTRY: entry,
+    });
+  }
   await removeBuildJunk(resolve(rootDir, "dist", target));
   const manifest = await writeTargetManifest(target);
   await assertContentScriptsAreSelfContained(resolve(rootDir, "dist", target));

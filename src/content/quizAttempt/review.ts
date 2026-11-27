@@ -77,7 +77,7 @@ import {
   logReduxShareWarning,
   syncCopyUnlock,
   syncLanguage,
-  syncStealthMode,
+  syncContentUi,
   waitForFullPageLoad,
 } from "../../logic/runtime";
 import { canUseQuizFeatures } from "../../logic/settings";
@@ -1196,7 +1196,7 @@ export async function initializeQuizReviewSave() {
   let storedState = await loadStoredState();
   setCurrentStoredState(storedState);
   syncLanguage(storedState);
-  syncStealthMode(storedState);
+  syncContentUi();
   syncCopyUnlock(storedState);
 
   if (!canUseQuizFeatures(storedState)) {
@@ -1217,7 +1217,7 @@ export async function initializeQuizReviewSave() {
   storedState = await loadStoredState();
   setCurrentStoredState(storedState);
   syncLanguage(storedState);
-  syncStealthMode(storedState);
+  syncContentUi();
   syncCopyUnlock(storedState);
 
   if (!canUseQuizFeatures(storedState)) {

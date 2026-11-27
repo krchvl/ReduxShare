@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { exactAnswerData } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 
 const TEST_MODE_STUB = "__REDUXSHARE_TEST_MODE__";
 const QUESTION_ID = "900";
@@ -15,7 +15,6 @@ function baseStoredState(overrides: Record<string, unknown> = {}) {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: true,
       language: "ru",
       autoSelect: true,
       autoSelectAvgSeconds: 4,
@@ -142,7 +141,7 @@ async function setupPage(state: unknown) {
   api.setStoredState(state);
   setCurrentStoredState(state);
   syncLanguage(state);
-  syncStealthMode(state);
+  syncContentUi();
   api.setSourceAnswerData(QUESTION_ID, "external", exactAnswerData("Correct option"));
   vi.stubGlobal(TEST_MODE_STUB, false);
   api.watchStoredSettingsChanges();
@@ -155,7 +154,7 @@ async function setupTextPage(state: unknown) {
   api.setStoredState(state);
   setCurrentStoredState(state);
   syncLanguage(state);
-  syncStealthMode(state);
+  syncContentUi();
   api.setSourceAnswerData(TEXT_QUESTION_ID, "external", exactAnswerData(LONG_TEXT_ANSWER));
   vi.stubGlobal(TEST_MODE_STUB, false);
   api.watchStoredSettingsChanges();
@@ -168,7 +167,7 @@ async function setupTwoQuestionPage(state: unknown) {
   api.setStoredState(state);
   setCurrentStoredState(state);
   syncLanguage(state);
-  syncStealthMode(state);
+  syncContentUi();
   api.setSourceAnswerData(QUESTION_ID, "external", exactAnswerData("Correct option"));
   vi.stubGlobal(TEST_MODE_STUB, false);
   api.watchStoredSettingsChanges();

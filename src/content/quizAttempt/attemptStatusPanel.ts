@@ -44,7 +44,6 @@ import {
   currentStoredState,
   currentT,
   setCurrentStoredState,
-  stealthModeEnabled,
 } from "../../state";
 import { isQuizAttemptUrl } from "./quizUrl";
 import { patchStoredState } from "../../lib/storage";
@@ -1959,7 +1958,6 @@ export function updateAttemptStatusPanelProgress() {
 export function renderAttemptStatusPanel() {
   if (
     (!attemptStatusPanelTourMode && !isQuizAttemptUrl(window.location)) ||
-    stealthModeEnabled ||
     !canUseQuizFeatures(currentStoredState)
   ) {
     removeAttemptStatusPanel();

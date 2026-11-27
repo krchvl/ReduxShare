@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { exactAnswerData, sourceAnswerData } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 import { convertLatexTokensToSymbols, flattenSuperscripts } from "../src/shared/latexSymbols";
 
 const QUESTION_ID = "900";
@@ -12,7 +12,6 @@ function baseStoredState() {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: true,
       language: "ru",
       autoSelect: true,
       autoSelectAvgSeconds: 4,
@@ -100,7 +99,7 @@ async function setupPage(state: unknown) {
   api.setStoredState(state);
   setCurrentStoredState(state);
   syncLanguage(state);
-  syncStealthMode(state);
+  syncContentUi();
   return api;
 }
 

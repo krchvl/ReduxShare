@@ -12,7 +12,6 @@ import type {
 export let currentT: TranslateFn = getContentTranslator(undefined);
 export let currentStoredState: StoredStateLike | undefined;
 export let currentQuizAttemptContext: QuizAttemptContext | null = null;
-export let stealthModeEnabled = true;
 export let answerWidgetsVisible = true;
 export let activeCloseAnswerWidgetMenu: (() => void) | null = null;
 
@@ -34,10 +33,6 @@ export function setCurrentStoredState(value: StoredStateLike | undefined) {
 
 export function setCurrentQuizAttemptContext(value: QuizAttemptContext | null) {
   currentQuizAttemptContext = value;
-}
-
-export function setStealthModeEnabled(value: boolean) {
-  stealthModeEnabled = value;
 }
 
 export function setAnswerWidgetsVisible(value: boolean) {

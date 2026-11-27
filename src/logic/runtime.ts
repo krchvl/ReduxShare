@@ -3,19 +3,9 @@ import { renderAttemptStatusPanel } from "../content/quizAttempt/attemptStatusPa
 import { getContentTranslator } from "../i18n/contentI18n";
 import { FULL_PAGE_LOAD_MAX_WAIT_MS, type StoredStateLike } from "../model";
 import { APP_STORAGE_KEY } from "../shared/storageKeys";
-import {
-  COPY_UNLOCK_MESSAGE,
-  STEALTH_MESSAGE_SOURCE,
-  STEALTH_MODE_MESSAGE,
-} from "../shared/messages";
+import { COPY_UNLOCK_MESSAGE, CONTENT_MESSAGE_SOURCE } from "../shared/messages";
 import { canUseQuizFeatures } from "./settings";
-import {
-  currentT,
-  setCurrentStoredState,
-  setCurrentT,
-  setStealthModeEnabled,
-  stealthModeEnabled,
-} from "../state";
+import { currentT, setCurrentStoredState, setCurrentT } from "../state";
 
 export function isExtensionContextValid() {
   try {
@@ -37,18 +27,7 @@ export function syncLanguage(storedState: StoredStateLike | undefined) {
   setAnswerMenuTranslator(currentT);
 }
 
-export function syncStealthMode(storedState: StoredStateLike | undefined) {
-  setStealthModeEnabled(
-    canUseQuizFeatures(storedState) && storedState?.settings?.stealthMode !== false,
-  );
-  window.postMessage(
-    {
-      source: STEALTH_MESSAGE_SOURCE,
-      type: STEALTH_MODE_MESSAGE,
-      enabled: stealthModeEnabled,
-    },
-    window.location.origin,
-  );
+export function syncContentUi() {
   renderAttemptStatusPanel();
 }
 
@@ -56,7 +35,7 @@ export function syncCopyUnlock(storedState: StoredStateLike | undefined) {
   const enabled = canUseQuizFeatures(storedState) && storedState?.settings?.copyUnlock === true;
   window.postMessage(
     {
-      source: STEALTH_MESSAGE_SOURCE,
+      source: CONTENT_MESSAGE_SOURCE,
       type: COPY_UNLOCK_MESSAGE,
       enabled,
     },
@@ -91,13 +70,9 @@ export async function waitForFullPageLoad() {
 }
 
 export function logReduxShareInfo(...args: unknown[]) {
-  if (!stealthModeEnabled) {
-    console.log(...args);
-  }
+  console.log(...args);
 }
 
 export function logReduxShareWarning(...args: unknown[]) {
-  if (!stealthModeEnabled) {
-    console.warn(...args);
-  }
+  console.warn(...args);
 }

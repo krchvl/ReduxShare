@@ -13,7 +13,7 @@ import {
 } from "../src/content/quizAttempt/updateNotice";
 import { UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY } from "../src/shared/storageKeys";
 import { setCurrentStoredState } from "../src/state";
-import { syncStealthMode } from "../src/logic/runtime";
+import { syncContentUi } from "../src/logic/runtime";
 
 function availableState(overrides: Partial<UpdateState> = {}): UpdateState {
   return {
@@ -33,7 +33,6 @@ function enabledState(updateState: UpdateState | null): StoredStateLike {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
     },
     updateState,
@@ -88,7 +87,7 @@ describe("update notice toast", () => {
   it("renders title, versions and actions on quiz pages", () => {
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
 
     const shadow = getNoticeShadow();
@@ -103,7 +102,7 @@ describe("update notice toast", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
 
     getNoticeShadow().querySelector<HTMLButtonElement>(".open")!.click();
@@ -119,30 +118,30 @@ describe("update notice toast", () => {
   it("hides the open button without a release URL", () => {
     const state = enabledState(availableState({ releaseUrl: null }));
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
 
     const openButton = getNoticeShadow().querySelector<HTMLElement>(".open");
     expect(openButton?.style.display).toBe("none");
   });
 
-  it("stays hidden in stealth mode, when disabled or up to date", () => {
+  it("stays hidden when disabled or up to date", () => {
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode({ settings: { extensionEnabled: true, stealthMode: true } });
+    syncContentUi();
     renderUpdateNotice();
-    expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).toBeNull();
+    expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).not.toBeNull();
 
     const disabled = enabledState(availableState());
-    disabled.settings = { extensionEnabled: false, stealthMode: false, language: "ru" };
+    disabled.settings = { extensionEnabled: false, language: "ru" };
     setCurrentStoredState(disabled);
-    syncStealthMode(disabled);
+    syncContentUi();
     renderUpdateNotice();
     expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).toBeNull();
 
     const upToDate = enabledState(availableState({ status: "up-to-date" }));
     setCurrentStoredState(upToDate);
-    syncStealthMode(upToDate);
+    syncContentUi();
     renderUpdateNotice();
     expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).toBeNull();
   });
@@ -151,7 +150,7 @@ describe("update notice toast", () => {
     const first = availableState();
     const state = enabledState(first);
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
     expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).not.toBeNull();
 
@@ -170,7 +169,7 @@ describe("update notice toast", () => {
     const second = availableState({ checkedAt: "2026-09-26T10:00:00.000Z" });
     const nextState = enabledState(second);
     setCurrentStoredState(nextState);
-    syncStealthMode(nextState);
+    syncContentUi();
     renderUpdateNotice();
     expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).not.toBeNull();
   });
@@ -185,7 +184,7 @@ describe("update notice toast", () => {
 
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
 
     const host = document.getElementById(UPDATE_NOTICE_HOST_ID) as HTMLDivElement;
@@ -218,7 +217,7 @@ describe("update notice toast", () => {
   it("reacts to dismissed-check storage changes", async () => {
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
     expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).not.toBeNull();
 
@@ -236,7 +235,7 @@ describe("update notice toast", () => {
   it("drags the toast by its header", () => {
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
 
     const host = document.getElementById(UPDATE_NOTICE_HOST_ID) as HTMLDivElement;
@@ -267,7 +266,7 @@ describe("update notice toast", () => {
   it("dismisses directly without a click", async () => {
     const state = enabledState(availableState());
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
     renderUpdateNotice();
     expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).not.toBeNull();
 

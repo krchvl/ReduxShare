@@ -11,7 +11,7 @@ vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { AUTO_PASS_SESSION_STORAGE_KEY } from "../src/shared/storageKeys";
 import { setCurrentStoredState } from "../src/state";
-import { syncStealthMode } from "../src/logic/runtime";
+import { syncContentUi } from "../src/logic/runtime";
 import type { AutoPassSession } from "../src/lib/autoPassSession";
 
 const PANEL_HOST_ID = "reduxshare-attempt-status-panel";
@@ -27,7 +27,6 @@ function baseState() {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
     },
     authSession: { user: { id: "u1" } },
@@ -99,7 +98,7 @@ async function mountPanel() {
   const state = baseState();
   api.setStoredState(state);
   setCurrentStoredState(state);
-  syncStealthMode(state);
+  syncContentUi();
 
   return api;
 }

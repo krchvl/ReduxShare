@@ -307,8 +307,6 @@ describe("background auth message handlers", () => {
   });
 
   it("logs a failed profile touch before answering with a localized error", async () => {
-    const { setStealthModeEnabled } = await import("../src/state");
-    setStealthModeEnabled(false);
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     touchMock.mockRejectedValue(new Error("touch down"));
 

@@ -87,7 +87,6 @@ export interface ServerConfig {
 
 export interface Settings {
   extensionEnabled: boolean;
-  stealthMode: boolean;
   copyUnlock: boolean;
   autoSelect: boolean;
   autoSelectAvgSeconds: number;
@@ -201,7 +200,6 @@ export interface StoredState {
 
 export const DEFAULT_SETTINGS: Settings = {
   extensionEnabled: true,
-  stealthMode: false,
   copyUnlock: true,
   autoSelect: true,
   autoSelectAvgSeconds: 4,
@@ -482,7 +480,6 @@ export function normalizeSettings(
 
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
-    stealthMode: settings?.stealthMode ?? DEFAULT_SETTINGS.stealthMode,
     copyUnlock: settings?.copyUnlock ?? DEFAULT_SETTINGS.copyUnlock,
     autoSelect: settings?.autoSelect ?? DEFAULT_SETTINGS.autoSelect,
     attemptStatusPanelClosed: settings?.attemptStatusPanelClosed === true,

@@ -9,7 +9,7 @@ import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { loadQuestionFixture } from "./helpers/fixtures";
 import { answerSlot, slottedAnswerData, slottedExactSuggestion } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 
 const PANEL_HOST_ID = "reduxshare-attempt-status-panel";
 
@@ -17,7 +17,6 @@ function baseStoredState(authenticated: boolean) {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
       autoSelect: true,
       autoSelectAvgSeconds: 4,
@@ -76,7 +75,7 @@ describe("auto-pass tray action", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     mountMultichoiceWithExactSlots(api);
 
@@ -101,7 +100,7 @@ describe("auto-pass tray action", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     loadQuestionFixture("multichoice", "attempt");
     removeFixtureWidgetPlaceholders();

@@ -6,7 +6,7 @@ import {
 } from "../../shared/storageKeys";
 import { canUseQuizFeatures } from "../../logic/settings";
 import { applyContentColorSchemeToHost, getAccentColor, getRgbCssValue } from "../../logic/theme";
-import { currentStoredState, currentT, stealthModeEnabled } from "../../state";
+import { currentStoredState, currentT } from "../../state";
 
 export const UPDATE_NOTICE_HOST_ID = "reduxshare-update-notice";
 
@@ -450,7 +450,7 @@ function ensureUpdateNotice(): HTMLDivElement | null {
 export function renderUpdateNotice(): void {
   const storedState = currentStoredState;
 
-  if (stealthModeEnabled || !canUseQuizFeatures(storedState)) {
+  if (!canUseQuizFeatures(storedState)) {
     removeUpdateNotice();
     return;
   }

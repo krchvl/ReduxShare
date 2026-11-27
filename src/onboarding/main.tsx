@@ -69,7 +69,7 @@ async function boot() {
   }
 
   api.setStoredState(buildStoredState());
-  api.syncStealthMode(buildStoredState());
+  api.syncContentUi();
   api.setSourceAnswerData("1385", "reduxshare", multichoiceAnswerData());
   api.setSourceAnswerData("1385", "external", multichoiceExternalAnswerData());
   api.setSourceAnswerData("3699", "reduxshare", matchAnswerData());
