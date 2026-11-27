@@ -8,7 +8,7 @@ vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { APP_STORAGE_KEY } from "../src/shared/storageKeys";
 import { setCurrentStoredState } from "../src/state";
-import { syncStealthMode } from "../src/logic/runtime";
+import { syncContentUi } from "../src/logic/runtime";
 
 const PANEL_HOST_ID = "reduxshare-attempt-status-panel";
 
@@ -23,7 +23,6 @@ function baseState(copyUnlock: boolean) {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
       copyUnlock,
     },
@@ -40,7 +39,7 @@ async function mountPanel(copyUnlock: boolean) {
   const state = baseState(copyUnlock);
   api.setStoredState(state);
   setCurrentStoredState(state);
-  syncStealthMode(state);
+  syncContentUi();
 
   return api;
 }

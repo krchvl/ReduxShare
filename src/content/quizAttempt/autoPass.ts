@@ -18,7 +18,6 @@ import {
   currentQuizAttemptContext,
   currentStoredState,
   currentT,
-  stealthModeEnabled,
 } from "../../state";
 import type { AnswerEntry, StoredStateLike } from "../../model";
 import { getAnswerDataForQuestion, getAnswerEntries } from "./answerControls";
@@ -274,14 +273,11 @@ async function pauseAtQuestion(entry: AnswerEntry | null, fallbackNumber: number
     pausedQuestionText: entry ? getQuestionExcerpt(entry.questionNode) : null,
   });
 
-  if (!stealthModeEnabled) {
-    if (isAttemptStatusPanelClosedInSession()) {
-      await setAttemptStatusPanelClosedInSession(false);
-    }
-
-    setAttemptStatusPanelTrayOpen(true);
+  if (isAttemptStatusPanelClosedInSession()) {
+    await setAttemptStatusPanelClosedInSession(false);
   }
 
+  setAttemptStatusPanelTrayOpen(true);
   renderAttemptStatusPanel();
   logReduxShareWarning(
     `ReduxShare auto-pass: paused on unsolved question${pausedQuestionNo ? ` #${pausedQuestionNo}` : ""}`,
@@ -501,7 +497,7 @@ export async function resumeAutoPassOnAttemptPage(): Promise<void> {
     return;
   }
 
-  if (autoPassSession?.status === "paused" && !stealthModeEnabled) {
+  if (autoPassSession?.status === "paused") {
     if (isAttemptStatusPanelClosedInSession()) {
       await setAttemptStatusPanelClosedInSession(false);
     }
@@ -1012,9 +1008,7 @@ export async function handleAutoPassSummaryPage(): Promise<void> {
 
   autoPassSession = await patchAutoPassSession({ status: "done", page: null });
 
-  if (!stealthModeEnabled) {
-    showAutoPassSummaryNotice();
-  }
+  showAutoPassSummaryNotice();
 
   logReduxShareInfo("ReduxShare auto-pass: all answered pages processed, waiting on summary");
 }

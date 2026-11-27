@@ -1019,21 +1019,6 @@ export function MainScreen({
       return (
         <div className="settings-panel__rows">
           <SettingPanelRow
-            title={t("settings.stealth.title")}
-            lines={
-              settings.stealthMode
-                ? [t("settings.stealth.on.line1"), t("settings.stealth.on.line2")]
-                : [t("settings.stealth.off.line1"), t("settings.stealth.off.line2")]
-            }
-            control={
-              <Switch
-                checked={settings.stealthMode}
-                label={t("settings.stealth.title")}
-                onChange={(checked) => updateSetting("stealthMode", checked)}
-              />
-            }
-          />
-          <SettingPanelRow
             title={t("settings.copyUnlock.title")}
             lines={
               settings.copyUnlock

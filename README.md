@@ -125,7 +125,7 @@ ReduxShare runs as a Manifest V3 browser extension on Moodle quiz pages.
 
 - **Correctness-aware matching** — separates confirmed correct answers, unknown selections, and shared statistics.
 
-- **Customizable** — supports theme accents, popup settings, stealth mode, and hotkey options.
+- **Customizable** — supports theme accents, popup settings, and hotkey options.
 
 - **Manifest V3 Ready** — built as a modern Chrome Extension using MV3 APIs.
 

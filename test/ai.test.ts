@@ -735,7 +735,6 @@ describe("AI explain flow", () => {
     api.setStoredState({
       settings: {
         extensionEnabled: true,
-        stealthMode: true,
         language: "ru",
         ai: {
           provider: "google",

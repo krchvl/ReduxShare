@@ -37,7 +37,6 @@ function storedStateWith(copyUnlock: boolean) {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
       copyUnlock,
     },

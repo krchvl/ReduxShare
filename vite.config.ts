@@ -5,12 +5,17 @@ import { resolve } from "node:path";
 const extensionTarget = process.env.REDUXSHARE_BROWSER_TARGET;
 
 const contentPass = process.env.REDUXSHARE_BUNDLE === "content";
+const contentEntry = process.env.REDUXSHARE_CONTENT_ENTRY ?? "";
+
+const contentEntries: Record<string, string> = {
+  stealthConsole: resolve(__dirname, "src/content/stealthConsole.ts"),
+  quizAttempt: resolve(__dirname, "src/content/quizAttempt.ts"),
+};
 
 const entryPoints: Record<string, string> = contentPass
-  ? {
-      stealthConsole: resolve(__dirname, "src/content/stealthConsole.ts"),
-      quizAttempt: resolve(__dirname, "src/content/quizAttempt.ts"),
-    }
+  ? contentEntry
+    ? { [contentEntry]: contentEntries[contentEntry] }
+    : contentEntries
   : {
       popup: resolve(__dirname, "index.html"),
       onboarding: resolve(__dirname, "onboarding.html"),
@@ -33,6 +38,7 @@ export default defineConfig({
       input: entryPoints,
       output: {
         entryFileNames: "assets/[name].js",
+        inlineDynamicImports: Boolean(contentEntry),
 
         manualChunks: contentPass
           ? undefined

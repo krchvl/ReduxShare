@@ -20,7 +20,7 @@ import type { QuizPreviewQuestion } from "../src/model";
 
 function storedState(overrides: Record<string, unknown> = {}) {
   return {
-    settings: { extensionEnabled: true, stealthMode: false, language: "ru" },
+    settings: { extensionEnabled: true, language: "ru" },
     ...overrides,
   };
 }

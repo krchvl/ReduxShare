@@ -3,7 +3,7 @@ import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { exactAnswerData } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 
 const TEST_MODE_STUB = "__REDUXSHARE_TEST_MODE__";
 
@@ -11,7 +11,6 @@ function baseStoredState() {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: true,
       language: "ru",
       autoSelect: true,
       autoSelectAvgSeconds: 4,
@@ -36,7 +35,7 @@ describe("auto-select humanized text typing", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     loadQuestionFixture("shortanswer", "attempt");
     document
@@ -90,7 +89,7 @@ describe("auto-select humanized text typing", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     loadQuestionFixture("shortanswer", "attempt");
     document

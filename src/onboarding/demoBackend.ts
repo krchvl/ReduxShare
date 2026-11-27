@@ -328,7 +328,6 @@ export function buildStoredState(): StoredStateLike {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       copyUnlock: false,
       autoSelect: false,
       language: "ru",

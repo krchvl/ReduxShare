@@ -16,13 +16,12 @@ import {
   unknownSubmission,
 } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 
 function baseStoredState(authenticated: boolean) {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
       autoSelect: true,
       autoSelectAvgSeconds: 4,
@@ -70,7 +69,7 @@ describe("auto-select source priority", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     loadQuestionFixture("multichoice", "attempt");
     removeFixtureWidgetPlaceholders();
@@ -97,7 +96,7 @@ describe("auto-select source priority", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     loadQuestionFixture("multichoice", "attempt");
     removeFixtureWidgetPlaceholders();
@@ -129,7 +128,7 @@ describe("auto-select source priority", () => {
     api.setStoredState(state);
     setCurrentStoredState(state);
     syncLanguage(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     loadQuestionFixture("multichoice", "attempt");
     removeFixtureWidgetPlaceholders();

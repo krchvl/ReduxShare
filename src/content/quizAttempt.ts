@@ -221,9 +221,9 @@ import {
   loadStoredState,
   logReduxShareInfo,
   logReduxShareWarning,
+  syncContentUi,
   syncCopyUnlock,
   syncLanguage,
-  syncStealthMode,
   waitForFullPageLoad,
 } from "../logic/runtime";
 import { getDdwtosDrops, getDdwtosDropSlotIndex, setDdwtosDropAnswer } from "./quizAttempt/ddwtos";
@@ -287,6 +287,9 @@ import {
   setCurrentStoredState,
   variantCountsByQuestionId,
 } from "../state";
+import { installConsoleFilter } from "../shared/consoleFilter";
+
+installConsoleFilter();
 
 let storageWatcherInstalled = false;
 
@@ -323,7 +326,7 @@ declare global {
         openAnswerMenuForQuestion: typeof openAnswerMenuForQuestion;
         setAnswerMenuSticky: typeof setAnswerMenuSticky;
         setAttemptStatusPanelCollapsed: typeof setAttemptStatusPanelCollapsed;
-        syncStealthMode: typeof syncStealthMode;
+        syncContentUi: typeof syncContentUi;
         computeAutoSelectDelayMs: typeof computeAutoSelectDelayMs;
         estimateQuestionReadingSeconds: typeof estimateQuestionReadingSeconds;
         getQuestionBehaviour: typeof getQuestionBehaviour;
@@ -501,7 +504,7 @@ export function syncAnswerWidgetHotkey(storedState: StoredStateLike | undefined)
 
 function syncAllFeatures(storedState: StoredStateLike | undefined) {
   syncLanguage(storedState);
-  syncStealthMode(storedState);
+  syncContentUi();
   syncCopyUnlock(storedState);
   syncAnswerWidgetHotkey(storedState);
   syncPageOverlayOpacity(storedState);
@@ -2625,7 +2628,6 @@ function resetRestrictedQuizState() {
 
 const PIPELINE_RELEVANT_SETTING_KEYS = [
   "extensionEnabled",
-  "stealthMode",
   "copyUnlock",
   "attemptStatusPanelClosed",
   "autoSelect",
@@ -2682,7 +2684,7 @@ function watchStoredSettingsChanges() {
     if (isQuizViewUrl(window.location)) {
       if (pipelineChanged) {
         syncLanguage(nextState);
-        syncStealthMode(nextState);
+        syncContentUi();
         syncCopyUnlock(nextState);
       }
 
@@ -2693,7 +2695,7 @@ function watchStoredSettingsChanges() {
 
     if (pipelineChanged) {
       syncLanguage(nextState);
-      syncStealthMode(nextState);
+      syncContentUi();
       syncCopyUnlock(nextState);
       syncAnswerWidgetHotkey(nextState);
       syncPageOverlayOpacity(nextState);
@@ -3023,7 +3025,7 @@ async function initializeQuizSummaryTracking() {
   const storedState = await loadStoredState();
   setCurrentStoredState(storedState);
   syncLanguage(storedState);
-  syncStealthMode(storedState);
+  syncContentUi();
   syncCopyUnlock(storedState);
 
   if (!canUseQuizFeatures(storedState)) {
@@ -3109,7 +3111,6 @@ function resetQuizAttemptTestState() {
   setCurrentStoredState({
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
       ai: {
         provider: "google",
@@ -3204,7 +3205,7 @@ function installQuizAttemptTestApi() {
     openAnswerMenuForQuestion,
     setAnswerMenuSticky,
     setAttemptStatusPanelCollapsed,
-    syncStealthMode,
+    syncContentUi,
     computeAutoSelectDelayMs,
     parseQuizTimeLeftSeconds,
     scheduleAutoSelectAnswer,

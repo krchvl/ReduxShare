@@ -7,7 +7,7 @@ vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
 
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { setCurrentStoredState } from "../src/state";
-import { syncStealthMode } from "../src/logic/runtime";
+import { syncContentUi } from "../src/logic/runtime";
 
 const PANEL_HOST_ID = "reduxshare-attempt-status-panel";
 
@@ -26,7 +26,6 @@ describe("attempt status panel close button", () => {
     const state = {
       settings: {
         extensionEnabled: true,
-        stealthMode: false,
         language: "ru",
         attemptStatusPanelClosed: false,
       },
@@ -36,7 +35,7 @@ describe("attempt status panel close button", () => {
     api.reset();
     api.setStoredState(state);
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     const closeButton = getPanelShadow().querySelector<HTMLButtonElement>(".close");
     expect(closeButton).toBeInstanceOf(HTMLButtonElement);

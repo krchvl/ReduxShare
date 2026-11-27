@@ -3,7 +3,7 @@ import { loadQuestionFixture } from "./helpers/fixtures";
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { answerSlot, slottedAnswerData, slottedExactSuggestion } from "./helpers/sourceData";
 import { setCurrentStoredState } from "../src/state";
-import { syncLanguage, syncStealthMode } from "../src/logic/runtime";
+import { syncLanguage, syncContentUi } from "../src/logic/runtime";
 import { syncPageOverlayOpacity, syncAnswerWidgetHotkey } from "../src/content/quizAttempt";
 
 const TEST_MODE_STUB = "__REDUXSHARE_TEST_MODE__";
@@ -12,7 +12,6 @@ function baseStoredState() {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: true,
       language: "ru",
       autoSelect: true,
       autoSelectAvgSeconds: 4,
@@ -55,7 +54,7 @@ describe("paced auto-select on a live quiz page", () => {
     const currentState = baseStoredState();
     setCurrentStoredState(currentState);
     syncLanguage(currentState);
-    syncStealthMode(currentState);
+    syncContentUi();
     syncAnswerWidgetHotkey(currentState);
     syncPageOverlayOpacity(currentState);
     api.setSourceAnswerData(

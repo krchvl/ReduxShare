@@ -11,7 +11,7 @@ vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
 import { AUTO_PASS_SESSION_STORAGE_KEY } from "../src/shared/storageKeys";
 import { setCurrentStoredState } from "../src/state";
-import { syncStealthMode } from "../src/logic/runtime";
+import { syncContentUi } from "../src/logic/runtime";
 import type { AutoPassSession } from "../src/lib/autoPassSession";
 
 const START_BUTTON_HOST_ID = "reduxshare-auto-pass-button";
@@ -20,7 +20,6 @@ function baseState() {
   return {
     settings: {
       extensionEnabled: true,
-      stealthMode: false,
       language: "ru",
     },
     authSession: { user: { id: "u1" } },
@@ -67,7 +66,7 @@ async function setupViewPage() {
   const state = baseState();
   api.setStoredState(state);
   setCurrentStoredState(state);
-  syncStealthMode(state);
+  syncContentUi();
   mountViewPage();
 
   return api;
@@ -171,7 +170,7 @@ describe("auto pass on confirmation and summary pages", () => {
     const state = baseState();
     api.setStoredState(state);
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     document.body.innerHTML = `
       <form action="/mod/quiz/startattempt.php" method="post">
@@ -207,7 +206,7 @@ describe("auto pass on confirmation and summary pages", () => {
     const state = baseState();
     api.setStoredState(state);
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     const session = makeSession({ status: "running" });
     await chrome.storage.local.set({ [AUTO_PASS_SESSION_STORAGE_KEY]: session });
@@ -237,7 +236,7 @@ describe("auto pass on confirmation and summary pages", () => {
     const state = baseState();
     api.setStoredState(state);
     setCurrentStoredState(state);
-    syncStealthMode(state);
+    syncContentUi();
 
     const session = makeSession({ status: "running", cmid: 999 });
     await chrome.storage.local.set({ [AUTO_PASS_SESSION_STORAGE_KEY]: session });
