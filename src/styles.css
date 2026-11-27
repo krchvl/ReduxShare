@@ -7,7 +7,7 @@
 }
 
 :root {
-  --popup-width: 720px;
+  --popup-width: 640px;
   --popup-height: 700px;
   --background-main: #222322;
   --background-panel: #242525;
@@ -911,7 +911,7 @@ button:focus-visible {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 6px 44px 20px;
+  padding: 6px 36px 20px;
   background: rgba(37, 38, 38, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
@@ -1309,9 +1309,9 @@ button:focus-visible {
 
 .ai-settings-card {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(280px, 1.1fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(264px, 1.2fr);
   align-items: start;
-  gap: 34px;
+  gap: 26px;
   padding: 28px 0 24px;
 }
 
