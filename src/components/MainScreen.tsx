@@ -10,8 +10,10 @@ import {
   getDefaultAiModelForProvider,
   normalizeAiSettings,
   type AiModelOption,
+  type AiSettingsDraft,
   type AutoSelectTempoPreset,
   type AiSettings,
+  type PopupState,
   type Settings,
   type UpdateState,
   type UserProfile,
@@ -64,7 +66,9 @@ interface MainScreenProps {
   isCheckingUpdates: boolean;
   userProfile?: UserProfile | null;
   isAuthenticated?: boolean;
+  popupState?: PopupState | null;
   onSettingsChange: (settings: Settings) => void;
+  onPopupStateChange?: (popupState: PopupState) => void;
   onCheckUpdates: () => void;
   onResetSettings: () => void;
   onLogout: () => void;
@@ -72,6 +76,52 @@ interface MainScreenProps {
 }
 
 type SettingsTab = "main" | "stats" | "ui" | "security" | "ai" | "extra";
+
+function toAiDraft(draft: AiSettings): AiSettingsDraft {
+  return {
+    provider: draft.provider,
+    model: draft.model,
+    apiKey: draft.apiKey,
+    customEndpoint: draft.customEndpoint ?? "",
+    customModelName: draft.customModelName ?? "",
+  };
+}
+
+function createRestoredAiDraft(settings: Settings, restored: AiSettingsDraft | null): AiSettings {
+  const normalized = normalizeAiSettings(settings.ai);
+
+  if (!restored) {
+    return normalized;
+  }
+
+  const connectionVerified =
+    normalized.connectionVerified &&
+    normalized.provider === restored.provider &&
+    normalized.apiKey === restored.apiKey &&
+    restored.apiKey.trim() !== "";
+  const restoredModel = restored.model.trim();
+
+  return normalizeAiSettings({
+    ...normalized,
+    provider: restored.provider,
+    model: restoredModel || getDefaultAiModelForProvider(restored.provider),
+    apiKey: restored.apiKey,
+    customEndpoint: restored.customEndpoint,
+    customModelName: restored.customModelName,
+    connectionVerified,
+    verifiedAt: connectionVerified ? normalized.verifiedAt : null,
+  });
+}
+
+function resolveInitialAiDraft(
+  settings: Settings,
+  restored: AiSettingsDraft | null,
+  officialAiAvailable: boolean,
+): AiSettings {
+  const draft = createRestoredAiDraft(settings, restored);
+
+  return officialAiAvailable ? { ...draft, accessMode: "custom" } : draft;
+}
 
 interface TabConfig {
   key: SettingsTab;
@@ -301,23 +351,27 @@ export function MainScreen({
   isCheckingUpdates,
   userProfile,
   isAuthenticated = true,
+  popupState = null,
   onSettingsChange,
+  onPopupStateChange,
   onCheckUpdates,
   onResetSettings,
   onLogout,
   onOpenLogin = () => {},
 }: MainScreenProps) {
   const { resolvedLanguage, t } = useI18n();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("main");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(popupState?.activeTab ?? "main");
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
   const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(settings.ai.accessMode);
   const officialAiAvailable = !isFirebaseBackend();
   const effectiveAiAccessMode = officialAiAvailable ? aiAccessMode : "custom";
-  const [aiDraft, setAiDraft] = useState<AiSettings>(() => normalizeAiSettings(settings.ai));
+  const [aiDraft, setAiDraft] = useState<AiSettings>(() =>
+    resolveInitialAiDraft(settings, popupState?.aiDraft ?? null, !isFirebaseBackend()),
+  );
   const [aiTestState, setAiTestState] = useState<AiTestState>({
-    status: settings.ai.connectionVerified ? "saved" : "idle",
+    status: aiDraft.connectionVerified ? "saved" : "idle",
     message: null,
-    verifiedAt: settings.ai.verifiedAt,
+    verifiedAt: aiDraft.verifiedAt,
   });
   const [aiModelsState, setAiModelsState] = useState<AiModelsState>({
     provider: null,
@@ -383,6 +437,10 @@ export function MainScreen({
   }, [aiDraft]);
 
   useEffect(() => {
+    onPopupStateChange?.({ activeTab, aiDraft: toAiDraft(aiDraft) });
+  }, [activeTab, aiDraft, onPopupStateChange]);
+
+  useEffect(() => {
     aiModelsStateRef.current = aiModelsState;
   }, [aiModelsState]);
 
@@ -395,7 +453,14 @@ export function MainScreen({
     updateSetting("ai", normalizeAiSettings({ ...settings.ai, accessMode: mode }));
   };
 
+  const skipRestoredDraftResetRef = useRef(Boolean(popupState?.aiDraft));
+
   useEffect(() => {
+    if (skipRestoredDraftResetRef.current) {
+      skipRestoredDraftResetRef.current = false;
+      return;
+    }
+
     const normalizedAi = normalizeAiSettings(settings.ai);
     setAiDraft(officialAiAvailable ? { ...normalizedAi, accessMode: "custom" } : normalizedAi);
     setAiTestState({

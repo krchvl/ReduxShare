@@ -15,10 +15,12 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_STORED_STATE,
   DEFAULT_UPDATE_STATE,
+  normalizePopupState,
   normalizeSettings,
   resolveColorScheme,
   type AuthSession,
   type LoginCredentials,
+  type PopupState,
   type RegisterCredentials,
   type Settings,
   type StoredState,
@@ -81,6 +83,7 @@ export function App() {
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>(DEFAULT_UPDATE_STATE);
+  const [popupState, setPopupState] = useState<PopupState | null>(null);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
@@ -135,9 +138,11 @@ export function App() {
           authSession: providerSession,
           userProfile: providerSession ? (storedState.userProfile ?? null) : null,
           updateState: normalizeUpdateState(storedState.updateState),
+          popupState: normalizePopupState(storedState.popupState),
         };
 
         setSettings(nextState.settings);
+        setPopupState(nextState.popupState ?? null);
         setAuthSession(nextState.authSession);
         setUserProfile(nextState.userProfile);
         setUpdateState(nextState.updateState ?? DEFAULT_UPDATE_STATE);
@@ -158,8 +163,8 @@ export function App() {
       return;
     }
 
-    void saveStoredState({ settings, authSession, userProfile });
-  }, [authSession, hydrated, settings, userProfile]);
+    void saveStoredState({ settings, authSession, userProfile, popupState });
+  }, [authSession, hydrated, settings, userProfile, popupState]);
 
   useEffect(() => {
     if (isFirebaseBackend()) {
@@ -377,7 +382,9 @@ export function App() {
                 isCheckingUpdates={isCheckingUpdates}
                 userProfile={userProfile}
                 isAuthenticated={authSession !== null}
+                popupState={popupState}
                 onSettingsChange={setSettings}
+                onPopupStateChange={setPopupState}
                 onCheckUpdates={handleCheckUpdates}
                 onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
                 onLogout={handleLogout}

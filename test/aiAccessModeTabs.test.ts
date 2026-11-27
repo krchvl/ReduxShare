@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "../src/i18n/react";
 import { MainScreen } from "../src/components/MainScreen";
-import { DEFAULT_SETTINGS, type Settings } from "../src/types";
+import { DEFAULT_SETTINGS, type PopupState, type Settings } from "../src/types";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -18,6 +18,8 @@ function renderMainScreen(
   initialSettings: Settings = baseSettings,
   overrides: {
     onSettingsChange?: (settings: Settings) => void;
+    popupState?: PopupState | null;
+    onPopupStateChange?: (popupState: PopupState) => void;
     stateful?: boolean;
   } = {},
 ) {
@@ -43,6 +45,8 @@ function renderMainScreen(
             error: null,
           },
           isCheckingUpdates: false,
+          popupState: overrides.popupState ?? null,
+          onPopupStateChange: overrides.onPopupStateChange,
           onSettingsChange: (next) => {
             overrides.onSettingsChange?.(next);
             if (overrides.stateful) {
@@ -419,5 +423,84 @@ describe("MainScreen AI access mode tabs", () => {
     } finally {
       chrome.runtime.sendMessage = originalSendMessage;
     }
+  });
+
+  it("restores the active tab from the stored popup state", () => {
+    renderMainScreen(baseSettings, { popupState: { activeTab: "ui", aiDraft: null } });
+
+    expect(container!.querySelector(".settings-tabs")?.getAttribute("data-active-tab")).toBe("ui");
+    expect(
+      container!.querySelectorAll(".settings-tab")[2]!.getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("reports tab switches through onPopupStateChange", () => {
+    const onPopupStateChange = vi.fn();
+    renderMainScreen(baseSettings, { onPopupStateChange });
+
+    act(() => {
+      container!.querySelectorAll<HTMLButtonElement>(".settings-tab")[2]!.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onPopupStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ activeTab: "ui" }),
+    );
+  });
+
+  it("restores an unsaved AI draft from the stored popup state", () => {
+    renderMainScreen(
+      { ...baseSettings, ai: { ...baseSettings.ai, accessMode: "custom" } },
+      {
+        popupState: {
+          activeTab: "ai",
+          aiDraft: {
+            provider: "openai",
+            model: "gpt-4o",
+            apiKey: "draft-key",
+            customEndpoint: "",
+            customModelName: "",
+          },
+        },
+      },
+    );
+
+    expect(
+      container!.querySelector<HTMLButtonElement>(".ai-provider-tab[aria-label='OpenAI']")
+        ?.getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(container!.querySelector<HTMLInputElement>(".ai-input[type='password']")?.value).toBe(
+      "draft-key",
+    );
+  });
+
+  it("persists typed AI draft values without pressing save", () => {
+    const onPopupStateChange = vi.fn();
+    const onSettingsChange = vi.fn();
+    renderMainScreen(
+      { ...baseSettings, ai: { ...baseSettings.ai, accessMode: "custom" } },
+      { onPopupStateChange, onSettingsChange },
+    );
+    openAiTab();
+
+    const keyInput = container!.querySelector<HTMLInputElement>(".ai-input[type='password']");
+    expect(keyInput).toBeTruthy();
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      setter.call(keyInput, "unsaved-key");
+      keyInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(onPopupStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        aiDraft: expect.objectContaining({ apiKey: "unsaved-key" }),
+      }),
+    );
+    expect(onSettingsChange).not.toHaveBeenCalled();
   });
 });
