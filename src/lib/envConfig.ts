@@ -21,6 +21,10 @@ export function isFirebaseBackend(): boolean {
   return getDataProvider() === "firebase";
 }
 
+export function isOfficialAiAvailable(): boolean {
+  return !isFirebaseBackend();
+}
+
 export function getFirebaseEnvConfig(): FirebaseEnvConfig | null {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined)?.trim();
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined)?.trim();

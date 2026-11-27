@@ -12,6 +12,7 @@ import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
 import { getBooleanSuggestionValue } from "../shared/answerParsing";
 import { isDownvotedAnswerItem } from "../data/answerData";
 import { getCheckIconMarkup, getQuestionTypeScanIconMarkup, getSourceTabIconMarkup } from "./icons";
+import { isOfficialAiAvailable } from "../lib/envConfig";
 
 let currentT: TranslateFn = getContentTranslator(undefined);
 
@@ -433,7 +434,7 @@ export function isAiSettingsSaved(
     return false;
   }
 
-  if (ai.accessMode === "official") {
+  if (ai.accessMode === "official" && isOfficialAiAvailable()) {
     return isAuthenticated;
   }
 

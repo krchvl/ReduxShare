@@ -6,11 +6,12 @@ import { I18nProvider } from "../src/i18n/react";
 import { MainScreen } from "../src/components/MainScreen";
 import { DEFAULT_SETTINGS, type Settings } from "../src/types";
 import { TEST_AI_CONNECTION_MESSAGE } from "../src/shared/messages";
+import { hasUsableAiSettings } from "../src/lib/aiProvider";
 
 vi.mock("../src/lib/envConfig", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
 
-  return { ...actual, isFirebaseBackend: () => true };
+  return { ...actual, isFirebaseBackend: () => true, isOfficialAiAvailable: () => false };
 });
 
 let root: Root | null = null;
@@ -21,7 +22,10 @@ const baseSettings: Settings = {
   ai: { ...DEFAULT_SETTINGS.ai, provider: "google", model: "gemini-2.0-flash", apiKey: "test-key" },
 };
 
-function renderMainScreen(initialSettings: Settings = baseSettings) {
+function renderMainScreen(
+  initialSettings: Settings = baseSettings,
+  onSettingsChange: (settings: Settings) => void = vi.fn(),
+) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -45,7 +49,7 @@ function renderMainScreen(initialSettings: Settings = baseSettings) {
           },
           isCheckingUpdates: false,
           popupState: null,
-          onSettingsChange: vi.fn(),
+          onSettingsChange,
           onCheckUpdates: vi.fn(),
           onResetSettings: vi.fn(),
           onLogout: vi.fn(),
@@ -104,11 +108,12 @@ describe("MainScreen custom AI on the Firebase backend", () => {
   });
 
   it("tests the custom provider instead of the unavailable official mode", async () => {
+    const onSettingsChange = vi.fn();
     const sendMessage = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
     sendMessage.mockImplementation((_message: unknown, callback: (response: unknown) => void) => {
       callback({ ok: true, answer: "OK" });
     });
-    renderMainScreen();
+    renderMainScreen(baseSettings, onSettingsChange);
     openAiTab();
     clickTestButton();
 
@@ -135,5 +140,37 @@ describe("MainScreen custom AI on the Firebase backend", () => {
 
     expect(container!.querySelector<HTMLInputElement>(".ai-input[type='password']")).toBeTruthy();
     expect(container!.querySelector(".ai-official")).toBeNull();
+  });
+
+  it("requires a test before the forced custom mode is saved", async () => {
+    renderMainScreen({
+      ...baseSettings,
+      ai: {
+        ...baseSettings.ai,
+        accessMode: "official",
+        connectionVerified: true,
+        verifiedAt: "2026-11-01T10:00:00.000Z",
+      },
+    });
+    openAiTab();
+
+    const saveButton = Array.from(container!.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent === "Save",
+    );
+    expect(saveButton?.disabled).toBe(true);
+    expect(container!.querySelector(".ai-status")).toBeNull();
+  });
+
+  it("keeps AI usable for a stored official setting once its key is verified", () => {
+    const verifiedOfficial = {
+      ...baseSettings.ai,
+      accessMode: "official" as const,
+      connectionVerified: true,
+      verifiedAt: "2026-11-01T10:00:00.000Z",
+    };
+
+    expect(hasUsableAiSettings(verifiedOfficial)).toBe(true);
+    expect(hasUsableAiSettings({ ...verifiedOfficial, connectionVerified: false })).toBe(false);
+    expect(hasUsableAiSettings({ ...verifiedOfficial, apiKey: "" })).toBe(false);
   });
 });

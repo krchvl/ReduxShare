@@ -3,7 +3,7 @@ import { isAbortError } from "./externalProvider";
 import { ClientResponseError } from "pocketbase";
 import { I18nError } from "../i18n";
 import { getPocketBaseUrl, withPocketBaseSessionRetry } from "./pocketbase";
-import { isFirebaseBackend } from "./envConfig";
+import { isFirebaseBackend, isOfficialAiAvailable } from "./envConfig";
 import {
   AI_PLANS,
   DEFAULT_OFFICIAL_AI_USAGE,
@@ -527,7 +527,7 @@ export async function fetchAiModelOptions(
 export function hasUsableAiSettings(settings: Partial<AiSettings> | undefined) {
   if (!settings) return false;
 
-  if (settings.accessMode === "official") {
+  if (settings.accessMode === "official" && isOfficialAiAvailable()) {
     return true;
   }
 
@@ -1494,7 +1494,7 @@ async function requestAiCompletion(
   options: AiCompletionOptions,
   context?: AiAuthContext,
 ): Promise<AiTextOutcome> {
-  if (settings.accessMode === "official") {
+  if (settings.accessMode === "official" && isOfficialAiAvailable()) {
     return generateOfficialAiText(options.prompt, options, context);
   }
 
@@ -1576,7 +1576,7 @@ export async function testAiConnection(
   settings: AiSettings,
   context?: AiAuthContext,
 ): Promise<AiTextOutcome> {
-  if (settings.accessMode === "official") {
+  if (settings.accessMode === "official" && isOfficialAiAvailable()) {
     return generateOfficialAiText("Reply with exactly: OK", {}, context);
   }
 
