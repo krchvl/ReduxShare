@@ -32,7 +32,7 @@ import { TabCard, TabCardGroup } from "./TabCard";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels, requestOfficialAiUsage } from "../lib/ai";
-import { isFirebaseBackend } from "../lib/envConfig";
+import { isOfficialAiAvailable } from "../lib/envConfig";
 import { AI_PLAN_LIMITS, AI_PLANS, type OfficialAiUsageState } from "../shared/aiOfficial";
 
 const AI_PLAN_LABEL_KEYS = {
@@ -124,6 +124,14 @@ export function createRestoredAiDraft(
   });
 }
 
+function forceCustomAccessMode(draft: AiSettings): AiSettings {
+  if (draft.accessMode === "custom") {
+    return draft;
+  }
+
+  return { ...draft, accessMode: "custom", connectionVerified: false, verifiedAt: null };
+}
+
 function resolveInitialAiDraft(
   settings: Settings,
   restored: AiSettingsDraft | null,
@@ -131,7 +139,7 @@ function resolveInitialAiDraft(
 ): AiSettings {
   const draft = createRestoredAiDraft(settings, restored);
 
-  return officialAiAvailable ? { ...draft, accessMode: "custom" } : draft;
+  return officialAiAvailable ? draft : forceCustomAccessMode(draft);
 }
 
 interface TabConfig {
@@ -376,10 +384,10 @@ export function MainScreen({
   const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(
     popupState?.aiDraft ? "custom" : settings.ai.accessMode,
   );
-  const officialAiAvailable = !isFirebaseBackend();
+  const officialAiAvailable = isOfficialAiAvailable();
   const effectiveAiAccessMode = officialAiAvailable ? aiAccessMode : "custom";
   const [aiDraft, setAiDraft] = useState<AiSettings>(() =>
-    resolveInitialAiDraft(settings, popupState?.aiDraft ?? null, !isFirebaseBackend()),
+    resolveInitialAiDraft(settings, popupState?.aiDraft ?? null, officialAiAvailable),
   );
   const [aiTestState, setAiTestState] = useState<AiTestState>({
     status: aiDraft.connectionVerified ? "saved" : "idle",
@@ -406,6 +414,8 @@ export function MainScreen({
   const [updateToastDismissed, setUpdateToastDismissed] = useState(false);
 
   const aiDraftRef = useRef(aiDraft);
+  const aiTestRequestRef = useRef(0);
+  const effectiveAiAccessModeRef = useRef(effectiveAiAccessMode);
   const aiModelsStateRef = useRef(aiModelsState);
   const appliedPopupStateRef = useRef<PopupState | null>(popupState ?? null);
   const reportedPopupStateRef = useRef<PopupState | null>(null);
@@ -437,6 +447,7 @@ export function MainScreen({
       ) {
         const nextAiSettings = normalizeAiSettings({
           ...aiDraft,
+          accessMode: effectiveAiAccessMode,
           apiKey: aiDraft.apiKey.trim(),
           connectionVerified: true,
           verifiedAt: aiTestState.verifiedAt,
@@ -446,11 +457,15 @@ export function MainScreen({
     }, 500);
 
     return () => window.clearTimeout(timeoutId);
-  }, [aiDraft, aiTestState, canSaveAiSettings, settings, onSettingsChange]);
+  }, [aiDraft, aiTestState, canSaveAiSettings, effectiveAiAccessMode, settings, onSettingsChange]);
 
   useEffect(() => {
     aiDraftRef.current = aiDraft;
   }, [aiDraft]);
+
+  useEffect(() => {
+    effectiveAiAccessModeRef.current = effectiveAiAccessMode;
+  }, [effectiveAiAccessMode]);
 
   useEffect(() => {
     if (
@@ -509,6 +524,8 @@ export function MainScreen({
 
   const changeAiAccessMode = (mode: AiAccessMode) => {
     setAiAccessMode(mode);
+    setAiDraft((draft) => ({ ...draft, accessMode: mode }));
+    setAiTestState({ status: "idle", message: null, verifiedAt: null });
     updateSetting("ai", normalizeAiSettings({ ...settings.ai, accessMode: mode }));
   };
 
@@ -521,11 +538,13 @@ export function MainScreen({
       return;
     }
 
-    setAiDraft(officialAiAvailable ? { ...normalizedAi, accessMode: "custom" } : normalizedAi);
+    const nextDraft = officialAiAvailable ? normalizedAi : forceCustomAccessMode(normalizedAi);
+
+    setAiDraft(nextDraft);
     setAiTestState({
-      status: settings.ai.connectionVerified ? "saved" : "idle",
+      status: nextDraft.connectionVerified ? "saved" : "idle",
       message: null,
-      verifiedAt: settings.ai.verifiedAt,
+      verifiedAt: nextDraft.verifiedAt,
     });
   }, [officialAiAvailable, settings.ai]);
 
@@ -875,7 +894,10 @@ export function MainScreen({
   }
 
   async function handleTestAiConnection() {
-    const isOfficialFlow = aiDraft.accessMode === "official";
+    const isOfficialFlow = effectiveAiAccessMode === "official";
+    const requestedMode = effectiveAiAccessMode;
+    const requestedDraft = JSON.stringify(toAiDraft(aiDraft));
+    const requestId = ++aiTestRequestRef.current;
     const broadRequired =
       !isOfficialFlow &&
       (isCustomProviderFlow(aiDraft) || needsBroadHostPermission(aiDraft.customEndpoint));
@@ -910,17 +932,26 @@ export function MainScreen({
       const verifiedAt = new Date().toISOString();
       const response = await requestAiConnectionTest({
         ...aiDraft,
+        accessMode: effectiveAiAccessMode,
         apiKey: aiDraft.apiKey.trim(),
         connectionVerified: true,
         verifiedAt,
       });
 
       if (!response.ok) {
+        if (isAiTestStale(requestId, requestedMode, requestedDraft)) {
+          return;
+        }
+
         setAiTestState({
           status: "error",
           message: response.error ?? t("settings.ai.status.error"),
           verifiedAt: null,
         });
+        return;
+      }
+
+      if (isAiTestStale(requestId, requestedMode, requestedDraft)) {
         return;
       }
 
@@ -930,6 +961,10 @@ export function MainScreen({
         verifiedAt,
       });
     } catch (error) {
+      if (isAiTestStale(requestId, requestedMode, requestedDraft)) {
+        return;
+      }
+
       setAiTestState({
         status: "error",
         message: error instanceof Error ? error.message : t("settings.ai.status.error"),
@@ -938,12 +973,28 @@ export function MainScreen({
     }
   }
 
+  function isAiTestStale(requestId: number, requestedMode: AiAccessMode, requestedDraft: string) {
+    const stale =
+      requestedMode !== effectiveAiAccessModeRef.current ||
+      requestedDraft !== JSON.stringify(toAiDraft(aiDraftRef.current));
+
+    if (stale && requestId === aiTestRequestRef.current) {
+      setAiTestState({ status: "idle", message: null, verifiedAt: null });
+    }
+
+    return stale;
+  }
+
   function handleSaveAiSettings() {
     if (!canSaveAiSettings || !aiTestState.verifiedAt) {
       return;
     }
 
-    if (isCustomProviderFlow(aiDraft) && !isBroadHostPermissionGrantedSync()) {
+    if (
+      effectiveAiAccessMode === "custom" &&
+      isCustomProviderFlow(aiDraft) &&
+      !isBroadHostPermissionGrantedSync()
+    ) {
       setAiTestState({
         status: "error",
         message: t("settings.ai.status.permissionDenied"),
@@ -954,6 +1005,7 @@ export function MainScreen({
 
     const nextAiSettings = normalizeAiSettings({
       ...aiDraft,
+      accessMode: effectiveAiAccessMode,
       apiKey: aiDraft.apiKey.trim(),
       connectionVerified: true,
       verifiedAt: aiTestState.verifiedAt,
@@ -1554,7 +1606,7 @@ export function MainScreen({
               </div>
             </div>
           )}
-          {!isFirebaseBackend() && (
+          {officialAiAvailable && (
             <SettingPanelRow
               title={t("settings.server.title")}
               lines={[t("settings.server.line1"), t("settings.server.line2")]}

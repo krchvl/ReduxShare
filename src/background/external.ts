@@ -107,7 +107,7 @@ import {
 } from "../shared/messages";
 import { logReduxShareInfo, logReduxShareWarning } from "../logic/runtime";
 import { loadStoredState, patchStoredState as saveStoredStatePatch } from "../lib/storage";
-import { isAuthSessionForProvider } from "../lib/envConfig";
+import { isAuthSessionForProvider, isOfficialAiAvailable } from "../lib/envConfig";
 import {
   ensureActivePocketBaseServer,
   initActivePocketBaseServerSync,
@@ -1538,7 +1538,7 @@ async function handleTestAiConnection(payload: AiSettings): Promise<AiResponse> 
   });
   const authSession = getStoredAuthSession(storedState);
 
-  if (aiSettings.accessMode === "official") {
+  if (aiSettings.accessMode === "official" && isOfficialAiAvailable()) {
     if (!authSession) {
       return {
         ok: false,
@@ -1614,7 +1614,7 @@ async function handleGenerateAiAnswer(payload: GenerateAiAnswerPayload): Promise
     };
   }
 
-  if (aiSettings.accessMode === "official" && !authSession) {
+  if (aiSettings.accessMode === "official" && isOfficialAiAvailable() && !authSession) {
     return {
       ok: false,
       error: t("errors.aiOfficialUnauthorized"),

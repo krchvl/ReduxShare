@@ -164,6 +164,86 @@ describe("MainScreen AI access mode tabs", () => {
     }
   });
 
+  it("tests the official gateway in the official mode", async () => {
+    const sentPayloads: Array<{ accessMode?: string }> = [];
+    const originalSendMessage = chrome.runtime.sendMessage;
+    chrome.runtime.sendMessage = ((
+      message: { type?: string; payload?: { accessMode?: string } },
+      callback?: (response: unknown) => void,
+    ) => {
+      if (message?.type === "REDUXSHARE_TEST_AI_CONNECTION") {
+        sentPayloads.push(message.payload ?? {});
+        callback?.({ ok: true, answer: "OK" });
+      }
+    }) as typeof chrome.runtime.sendMessage;
+
+    try {
+      renderMainScreen();
+      openAiTab();
+      clickModeTab("Official");
+
+      const testButton = Array.from(
+        container!.querySelectorAll<HTMLButtonElement>(".ai-official button"),
+      ).find((button) => button.textContent === "Test");
+      expect(testButton).toBeTruthy();
+
+      act(() => {
+        testButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      expect(sentPayloads).toHaveLength(1);
+      expect(sentPayloads[0]!.accessMode).toBe("official");
+      expect(container!.querySelector(".ai-status")?.className).toContain("success");
+    } finally {
+      chrome.runtime.sendMessage = originalSendMessage;
+    }
+  });
+
+  it("discards a test result when the mode changes in flight", async () => {
+    let resolveTest: ((response: unknown) => void) | null = null;
+    const originalSendMessage = chrome.runtime.sendMessage;
+    chrome.runtime.sendMessage = ((
+      message: { type?: string },
+      callback?: (response: unknown) => void,
+    ) => {
+      if (message?.type === "REDUXSHARE_TEST_AI_CONNECTION") {
+        resolveTest = callback ?? null;
+      }
+    }) as typeof chrome.runtime.sendMessage;
+
+    try {
+      renderMainScreen();
+      openAiTab();
+      clickModeTab("Official");
+
+      const testButton = Array.from(
+        container!.querySelectorAll<HTMLButtonElement>(".ai-official button"),
+      ).find((button) => button.textContent === "Test");
+      act(() => {
+        testButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await act(async () => {});
+      expect(container!.querySelector(".ai-status")?.className).toContain("checking");
+
+      clickModeTab("Custom");
+      await act(async () => {
+        resolveTest?.({ ok: true, answer: "OK" });
+      });
+
+      expect(container!.querySelector(".ai-status")).toBeNull();
+      expect(
+        container!.querySelector(".tab-card[aria-label='Custom']")?.getAttribute("aria-checked"),
+      ).toBe("true");
+    } finally {
+      chrome.runtime.sendMessage = originalSendMessage;
+    }
+  });
+
   it("switches back to the custom mode and restores the provider form", () => {
     renderMainScreen();
     openAiTab();
