@@ -33,6 +33,7 @@ describe("humanization settings section", () => {
             settings: DEFAULT_SETTINGS,
             updateState: DEFAULT_UPDATE_STATE,
             isCheckingUpdates: false,
+            popupState: { activeTab: "main" },
             onSettingsChange,
             onCheckUpdates: () => {},
             onResetSettings: () => {},

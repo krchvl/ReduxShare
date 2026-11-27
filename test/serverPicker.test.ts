@@ -59,7 +59,7 @@ function renderMainScreen(settings: Settings = testSettings) {
 
 function openExtraTab() {
   const extraTab = Array.from(container!.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
-    (tab) => tab.textContent === "Дополнительно",
+    (tab) => tab.querySelector(".settings-tab__label")?.textContent === "Дополнительно",
   );
 
   expect(extraTab).toBeDefined();

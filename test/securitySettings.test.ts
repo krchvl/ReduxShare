@@ -49,7 +49,7 @@ function renderMainScreen() {
 function clickSecurityTab() {
   const securityTab = Array.from(
     container!.querySelectorAll<HTMLButtonElement>(".settings-tab"),
-  ).find((tab) => tab.textContent === "Безопасность");
+  ).find((tab) => tab.querySelector(".settings-tab__label")?.textContent === "Безопасность");
 
   if (!securityTab) {
     throw new Error("Security tab is not rendered");

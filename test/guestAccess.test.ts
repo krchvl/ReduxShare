@@ -90,7 +90,7 @@ function renderMainScreen(overrides: { isAuthenticated?: boolean; settings?: Set
 function clickTab(labels: string | string[]) {
   const expected = Array.isArray(labels) ? labels : [labels];
   const tab = Array.from(container!.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
-    (button) => expected.includes(button.textContent ?? ""),
+    (button) => expected.includes(button.querySelector(".settings-tab__label")?.textContent ?? ""),
   );
   expect(tab).toBeTruthy();
 

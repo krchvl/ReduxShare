@@ -88,24 +88,47 @@
 }
 
 :root[data-theme="light"] .settings-tabs {
-  background: rgba(255, 255, 255, 0.75);
-}
-
-:root[data-theme="light"] .settings-tab {
   background: transparent;
 }
 
-:root[data-theme="light"] .settings-tab:not(.settings-tab--active):hover {
-  background: rgba(15, 20, 35, 0.05);
+:root[data-theme="light"] .settings-tab {
+  border-color: rgba(15, 20, 35, 0.12);
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(255, 255, 255, 0.9), transparent 58%),
+    rgba(255, 255, 255, 0.82);
+  box-shadow: 0 6px 18px rgba(20, 30, 60, 0.07);
+  color: var(--white);
+}
+
+:root[data-theme="light"] .settings-tab:hover,
+:root[data-theme="light"] .settings-tab:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background:
+    radial-gradient(
+      120% 140% at 12% 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 62%
+    ),
+    #ffffff;
+  box-shadow: 0 18px 38px rgba(20, 30, 60, 0.16);
 }
 
 :root[data-theme="light"] .settings-tab--active {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme="light"] .settings-tabs[data-view="panel"] .settings-tab__text {
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(20, 30, 60, 0.16);
 }
 
 :root[data-theme="light"] .settings-panel {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: inset 0 1px 0 rgba(15, 20, 35, 0.05);
+}
+
+:root[data-theme="light"] .settings-panel__head {
+  border-bottom-color: rgba(15, 20, 35, 0.09);
 }
 
 :root[data-theme="light"] .settings-row {
@@ -562,101 +585,148 @@ button:focus-visible {
   margin-bottom: 24px;
 }
 
+.main-content[data-view="panel"] {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.main-content[data-view="menu"] .settings-panel {
+  display: none;
+}
+
 .settings-tabs {
   position: relative;
   display: grid;
-  height: 88px;
-  flex: 0 0 auto;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 8px 8px 0 0;
-  background: rgba(34, 35, 35, 0.56);
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
 }
 
-.settings-tabs::after {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 16.667%;
-  height: 3px;
-  background: var(--accent);
-  content: "";
-  transform: translateX(0);
-  transition: transform 340ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
+.settings-tabs[data-view="menu"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  max-width: 556px;
+  margin-inline: auto;
+  gap: 16px;
+  border-radius: 16px;
 }
 
-.settings-tabs[data-active-tab="main"]::after {
-  transform: translateX(100%);
+.settings-tabs[data-view="panel"] {
+  grid-template-columns: 76px;
+  gap: 10px;
 }
 
-.settings-tabs[data-active-tab="ui"]::after {
-  transform: translateX(200%);
+.settings-tabs__caption {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 660;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.settings-tabs[data-active-tab="security"]::after {
-  transform: translateX(300%);
-}
-
-.settings-tabs[data-active-tab="ai"]::after {
-  transform: translateX(400%);
-}
-
-.settings-tabs[data-active-tab="extra"]::after {
-  transform: translateX(500%);
+.settings-tabs[data-view="panel"] .settings-tabs__caption {
+  display: none;
 }
 
 .settings-tab {
   position: relative;
   display: grid;
-  min-width: 0;
-  grid-template-rows: 32px 20px;
-  align-content: center;
-  justify-items: center;
-  row-gap: 6px;
-  border-right: 1px solid var(--border);
-  padding: 13px 6px 16px;
-  background: rgba(31, 32, 32, 0.28);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 620;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 108px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(255, 255, 255, 0.05), transparent 58%),
+    rgba(31, 32, 32, 0.55);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 640;
   line-height: 20px;
-  letter-spacing: 0;
+  text-align: left;
   white-space: nowrap;
+  animation: settings-card-enter 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--index, 0) * 45ms);
   transition:
-    background 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
+    margin 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 200ms ease,
+    background 200ms ease,
+    box-shadow 260ms ease,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes settings-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .settings-tab:last-child {
-  border-right: 0;
+  border-right: 1px solid var(--border);
 }
 
-.settings-tab::after {
-  content: none;
-}
-
-.settings-tab:not(.settings-tab--active):hover {
-  color: var(--white);
-  background: rgba(255, 255, 255, 0.035);
+.settings-tab:hover,
+.settings-tab:focus-visible {
+  z-index: 2;
+  margin-inline: -16px;
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  padding-inline: 30px;
+  background:
+    radial-gradient(
+      120% 140% at 12% 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 62%
+    ),
+    rgba(41, 42, 42, 0.92);
+  box-shadow:
+    0 20px 42px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  outline: none;
+  transform: translateY(-3px);
 }
 
 .settings-tab--active {
+  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
   color: var(--accent);
-  background: rgba(255, 255, 255, 0.026);
 }
 
-.settings-tab--active::after {
-  content: none;
+.settings-tab--active::before {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: -1px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  content: "";
 }
 
 .settings-tab__icon {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   place-items: center;
+  color: inherit;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-tab:hover .settings-tab__icon,
+.settings-tab:focus-visible .settings-tab__icon {
+  transform: scale(1.08);
 }
 
 .settings-tab svg {
@@ -670,13 +740,127 @@ button:focus-visible {
   stroke-width: 3;
 }
 
-.settings-tab > span:last-child {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
+.settings-tab__text {
+  display: grid;
+  min-width: 0;
+  row-gap: 0;
   line-height: 20px;
-  text-align: center;
+}
+
+.settings-tab__label {
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.settings-tab__desc {
+  display: block;
+  max-height: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 520;
+  line-height: 18px;
+  opacity: 0;
+  white-space: normal;
+  transition:
+    max-height 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    margin-top 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease;
+}
+
+.settings-tab:hover .settings-tab__desc,
+.settings-tab:focus-visible .settings-tab__desc {
+  max-height: 76px;
+  margin-top: 4px;
+  opacity: 1;
+}
+
+.settings-tab__chevron {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  opacity: 0.5;
+  transition:
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-tab__chevron svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+  transform: rotate(180deg);
+}
+
+.settings-tab:hover .settings-tab__chevron,
+.settings-tab:focus-visible .settings-tab__chevron {
+  color: var(--accent);
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.settings-tabs[data-view="panel"] .settings-tab {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  min-height: 58px;
+  border-radius: 12px;
+  padding: 12px 0;
+  animation: none;
+}
+
+.settings-tabs[data-view="panel"] .settings-tab:last-child {
+  border-right: 1px solid var(--border);
+}
+
+.settings-tabs[data-view="panel"] .settings-tab:hover,
+.settings-tabs[data-view="panel"] .settings-tab:focus-visible {
+  margin-inline: 0;
+  padding-inline: 0;
+  transform: none;
+}
+
+.settings-tabs[data-view="panel"] .settings-tab--active::before {
+  top: 50%;
+  bottom: auto;
+  left: -1px;
+  height: 22px;
+  transform: translateY(-50%);
+}
+
+.settings-tabs[data-view="panel"] .settings-tab__text {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 10px);
+  z-index: 3;
+  display: block;
+  width: max-content;
+  max-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 12px;
+  background: rgba(28, 29, 29, 0.97);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(-6px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.settings-tabs[data-view="panel"] .settings-tab:hover .settings-tab__text,
+.settings-tabs[data-view="panel"] .settings-tab:focus-visible .settings-tab__text {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.settings-tabs[data-view="panel"] .settings-tab__desc {
+  display: none;
+}
+
+.settings-tabs[data-view="panel"] .settings-tab__chevron {
+  display: none;
 }
 
 .settings-tab svg .icon-dot {
@@ -684,15 +868,128 @@ button:focus-visible {
   stroke: currentColor;
 }
 
+@media (max-width: 600px) {
+  .settings-tabs[data-view="menu"] {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 340px;
+  }
+
+  .main-content[data-view="panel"] {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .settings-tabs[data-view="panel"] {
+    grid-template-columns: 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-tab,
+  .settings-tab__icon,
+  .settings-tab__text,
+  .settings-tab__chevron,
+  .settings-panel__view,
+  .settings-panel__back {
+    animation: none;
+    transition-duration: 1ms;
+  }
+}
+
 .settings-panel {
-  flex: none;
   overflow: visible;
+  min-width: 0;
   border: 1px solid var(--border);
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
-  padding: 6px 54px;
+  border-radius: 14px;
+  padding: 6px 44px 20px;
   background: rgba(37, 38, 38, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.settings-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 0 12px;
+}
+
+.settings-panel__back {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.settings-panel__back svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.settings-panel__back:hover,
+.settings-panel__back:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--accent);
+  outline: none;
+  transform: translateX(-2px);
+}
+
+.settings-panel__heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+}
+
+.settings-panel__icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.settings-panel__icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.settings-panel__icon svg .icon-dot {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.settings-panel__heading h1 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--white);
+  font-size: 20px;
+  font-weight: 660;
+  line-height: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-panel__rows {

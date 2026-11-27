@@ -145,6 +145,7 @@ function resolveInitialAiDraft(
 interface TabConfig {
   key: SettingsTab;
   label: TranslationKey;
+  description: TranslationKey;
   icon: ReactNode;
 }
 
@@ -224,6 +225,15 @@ function AiIcon() {
   );
 }
 
+function ArrowLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.5 5 7.5 12l7 7" />
+      <path d="M8 12h9" />
+    </svg>
+  );
+}
+
 function DotsIcon() {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
@@ -235,12 +245,37 @@ function DotsIcon() {
 }
 
 const SETTINGS_TABS: TabConfig[] = [
-  { key: "stats", label: "main.tabs.stats", icon: <ChartIcon /> },
-  { key: "main", label: "main.tabs.basic", icon: <GearIcon /> },
-  { key: "ui", label: "main.tabs.ui", icon: <PaletteIcon /> },
-  { key: "security", label: "main.tabs.security", icon: <ShieldIcon /> },
-  { key: "ai", label: "main.tabs.ai", icon: <AiIcon /> },
-  { key: "extra", label: "main.tabs.extra", icon: <DotsIcon /> },
+  {
+    key: "stats",
+    label: "main.tabs.stats",
+    description: "main.tabs.stats.desc",
+    icon: <ChartIcon />,
+  },
+  {
+    key: "main",
+    label: "main.tabs.basic",
+    description: "main.tabs.basic.desc",
+    icon: <GearIcon />,
+  },
+  {
+    key: "ui",
+    label: "main.tabs.ui",
+    description: "main.tabs.ui.desc",
+    icon: <PaletteIcon />,
+  },
+  {
+    key: "security",
+    label: "main.tabs.security",
+    description: "main.tabs.security.desc",
+    icon: <ShieldIcon />,
+  },
+  { key: "ai", label: "main.tabs.ai", description: "main.tabs.ai.desc", icon: <AiIcon /> },
+  {
+    key: "extra",
+    label: "main.tabs.extra",
+    description: "main.tabs.extra.desc",
+    icon: <DotsIcon />,
+  },
 ];
 
 function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
@@ -380,6 +415,7 @@ export function MainScreen({
 }: MainScreenProps) {
   const { resolvedLanguage, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>(popupState?.activeTab ?? "main");
+  const [menuOpen, setMenuOpen] = useState(!popupState?.activeTab);
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
   const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(
     popupState?.aiDraft ? "custom" : settings.ai.accessMode,
@@ -478,6 +514,7 @@ export function MainScreen({
 
     appliedPopupStateRef.current = popupState;
     setActiveTab(popupState.activeTab);
+    setMenuOpen(false);
 
     if (!popupState.aiDraft) {
       return;
@@ -1017,6 +1054,11 @@ export function MainScreen({
       message: t("settings.ai.status.saved"),
       verifiedAt: nextAiSettings.verifiedAt,
     });
+  }
+
+  function openSection(tab: SettingsTab) {
+    setActiveTab(tab);
+    setMenuOpen(false);
   }
 
   function renderActivePanel() {
@@ -1843,27 +1885,66 @@ export function MainScreen({
     );
   }
 
+  const activeTabConfig = SETTINGS_TABS.find((tab) => tab.key === activeTab) ?? SETTINGS_TABS[1]!;
+
   return (
-    <div className="main-content">
-      <nav className="settings-tabs" data-active-tab={activeTab} aria-label={t("main.tabs.aria")}>
-        {SETTINGS_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={`settings-tab ${activeTab === tab.key ? "settings-tab--active" : ""}`}
-            type="button"
-            aria-pressed={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            <span className="settings-tab__icon">{tab.icon}</span>
-            <span>{t(tab.label)}</span>
-          </button>
-        ))}
+    <div className="main-content" data-view={menuOpen ? "menu" : "panel"}>
+      <nav
+        className="settings-tabs"
+        data-view={menuOpen ? "menu" : "panel"}
+        data-active-tab={activeTab}
+        aria-label={t("main.tabs.aria")}
+      >
+        <p className="settings-tabs__caption">{t("main.menu.title")}</p>
+        {SETTINGS_TABS.map((tab, index) => {
+          const isActive = activeTab === tab.key;
+          const label = t(tab.label);
+
+          return (
+            <button
+              key={tab.key}
+              className={`settings-tab ${isActive ? "settings-tab--active" : ""}`}
+              type="button"
+              aria-pressed={isActive}
+              aria-current={isActive ? "true" : undefined}
+              title={menuOpen ? undefined : label}
+              style={{ "--index": index } as CSSProperties}
+              onClick={() => openSection(tab.key)}
+            >
+              <span className="settings-tab__icon">{tab.icon}</span>
+              <span className="settings-tab__text">
+                <span className="settings-tab__label">{label}</span>
+                <span className="settings-tab__desc">{t(tab.description)}</span>
+              </span>
+              <span className="settings-tab__chevron" aria-hidden="true">
+                <ArrowLeftIcon />
+              </span>
+            </button>
+          );
+        })}
       </nav>
-      <section className="settings-panel" aria-label={t("main.panel.aria")}>
-        <div key={activeTab} className="settings-panel__view">
-          {renderActivePanel()}
-        </div>
-      </section>
+      {!menuOpen && (
+        <section className="settings-panel" aria-label={t("main.panel.aria")}>
+          <div className="settings-panel__head">
+            <button
+              type="button"
+              className="settings-panel__back"
+              aria-label={t("main.menu.back")}
+              title={t("main.menu.back")}
+              onClick={() => setMenuOpen(true)}
+            >
+              <ArrowLeftIcon />
+            </button>
+            <div className="settings-panel__heading">
+              <span className="settings-panel__icon">{activeTabConfig.icon}</span>
+              <h1>{t(activeTabConfig.label)}</h1>
+            </div>
+          </div>
+          <div key={activeTab} className="settings-panel__view">
+            {renderActivePanel()}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
