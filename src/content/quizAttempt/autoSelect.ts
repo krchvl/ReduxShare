@@ -589,7 +589,6 @@ export function scheduleAutoSelectAnswer(
   }
 
   const settings = storedState?.settings;
-  const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
   const firstInPage = autoSelectScheduledTotal === 0;
   autoSelectScheduledTotal += 1;
   const delayMs = computeAutoSelectDelayMs(
@@ -597,8 +596,8 @@ export function scheduleAutoSelectAnswer(
     Math.random,
     readQuizTimeLeftSeconds(),
     {
-      readingSeconds: readingEnabled ? estimateQuestionReadingSeconds(questionNode) : 0,
-      firstInPage: readingEnabled && firstInPage,
+      readingSeconds: estimateQuestionReadingSeconds(questionNode),
+      firstInPage,
       interactive: isStepPerActionBehaviour(getQuestionBehaviour(questionNode)),
       extraDelayMs: Math.max(0, delayOffsetMs),
     },
@@ -920,10 +919,8 @@ function autoSelectQuestionAnswers(questionNode: Element, answerData: AnswerData
   return false;
 }
 
-export function getHumanizedAnswerGapMs(settings: StoredStateLike["settings"] | undefined): number {
-  const readingEnabled = settings?.humanReading ?? DEFAULT_SETTINGS.humanReading;
-
-  return readingEnabled ? HUMANIZED_ANSWER_GAP_MS : 0;
+export function getHumanizedAnswerGapMs(): number {
+  return HUMANIZED_ANSWER_GAP_MS;
 }
 
 function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void {
@@ -934,11 +931,8 @@ function autoSelectExactAnswers(storedState: StoredStateLike | undefined): void 
 
   if (!isImmediateAutoSelectMode()) {
     const entries = getAnswerEntries().filter((entry) => entry.questionNode);
-    const gapMs = getHumanizedAnswerGapMs(storedState?.settings);
-    const ordered =
-      (storedState?.settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder)
-        ? shuffleScheduleOrder(entries)
-        : entries;
+    const gapMs = getHumanizedAnswerGapMs();
+    const ordered = shuffleScheduleOrder(entries);
     let offsetMs = 0;
 
     for (const { questionId, questionNode } of ordered) {

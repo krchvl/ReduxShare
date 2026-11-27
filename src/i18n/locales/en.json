@@ -123,8 +123,6 @@
   "settings.human.line2": "Delays, typing, answer order",
   "settings.humanTyping.title": "Human typing",
   "settings.humanPrecursors.title": "Scroll & focus",
-  "settings.humanReading.title": "Reading time",
-  "settings.humanOrder.title": "Random order",
   "settings.attemptStatusPanel.title": "Attempt status panel",
   "settings.attemptStatusPanel.on.line1": "Panel is visible on the quiz page",
   "settings.attemptStatusPanel.on.line2": "The ✕ button hides it for the session",

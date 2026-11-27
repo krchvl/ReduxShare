@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe("humanization settings section", () => {
-  it("renders four toggles and reports changes through onSettingsChange", () => {
+  it("renders two toggles and reports changes through onSettingsChange", () => {
     const onSettingsChange = vi.fn();
     const container = document.createElement("div");
     document.body.append(container);
@@ -46,10 +46,10 @@ describe("humanization settings section", () => {
     const tabs = Array.from(
       container.querySelectorAll<HTMLButtonElement>('.tab-card[role="switch"]'),
     );
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(2);
 
     const labels = tabs.map((tab) => tab.textContent?.trim());
-    expect(labels).toEqual(["Живая печать", "Скролл и фокус", "Время чтения", "Случайный порядок"]);
+    expect(labels).toEqual(["Живая печать", "Скролл и фокус"]);
     expect(tabs[0].querySelector(".tab-card__icon svg")).not.toBeNull();
 
     expect(tabs[0].getAttribute("aria-checked")).toBe("true");

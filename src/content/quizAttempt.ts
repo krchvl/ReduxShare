@@ -2634,8 +2634,6 @@ const PIPELINE_RELEVANT_SETTING_KEYS = [
   "autoSelectAvgSeconds",
   "humanTyping",
   "humanPrecursors",
-  "humanReading",
-  "humanOrder",
   "hotkey",
   "hotkeyCode",
   "accentColor",

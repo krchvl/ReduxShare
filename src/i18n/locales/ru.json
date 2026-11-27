@@ -123,8 +123,6 @@
   "settings.human.line2": "Задержки, печать, порядок ответов",
   "settings.humanTyping.title": "Живая печать",
   "settings.humanPrecursors.title": "Скролл и фокус",
-  "settings.humanReading.title": "Время чтения",
-  "settings.humanOrder.title": "Случайный порядок",
   "settings.attemptStatusPanel.title": "Панель статуса попытки",
   "settings.attemptStatusPanel.on.line1": "Панель видна на странице теста",
   "settings.attemptStatusPanel.on.line2": "Кнопка ✕ скрывает её до конца сессии",

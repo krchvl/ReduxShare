@@ -92,8 +92,6 @@ export interface Settings {
   autoSelectAvgSeconds: number;
   humanTyping: boolean;
   humanPrecursors: boolean;
-  humanReading: boolean;
-  humanOrder: boolean;
 
   attemptStatusPanelClosed: boolean;
   hotkey: string;
@@ -206,8 +204,6 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSelectAvgSeconds: 4,
   humanTyping: true,
   humanPrecursors: true,
-  humanReading: true,
-  humanOrder: true,
   attemptStatusPanelClosed: false,
   hotkey: DEFAULT_HOTKEY,
   hotkeyCode: DEFAULT_HOTKEY_CODE,
@@ -488,8 +484,6 @@ export function normalizeSettings(
     autoSelectAvgSeconds: normalizeAutoSelectAvgSeconds(settings?.autoSelectAvgSeconds),
     humanTyping: settings?.humanTyping ?? DEFAULT_SETTINGS.humanTyping,
     humanPrecursors: settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors,
-    humanReading: settings?.humanReading ?? DEFAULT_SETTINGS.humanReading,
-    humanOrder: settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder,
     hotkey: normalizeHotkeyValue(settings?.hotkey),
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
     accentColor: normalizeAccentColor(

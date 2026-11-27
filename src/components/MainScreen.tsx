@@ -1853,8 +1853,6 @@ export function MainScreen({
                   [
                     ["humanTyping", "settings.humanTyping"],
                     ["humanPrecursors", "settings.humanPrecursors"],
-                    ["humanReading", "settings.humanReading"],
-                    ["humanOrder", "settings.humanOrder"],
                   ] as const
                 ).map(([settingKey, keyPrefix]) => (
                   <TabCard

@@ -16,7 +16,6 @@ function baseStoredState() {
       autoSelectAvgSeconds: 4,
       humanTyping: true,
       humanPrecursors: false,
-      humanReading: false,
     },
     authSession: null,
   };
