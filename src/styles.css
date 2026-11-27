@@ -113,6 +113,11 @@
   box-shadow: 0 18px 38px rgba(20, 30, 60, 0.16);
 }
 
+:root[data-theme="light"] .settings-tabs[data-view="panel"] .settings-tab:hover,
+:root[data-theme="light"] .settings-tabs[data-view="panel"] .settings-tab:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, #ffffff);
+}
+
 :root[data-theme="light"] .settings-tab--active {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
