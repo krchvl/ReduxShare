@@ -141,6 +141,50 @@ describe("settings menu", () => {
     expect(getTabs()[3]?.getAttribute("aria-current")).toBe("true");
   });
 
+  it("restores the section grid when the popup was closed on it", () => {
+    renderMainScreen({ popupState: { activeTab: "security", menuOpen: true } });
+
+    expect(getContent().dataset.view).toBe("menu");
+    expect(container!.querySelector(".settings-panel")).toBeNull();
+    expect(getTabs()[3]?.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("remembers the section grid in the stored popup state", async () => {
+    const onPopupStateChange = vi.fn();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    act(() => {
+      root!.render(
+        createElement(
+          I18nProvider,
+          { language: "ru" },
+          createElement(MainScreen, {
+            settings: DEFAULT_SETTINGS,
+            updateState: DEFAULT_UPDATE_STATE,
+            isCheckingUpdates: false,
+            popupState: { activeTab: "extra" },
+            onSettingsChange: vi.fn(),
+            onCheckUpdates: vi.fn(),
+            onPopupStateChange,
+            onResetSettings: vi.fn(),
+            onLogout: vi.fn(),
+          }),
+        ),
+      );
+    });
+
+    click(container.querySelector<HTMLButtonElement>(".settings-tabs__home")!);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+
+    expect(getContent().dataset.view).toBe("menu");
+    expect(onPopupStateChange).toHaveBeenCalledWith(expect.objectContaining({ menuOpen: true }));
+  });
+
   it("exposes a rail tooltip instead of descriptions in the panel view", () => {
     renderMainScreen({ popupState: { activeTab: "ui" } });
     const uiTab = getTabs()[2]!;

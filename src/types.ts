@@ -184,6 +184,7 @@ export interface AiSettingsDraft {
 
 export interface PopupState {
   activeTab: PopupTab;
+  menuOpen?: boolean;
   aiDraft: AiSettingsDraft | null;
 }
 
@@ -371,6 +372,7 @@ export function normalizePopupState(value: unknown): PopupState | null {
 
   return {
     activeTab,
+    menuOpen: raw.menuOpen === true,
     aiDraft: normalizeAiDraft(raw.aiDraft),
   };
 }

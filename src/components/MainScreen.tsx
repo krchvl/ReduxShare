@@ -374,7 +374,7 @@ export function MainScreen({
 }: MainScreenProps) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>(popupState?.activeTab ?? "main");
-  const [menuOpen, setMenuOpen] = useState(!popupState?.activeTab);
+  const [menuOpen, setMenuOpen] = useState(popupState ? popupState.menuOpen === true : true);
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
   const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(
     popupState?.aiDraft ? "custom" : settings.ai.accessMode,
@@ -415,7 +415,11 @@ export function MainScreen({
   const aiModelsStateRef = useRef(aiModelsState);
   const appliedPopupStateRef = useRef<PopupState | null>(popupState ?? null);
   const reportedPopupStateRef = useRef<PopupState | null>(null);
-  const latestPopupStateRef = useRef<PopupState>({ activeTab, aiDraft: toAiDraft(aiDraft) });
+  const latestPopupStateRef = useRef<PopupState>({
+    activeTab,
+    menuOpen,
+    aiDraft: toAiDraft(aiDraft),
+  });
 
   useEffect(() => {
     refreshBroadPermissionCache().catch(() => {});
@@ -474,7 +478,7 @@ export function MainScreen({
 
     appliedPopupStateRef.current = popupState;
     setActiveTab(popupState.activeTab);
-    setMenuOpen(false);
+    setMenuOpen(popupState.menuOpen === true);
 
     if (!popupState.aiDraft) {
       return;
@@ -491,7 +495,7 @@ export function MainScreen({
   }, [officialAiAvailable, popupState, settings]);
 
   useEffect(() => {
-    const nextPopupState: PopupState = { activeTab, aiDraft: toAiDraft(aiDraft) };
+    const nextPopupState: PopupState = { activeTab, menuOpen, aiDraft: toAiDraft(aiDraft) };
     latestPopupStateRef.current = nextPopupState;
 
     const timeoutId = window.setTimeout(() => {
@@ -501,7 +505,7 @@ export function MainScreen({
     }, POPUP_STATE_PERSIST_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeTab, aiDraft, onPopupStateChange]);
+  }, [activeTab, menuOpen, aiDraft, onPopupStateChange]);
 
   useEffect(() => {
     return () => {
