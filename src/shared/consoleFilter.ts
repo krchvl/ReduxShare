@@ -25,15 +25,11 @@ function stringifyConsoleArg(value: unknown) {
     return `${value.name}: ${value.message}`;
   }
 
-  try {
-    return String(value);
-  } catch {
-    return "";
-  }
+  return "";
 }
 
 function shouldSuppressConsoleCall(args: unknown[]) {
-  const message = args.map(stringifyConsoleArg).join(" ");
+  const message = args.map(stringifyConsoleArg).filter(Boolean).join(" ");
 
   return SUPPRESSED_CONSOLE_PATTERNS.some((pattern) => pattern.test(message));
 }

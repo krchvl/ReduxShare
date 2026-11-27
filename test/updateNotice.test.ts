@@ -130,7 +130,7 @@ describe("update notice toast", () => {
     setCurrentStoredState(state);
     syncContentUi();
     renderUpdateNotice();
-    expect(document.getElementById(UPDATE_NOTICE_HOST_ID)).not.toBeNull();
+    expect(getNoticeShadow().querySelector(".body")?.textContent).toContain("1.1.0");
 
     const disabled = enabledState(availableState());
     disabled.settings = { extensionEnabled: false, language: "ru" };
