@@ -61,10 +61,10 @@ async function boot() {
 
   await chrome.storage.local.set({ [APP_STORAGE_KEY]: buildStoredState() });
 
+  await import("../content/quizAttempt");
+
   const api = (globalThis as unknown as { __reduxshareQuizAttemptTestApi?: QuizAttemptDemoApi })
     .__reduxshareQuizAttemptTestApi;
-
-  await import("../content/quizAttempt");
 
   if (!api) {
     throw new Error("ReduxShare quizAttempt test API was not installed.");

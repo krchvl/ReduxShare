@@ -82,8 +82,8 @@ function installLayout(
   };
   item!.getBoundingClientRect = () => {
     const left = Number.parseFloat(portal.style.left || "0");
-    const top = Number.parseFloat(portal.style.top || "0");
-    return createRect(left, top + tabsHeight, 348, 38);
+    const top = options.itemTop ?? Number.parseFloat(portal.style.top || "0") + tabsHeight;
+    return createRect(left, top, 348, 38);
   };
   flyout!.getBoundingClientRect = () => {
     const left = Number.parseFloat(portal.style.left || "0");
@@ -132,9 +132,25 @@ describe("R-menu viewport height bounds", () => {
 
     api.positionAnswerMenuPortal(portal, createTrigger(520));
 
+    const panelStyle = window.getComputedStyle(panel);
+
     expect(panel.dataset.scrollable).toBe("true");
     expect(panel.style.maxHeight).toBe(`${600 - 32 - 58 - 2}px`);
+    expect(panelStyle.overflowY).toBe("auto");
+    expect(panelStyle.overscrollBehavior).toContain("contain");
+    expect(Number.parseFloat(panel.style.maxHeight)).toBeLessThan(panel.scrollHeight);
     expect(Number.parseFloat(portal.style.top)).toBe(16);
+  });
+
+  it("caps the panel to the real remaining height when less than 96px is left", async () => {
+    setViewport(1200, 100);
+
+    const { api, portal, root } = await openLongMenuAnswers();
+    const { panel } = installLayout(portal, root, { panelHeight: 900 });
+
+    api.positionAnswerMenuPortal(portal, createTrigger(80));
+
+    expect(panel.style.maxHeight).toBe(`${100 - 32 - 58 - 2}px`);
   });
 
   it("does not leave the menu overflowing the viewport bottom on the last question", async () => {
@@ -191,5 +207,59 @@ describe("R-menu viewport height bounds", () => {
     api.updateAnswerMenuFlyoutSide(portal);
 
     expect(flyout.style.maxHeight).toBe(`${600 - 16 - (16 + 58)}px`);
+    expect(flyout.style.position).toBe("");
+  });
+
+  it("detaches the flyout from the scrollable panel so it is not clipped", async () => {
+    setViewport(1200, 600);
+
+    const { api, portal, root } = await openLongMenuAnswers();
+    const { flyout } = installLayout(portal, root, { panelHeight: 900, itemTop: 300 });
+
+    api.positionAnswerMenuPortal(portal, createTrigger(520));
+
+    const flyoutStyle = window.getComputedStyle(flyout);
+
+    expect(portal.dataset.flyoutSide).toBe("left");
+    expect(flyoutStyle.position).toBe("fixed");
+    expect(flyoutStyle.overflowY).toBe("auto");
+    expect(flyout.style.top).toBe(`${300 - 16 - 1}px`);
+    expect(flyout.style.left).toBe(`${4 - 190}px`);
+    expect(flyout.style.right).toBe("auto");
+  });
+
+  it("limits the flyout to the real remaining height even below 96px", async () => {
+    setViewport(1200, 600);
+
+    const { api, portal, root } = await openLongMenuAnswers();
+    const { flyout } = installLayout(portal, root, { panelHeight: 900, itemTop: 580 });
+
+    api.positionAnswerMenuPortal(portal, createTrigger(520));
+
+    const menuTop = Number.parseFloat(portal.style.top);
+    const flyoutTop = Number.parseFloat(flyout.style.top);
+    const flyoutMaxHeight = Number.parseFloat(flyout.style.maxHeight);
+
+    expect(flyoutMaxHeight).toBeLessThan(96);
+    expect(menuTop + flyoutTop + flyoutMaxHeight).toBeLessThanOrEqual(600 - 16);
+  });
+
+  it("recalculates the flyout height on every reposition", async () => {
+    setViewport(1200, 600);
+
+    const { api, portal, root } = await openLongMenuAnswers();
+    const layout = { panelHeight: 900, itemTop: 200 };
+    const { flyout } = installLayout(portal, root, layout);
+
+    api.positionAnswerMenuPortal(portal, createTrigger(520));
+    const tallMaxHeight = Number.parseFloat(flyout.style.maxHeight);
+
+    layout.itemTop = 540;
+    api.positionAnswerMenuPortal(portal, createTrigger(520));
+
+    const shortMaxHeight = Number.parseFloat(flyout.style.maxHeight);
+
+    expect(shortMaxHeight).toBeLessThan(tallMaxHeight);
+    expect(shortMaxHeight).toBeLessThan(96);
   });
 });

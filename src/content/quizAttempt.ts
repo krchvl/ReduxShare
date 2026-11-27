@@ -843,7 +843,7 @@ function applyAnswerMenuHeightLimit(menuPortal: HTMLElement) {
   const tabsHeight = Math.round(tabs?.getBoundingClientRect().height ?? 0);
   const nextMaxHeight =
     tabsHeight + activePanel.scrollHeight + ANSWER_MENU_BORDER_HEIGHT > availableHeight
-      ? `${Math.max(96, Math.round(availableHeight - tabsHeight - ANSWER_MENU_BORDER_HEIGHT))}px`
+      ? `${Math.max(1, Math.round(availableHeight - tabsHeight - ANSWER_MENU_BORDER_HEIGHT))}px`
       : "";
 
   if (activePanel.style.maxHeight !== nextMaxHeight) {
@@ -941,6 +941,7 @@ function positionAnswerMenuPortal(menuPortal: HTMLElement, trigger: HTMLElement)
   menuPortal.dataset.boundsLeft = String(horizontalBounds.left);
   menuPortal.dataset.boundsRight = String(horizontalBounds.right);
   clampAnswerMenuPortalToViewport(menuPortal);
+  updateAnswerMenuFlyoutSide(menuPortal);
 }
 
 function getAnswerMenuPortalVisibleBounds(menuPortal: HTMLElement) {
@@ -1075,6 +1076,22 @@ function chooseAnswerMenuFlyoutSide(
   return leftSpace > rightSpace ? "left" : "right";
 }
 
+function setAnswerMenuFlyoutMaxHeight(flyout: HTMLElement, availableHeight: number) {
+  const nextMaxHeight = `${Math.max(1, Math.round(availableHeight))}px`;
+
+  if (flyout.style.maxHeight !== nextMaxHeight) {
+    flyout.style.maxHeight = nextMaxHeight;
+  }
+}
+
+function clearAnswerMenuFlyoutFixedLayout(flyout: HTMLElement) {
+  for (const property of ["position", "top", "left", "right", "min-height"]) {
+    if (flyout.style.getPropertyValue(property)) {
+      flyout.style.removeProperty(property);
+    }
+  }
+}
+
 function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   const shadowRoot = menuPortal.shadowRoot;
   const menu = shadowRoot?.querySelector<HTMLElement>(".menu");
@@ -1086,6 +1103,7 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
   }
 
   const viewportWidth = document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight;
   const flyoutOverlap = 4;
   const horizontalBounds = getAnswerMenuPortalHorizontalBounds(menuPortal, viewportWidth);
   const menuRect = menu.getBoundingClientRect();
@@ -1107,15 +1125,36 @@ function updateAnswerMenuFlyoutSide(menuPortal: HTMLElement) {
 
   menuPortal.dataset.flyoutSide = nextFlyoutSide;
 
-  const itemRect = activeItem.getBoundingClientRect();
   const margin = getAnswerMenuViewportMargin(viewportWidth);
-  const availableFlyoutHeight = Math.round(
-    window.innerHeight - margin - Math.max(itemRect.top, margin),
-  );
-  const nextFlyoutMaxHeight = `${Math.max(96, availableFlyoutHeight)}px`;
+  const itemRect = activeItem.getBoundingClientRect();
+  const panelScrollable =
+    activeItem.closest<HTMLElement>(".menu-panel")?.dataset.scrollable === "true";
 
-  if (activeFlyout.style.maxHeight !== nextFlyoutMaxHeight) {
-    activeFlyout.style.maxHeight = nextFlyoutMaxHeight;
+  if (panelScrollable) {
+    const flyoutLeft =
+      nextFlyoutSide === "right"
+        ? itemRect.right - menuRect.left - flyoutOverlap
+        : itemRect.left - menuRect.left - flyoutWidth + flyoutOverlap;
+    const minLeft = margin - menuRect.left;
+    const maxLeft = viewportWidth - margin - menuRect.left - flyoutWidth;
+    const flyoutTop = Math.max(margin - menuRect.top, itemRect.top - menuRect.top - 1);
+    const clampedLeft = Math.min(Math.max(minLeft, flyoutLeft), Math.max(minLeft, maxLeft));
+
+    activeFlyout.style.position = "fixed";
+    activeFlyout.style.top = `${Math.round(flyoutTop)}px`;
+    activeFlyout.style.left = `${Math.round(clampedLeft)}px`;
+    activeFlyout.style.right = "auto";
+    activeFlyout.style.minHeight = "0px";
+    setAnswerMenuFlyoutMaxHeight(
+      activeFlyout,
+      viewportHeight - margin - (menuRect.top + flyoutTop),
+    );
+  } else {
+    clearAnswerMenuFlyoutFixedLayout(activeFlyout);
+    setAnswerMenuFlyoutMaxHeight(
+      activeFlyout,
+      viewportHeight - margin - Math.max(itemRect.top, margin),
+    );
   }
 
   clampAnswerMenuPortalToViewport(menuPortal);
@@ -1803,6 +1842,9 @@ function openAnswerMenuPortal(
     });
   };
   const menuBox = shadowRoot.querySelector<HTMLElement>(".menu");
+  const handleMenuScroll = () => scheduleReposition();
+  menuBox?.addEventListener("scroll", handleMenuScroll, { capture: true, passive: true });
+
   const menuMutationObserver =
     typeof MutationObserver === "function" && menuBox
       ? new MutationObserver(scheduleReposition)
@@ -1820,6 +1862,7 @@ function openAnswerMenuPortal(
     document.removeEventListener("keydown", handleEscape);
     window.removeEventListener("resize", handleReposition);
     window.removeEventListener("scroll", handleReposition, true);
+    menuBox?.removeEventListener("scroll", handleMenuScroll, { capture: true });
     menuMutationObserver?.disconnect();
     window.cancelAnimationFrame(repositionFrame);
     menuBehavior.dispose();
