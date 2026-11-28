@@ -690,7 +690,7 @@ button:focus-visible {
   padding: 36px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(36, 37, 37, 0.76);
+  background: color-mix(in srgb, var(--background-panel) 76%, transparent);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
 }
 
@@ -912,7 +912,7 @@ body:has(.main-content[data-view="menu"]) #root {
   padding: 14px 11px;
   background:
     radial-gradient(120% 140% at 12% 0%, rgba(255, 255, 255, 0.05), transparent 58%),
-    rgba(31, 32, 32, 0.55);
+    color-mix(in srgb, var(--background-panel) 55%, transparent);
   color: var(--white);
   font-size: 13px;
   font-weight: 620;
@@ -1138,7 +1138,7 @@ body:has(.main-content[data-view="menu"]) #root {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 7px 12px;
-  background: rgba(28, 29, 29, 0.97);
+  background: color-mix(in srgb, var(--background-panel) 97%, transparent);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4);
   opacity: 0;
   pointer-events: none;
@@ -1200,7 +1200,7 @@ body:has(.main-content[data-view="menu"]) #root {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 6px 25px 20px;
-  background: rgba(37, 38, 38, 0.7);
+  background: color-mix(in srgb, var(--background-panel) 70%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
@@ -1220,7 +1220,7 @@ body:has(.main-content[data-view="menu"]) #root {
   border-radius: 12px;
   background:
     radial-gradient(120% 140% at 12% 0%, rgba(255, 255, 255, 0.05), transparent 58%),
-    rgba(31, 32, 32, 0.55);
+    color-mix(in srgb, var(--background-panel) 55%, transparent);
   color: var(--white);
   transition:
     border-color 280ms ease,
