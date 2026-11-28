@@ -199,7 +199,8 @@ describe("paced auto-select on a live quiz page", () => {
     const stylesheet = hosts[0].shadowRoot?.querySelector("style")?.textContent ?? "";
 
     expect(stylesheet).toMatch(/\.delay-progress \{[^}]*display: block/);
-    expect(stylesheet).toMatch(/\.delay-progress \{[^}]*max-width: 260px/);
+    expect(stylesheet).toMatch(/\.delay-progress \{[^}]*width: 20px/);
+    expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*width: max-content/);
     expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*font-weight: 400/);
     expect(stylesheet).toMatch(
       /\.delay-progress__seconds \{[^}]*color: var\(--reduxshare-accent\)/,

@@ -871,7 +871,7 @@ export function getAnswerTriggerMarkup() {
 
       .delay-progress {
         display: block;
-        max-width: 260px;
+        width: 20px;
         margin-top: 4px;
         pointer-events: none;
       }
@@ -881,7 +881,7 @@ export function getAnswerTriggerMarkup() {
         right: 0;
         bottom: -9px;
         left: 0;
-        max-width: none;
+        width: auto;
         margin-top: 0;
       }
 
@@ -904,6 +904,7 @@ export function getAnswerTriggerMarkup() {
 
       .delay-progress__seconds {
         display: block;
+        width: max-content;
         margin-top: 3px;
         color: var(--reduxshare-accent);
         font-family: Inter, Arial, sans-serif;
@@ -924,6 +925,7 @@ export function getAnswerTriggerMarkup() {
         top: 100%;
         right: 0;
         left: 0;
+        width: auto;
         margin-top: 4px;
         text-align: center;
       }
