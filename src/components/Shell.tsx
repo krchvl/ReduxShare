@@ -8,6 +8,7 @@ interface ShellProps {
   accentColor: string;
   updateState: UpdateState;
   popupOpacity: number;
+  showHeader?: boolean;
 }
 
 const DISABLED_ACCENT_COLOR = "#9ca3aa";
@@ -28,6 +29,7 @@ export function Shell({
   accentColor,
   updateState,
   popupOpacity,
+  showHeader = true,
 }: ShellProps) {
   const effectiveAccentColor = extensionEnabled ? accentColor : DISABLED_ACCENT_COLOR;
 
@@ -53,7 +55,7 @@ export function Shell({
         } as CSSProperties
       }
     >
-      <Header updateState={updateState} />
+      {showHeader && <Header updateState={updateState} />}
       {children}
     </main>
   );

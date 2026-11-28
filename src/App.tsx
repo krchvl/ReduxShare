@@ -86,6 +86,7 @@ export function App() {
   const [updateState, setUpdateState] = useState<UpdateState>(DEFAULT_UPDATE_STATE);
   const [popupState, setPopupState] = useState<PopupState | null>(null);
   const [guestMode, setGuestMode] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(true);
   const persistedSnapshotRef = useRef<{
     settings: Settings;
     authSession: AuthSession | null;
@@ -167,6 +168,7 @@ export function App() {
 
         setSettings(nextState.settings);
         setPopupState(nextState.popupState ?? null);
+        setMenuOpen(nextState.popupState ? nextState.popupState.menuOpen === true : true);
         setAuthSession(nextState.authSession);
         setUserProfile(nextState.userProfile);
         setUpdateState(nextState.updateState ?? DEFAULT_UPDATE_STATE);
@@ -408,6 +410,7 @@ export function App() {
           accentColor={settings.accentColor}
           updateState={updateState}
           popupOpacity={settings.popupOpacity}
+          showHeader={view !== "main" || menuOpen}
         >
           {!hydrated && <Splash />}
           {hydrated && view === "login" && (
@@ -438,6 +441,7 @@ export function App() {
                 popupState={popupState}
                 onSettingsChange={setSettings}
                 onPopupStateChange={setPopupState}
+                onMenuOpenChange={setMenuOpen}
                 onCheckUpdates={handleCheckUpdates}
                 onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
                 onLogout={handleLogout}

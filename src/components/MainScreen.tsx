@@ -70,6 +70,7 @@ interface MainScreenProps {
   popupState?: PopupState | null;
   onSettingsChange: (settings: Settings) => void;
   onPopupStateChange?: (popupState: PopupState) => void;
+  onMenuOpenChange?: (menuOpen: boolean) => void;
   onCheckUpdates: () => void;
   onResetSettings: () => void;
   onLogout: () => void;
@@ -367,6 +368,7 @@ export function MainScreen({
   popupState = null,
   onSettingsChange,
   onPopupStateChange,
+  onMenuOpenChange,
   onCheckUpdates,
   onResetSettings,
   onLogout,
@@ -493,6 +495,10 @@ export function MainScreen({
       verifiedAt: restoredDraft.verifiedAt,
     });
   }, [officialAiAvailable, popupState, settings]);
+
+  useEffect(() => {
+    onMenuOpenChange?.(menuOpen);
+  }, [menuOpen, onMenuOpenChange]);
 
   useEffect(() => {
     const nextPopupState: PopupState = { activeTab, menuOpen, aiDraft: toAiDraft(aiDraft) };
