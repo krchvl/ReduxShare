@@ -1,4 +1,6 @@
 {
+  "splash.loading": "Загружаем ReduxShare…",
+  "splash.theme": "Применяем тему…",
   "language.auto": "Автоматически",
   "language.ru": "Русский",
   "language.en": "Американский",

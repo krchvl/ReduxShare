@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
+import { Splash } from "./components/Splash";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
 import { logout, requestLogin, requestRegister } from "./lib/auth";
@@ -93,6 +94,7 @@ export function App() {
   } | null>(null);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [isThemeSplashVisible, setIsThemeSplashVisible] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -100,10 +102,25 @@ export function App() {
   const [, setSystemSchemeTick] = useState(0);
   const t = useMemo(() => getTranslator(settings.language), [settings.language]);
   const colorScheme = resolveColorScheme(settings.colorScheme);
+  const previousColorSchemeRef = useRef(colorScheme);
 
   useEffect(() => {
     document.documentElement.dataset.theme = colorScheme;
   }, [colorScheme]);
+
+  useEffect(() => {
+    const previousColorScheme = previousColorSchemeRef.current;
+    previousColorSchemeRef.current = colorScheme;
+
+    if (!hydrated || previousColorScheme === colorScheme) {
+      return undefined;
+    }
+
+    setIsThemeSplashVisible(true);
+    const timeoutId = window.setTimeout(() => setIsThemeSplashVisible(false), 620);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [colorScheme, hydrated]);
 
   useEffect(() => {
     if (
@@ -392,7 +409,8 @@ export function App() {
           updateState={updateState}
           popupOpacity={settings.popupOpacity}
         >
-          {view === "login" && (
+          {!hydrated && <Splash />}
+          {hydrated && view === "login" && (
             <LoginScreen
               isLoading={isLoginLoading}
               errorMessage={loginError}
@@ -401,7 +419,7 @@ export function App() {
               onContinueAsGuest={handleContinueAsGuest}
             />
           )}
-          {view === "register" && (
+          {hydrated && view === "register" && (
             <RegisterScreen
               isLoading={isRegisterLoading}
               message={registerMessage}
@@ -409,8 +427,8 @@ export function App() {
               onOpenLogin={() => setView("login")}
             />
           )}
-          {view === "main" && (
-            <Suspense fallback={null}>
+          {hydrated && view === "main" && (
+            <Suspense fallback={<Splash />}>
               <MainScreen
                 settings={settings}
                 updateState={updateState}
@@ -427,6 +445,7 @@ export function App() {
               />
             </Suspense>
           )}
+          {isThemeSplashVisible && <Splash variant="overlay" label={t("splash.theme")} />}
         </Shell>
       </ErrorBoundary>
     </I18nProvider>
