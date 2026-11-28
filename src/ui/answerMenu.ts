@@ -822,8 +822,8 @@ export function getAnswerTriggerMarkup() {
         vertical-align: middle;
       }
 
-      :host(:not([data-reduxshare-inline-widget="true"]):has(.delay-progress)) {
-        margin-bottom: 18px;
+      :host(:not([data-reduxshare-inline-widget="true"])) {
+        width: 100%;
       }
 
       * {
@@ -870,15 +870,21 @@ export function getAnswerTriggerMarkup() {
       }
 
       .delay-progress {
-        position: absolute;
-        right: 0;
-        bottom: -9px;
-        left: 0;
+        display: block;
         height: 5px;
+        margin-top: 4px;
         border-radius: 3px;
         background: rgba(0, 0, 0, 0.38);
         box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
         pointer-events: none;
+      }
+
+      :host([data-reduxshare-inline-widget="true"]) .delay-progress {
+        position: absolute;
+        right: 0;
+        bottom: -9px;
+        left: 0;
+        margin-top: 0;
       }
 
       .delay-progress-fill {
@@ -891,21 +897,27 @@ export function getAnswerTriggerMarkup() {
       }
 
       .delay-progress__seconds {
+        display: block;
+        margin-top: 3px;
+        color: rgba(232, 235, 242, 0.96);
+        font-family: Inter, Arial, sans-serif;
+        font-size: 9px;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.2px;
+        line-height: 1;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+        transition: opacity 120ms ease;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      :host([data-reduxshare-inline-widget="true"]) .delay-progress__seconds {
         position: absolute;
         top: 100%;
         right: 0;
         left: 0;
         margin-top: 4px;
-        color: rgba(168, 172, 182, 0.92);
-        font-family: Inter, Arial, sans-serif;
-        font-size: 9px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        letter-spacing: 0.2px;
-        line-height: 1;
         text-align: center;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-        transition: opacity 120ms ease;
       }
 
       :host([data-theme="light"]) .delay-progress {
@@ -914,8 +926,8 @@ export function getAnswerTriggerMarkup() {
       }
 
       :host([data-theme="light"]) .delay-progress__seconds {
-        color: rgba(74, 80, 94, 0.95);
-        text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+        color: rgba(58, 63, 74, 0.95);
+        text-shadow: 0 1px 1px rgba(255, 255, 255, 0.85);
       }
     </style>
 

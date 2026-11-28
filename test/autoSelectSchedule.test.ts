@@ -196,11 +196,20 @@ describe("paced auto-select on a live quiz page", () => {
 
     await vi.advanceTimersByTimeAsync(200);
 
+    const stylesheet = hosts[0].shadowRoot?.querySelector("style")?.textContent ?? "";
+
+    expect(stylesheet).toMatch(/\.delay-progress \{[^}]*display: block/);
+    expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*font-weight: 400/);
+    expect(stylesheet).toMatch(
+      /:host\(\[data-reduxshare-inline-widget="true"\]\) \.delay-progress \{/,
+    );
+
     for (const host of hosts) {
-      const progress = host.shadowRoot?.querySelector(".delay-progress");
+      const progress = host.shadowRoot?.querySelector<HTMLElement>(".delay-progress");
+      const seconds = host.shadowRoot?.querySelector<HTMLElement>(".delay-progress__seconds");
 
       expect(progress?.parentNode).toBe(host.shadowRoot);
-      expect(host.shadowRoot?.querySelector(".delay-progress__seconds")).not.toBeNull();
+      expect(seconds?.textContent).toMatch(/^\d+\.\ds$/);
     }
   });
 });
