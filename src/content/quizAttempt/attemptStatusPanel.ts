@@ -1739,12 +1739,6 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
               <button class="tray-pause__stop" type="button"></button>
             </div>
           </div>
-          <button class="tray-action" type="button" data-tray-action="copyUnlock" aria-pressed="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="9" y="9" width="12" height="12" rx="2.5" />
-              <path d="M5 15h-.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5" />
-            </svg>
-          </button>
           <button class="tray-action" type="button" data-tray-action="autoPass" data-mode="idle">
             <svg class="auto-pass-icon auto-pass-icon--play" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M9 6.5v11l9-5.5-9-5.5Z" />
@@ -1846,11 +1840,6 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
       .querySelector<HTMLElement>(".settings-tray")
       ?.addEventListener("click", (event) => {
         const target = event.target instanceof Element ? event.target : null;
-
-        if (target?.closest('[data-tray-action="copyUnlock"]')) {
-          void setCopyUnlockSetting(currentStoredState?.settings?.copyUnlock !== true);
-          return;
-        }
 
         if (target?.closest('[data-tray-action="autoPass"]')) {
           handleAutoPassTrayAction();
@@ -2040,10 +2029,6 @@ export function renderAttemptStatusPanel() {
   const traySide = getAttemptStatusPanelTraySide();
   const settingsEar = shadowRoot.querySelector<HTMLButtonElement>(".settings-ear");
   const settingsTray = shadowRoot.querySelector<HTMLElement>(".settings-tray");
-  const copyUnlockAction = shadowRoot.querySelector<HTMLButtonElement>(
-    '[data-tray-action="copyUnlock"]',
-  );
-  const copyUnlockEnabled = currentStoredState?.settings?.copyUnlock === true;
 
   if (settingsEar) {
     settingsEar.dataset.side = traySide;
@@ -2058,12 +2043,6 @@ export function renderAttemptStatusPanel() {
     settingsTray.dataset.side = traySide;
     settingsTray.dataset.open = attemptStatusPanelTrayOpen ? "true" : "false";
     settingsTray.dataset.mode = getAutoPassTrayMode();
-  }
-
-  if (copyUnlockAction) {
-    copyUnlockAction.setAttribute("aria-pressed", copyUnlockEnabled ? "true" : "false");
-    copyUnlockAction.setAttribute("aria-label", currentT("quiz.panel.copyUnlockTitle"));
-    copyUnlockAction.setAttribute("title", currentT("quiz.panel.copyUnlockTitle"));
   }
 
   const autoPassMode = getAutoPassTrayMode();
@@ -2354,26 +2333,6 @@ export function setAttemptStatusPanelTrayOpen(open: boolean) {
 
   attemptStatusPanelTrayOpen = open;
   renderAttemptStatusPanel();
-}
-
-export async function setCopyUnlockSetting(enabled: boolean) {
-  if (currentStoredState?.settings?.copyUnlock === enabled) {
-    return;
-  }
-
-  const nextSettings: Settings = {
-    ...(currentStoredState?.settings as Settings),
-    copyUnlock: enabled,
-  };
-
-  setCurrentStoredState({
-    ...(currentStoredState as StoredStateLike),
-    settings: nextSettings,
-  });
-  attemptStatusPanelTrayOpen = true;
-  renderAttemptStatusPanel();
-
-  await patchStoredState({ settings: nextSettings });
 }
 
 export function handleAttemptStatusPanelPointerDown(event: PointerEvent) {

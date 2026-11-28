@@ -2628,14 +2628,11 @@ function resetRestrictedQuizState() {
 
 const PIPELINE_RELEVANT_SETTING_KEYS = [
   "extensionEnabled",
-  "copyUnlock",
   "attemptStatusPanelClosed",
   "autoSelect",
   "autoSelectAvgSeconds",
   "humanTyping",
   "humanPrecursors",
-  "humanReading",
-  "humanOrder",
   "hotkey",
   "hotkeyCode",
   "accentColor",

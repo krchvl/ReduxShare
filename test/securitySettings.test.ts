@@ -46,68 +46,39 @@ function renderMainScreen() {
   return onSettingsChange;
 }
 
-function clickSecurityTab() {
-  const securityTab = Array.from(
-    container!.querySelectorAll<HTMLButtonElement>(".settings-tab"),
-  ).find((tab) => tab.textContent === "Безопасность");
+function clickExtraTab() {
+  const extraTab = Array.from(container!.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
+    (tab) => tab.querySelector(".settings-tab__label")?.textContent === "Прочее",
+  );
 
-  if (!securityTab) {
-    throw new Error("Security tab is not rendered");
+  if (!extraTab) {
+    throw new Error("Extra tab is not rendered");
   }
 
   act(() => {
-    securityTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    extraTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 
-function getCopyUnlockSwitch() {
-  return container!.querySelector<HTMLButtonElement>(
-    '.switch[role="switch"][aria-label="Разблокировка копирования"]',
-  );
-}
+describe("MainScreen extra tab", () => {
+  it("renders the hotkey row without a copy unlock switch", () => {
+    renderMainScreen();
+    clickExtraTab();
 
-describe("MainScreen security tab", () => {
-  it("renders the copy unlock switch and reports changes", () => {
-    const onSettingsChange = renderMainScreen();
-    clickSecurityTab();
+    const switchLabels = Array.from(
+      container!.querySelectorAll<HTMLButtonElement>('[role="switch"]'),
+    ).map((element) => element.getAttribute("aria-label"));
 
-    const copyUnlockSwitch = getCopyUnlockSwitch();
-    expect(copyUnlockSwitch).toBeInstanceOf(HTMLButtonElement);
-    expect(copyUnlockSwitch!.getAttribute("aria-checked")).toBe("true");
-
-    act(() => {
-      copyUnlockSwitch!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(onSettingsChange).toHaveBeenCalledTimes(1);
-    expect(onSettingsChange.mock.calls[0][0]).toMatchObject({ copyUnlock: false });
+    expect(switchLabels).not.toContain("Разблокировка копирования");
+    expect(container!.textContent).toContain("Горячая клавиша");
   });
 
-  it("reflects the enabled copy unlock state", () => {
-    const onSettingsChange = vi.fn();
-    container = document.createElement("div");
-    document.body.append(container);
-    root = createRoot(container);
+  it("keeps the hotkey binding button interactive", () => {
+    renderMainScreen();
+    clickExtraTab();
 
-    act(() => {
-      root?.render(
-        createElement(
-          I18nProvider,
-          { language: "ru" },
-          createElement(MainScreen, {
-            settings: { ...DEFAULT_SETTINGS, copyUnlock: true },
-            updateState: DEFAULT_UPDATE_STATE,
-            isCheckingUpdates: false,
-            onSettingsChange,
-            onCheckUpdates: () => {},
-            onResetSettings: () => {},
-            onLogout: () => {},
-          }),
-        ),
-      );
-    });
-    clickSecurityTab();
+    const hotkeyButton = container!.querySelector<HTMLButtonElement>(".hotkey-button");
 
-    expect(getCopyUnlockSwitch()!.getAttribute("aria-checked")).toBe("true");
+    expect(hotkeyButton).toBeInstanceOf(HTMLButtonElement);
   });
 });

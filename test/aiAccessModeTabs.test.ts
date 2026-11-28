@@ -69,7 +69,9 @@ function renderMainScreen(
 
 function openAiTab() {
   const aiTab = Array.from(container!.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
-    (tab) => tab.textContent === "AI" || tab.textContent === "ИИ",
+    (tab) =>
+      tab.querySelector(".settings-tab__label")?.textContent === "AI" ||
+      tab.querySelector(".settings-tab__label")?.textContent === "ИИ",
   );
   expect(aiTab).toBeTruthy();
   act(() => {

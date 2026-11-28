@@ -822,6 +822,10 @@ export function getAnswerTriggerMarkup() {
         vertical-align: middle;
       }
 
+      :host(:not([data-reduxshare-inline-widget="true"])) {
+        width: 100%;
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -866,23 +870,69 @@ export function getAnswerTriggerMarkup() {
       }
 
       .delay-progress {
+        display: block;
+        width: 20px;
+        margin-top: 4px;
+        pointer-events: none;
+      }
+
+      :host([data-reduxshare-inline-widget="true"]) .delay-progress {
         position: absolute;
         right: 0;
         bottom: -9px;
         left: 0;
+        width: auto;
+        margin-top: 0;
+      }
+
+      .delay-progress-track {
+        display: block;
         height: 5px;
         border-radius: 3px;
         background: rgba(0, 0, 0, 0.38);
         box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
-        overflow: hidden;
-        pointer-events: none;
       }
 
       .delay-progress-fill {
+        display: block;
         width: 0%;
         height: 100%;
+        border-radius: 3px;
         background: var(--reduxshare-accent);
         transition: width 120ms linear;
+      }
+
+      .delay-progress__seconds {
+        display: block;
+        width: max-content;
+        margin-top: 3px;
+        color: #a9b1bf;
+        font-family: Inter, Arial, sans-serif;
+        font-size: 9px;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.2px;
+        line-height: 1;
+        transition: opacity 120ms ease;
+      }
+
+      :host([data-reduxshare-inline-widget="true"]) .delay-progress__seconds {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        left: 0;
+        width: auto;
+        margin-top: 4px;
+        text-align: center;
+      }
+
+      :host([data-theme="light"]) .delay-progress-track {
+        background: rgba(15, 18, 26, 0.16);
+        box-shadow: 0 0 0 1px rgba(15, 18, 26, 0.14);
+      }
+
+      :host([data-theme="light"]) .delay-progress__seconds {
+        color: #4e5563;
       }
     </style>
 
@@ -894,7 +944,7 @@ export function getAnswerTriggerMarkup() {
 
 const ANSWER_DELAY_PROGRESS_CLASS = "delay-progress";
 
-export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) {
+export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null, remainingMs = 0) {
   const shadowRoot = host.shadowRoot;
 
   if (!shadowRoot) {
@@ -908,6 +958,10 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) 
     return;
   }
 
+  const isInline = host.getAttribute("data-reduxshare-inline-widget") === "true";
+  const parent = isInline
+    ? (shadowRoot.querySelector<HTMLElement>(".widget") ?? shadowRoot)
+    : shadowRoot;
   const progress =
     existing ??
     (() => {
@@ -915,12 +969,19 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) 
       element.className = ANSWER_DELAY_PROGRESS_CLASS;
       element.setAttribute("role", "progressbar");
       element.setAttribute("aria-label", "ReduxShare");
-      element.innerHTML = `<span class="delay-progress-fill"></span>`;
-      shadowRoot.append(element);
+      element.innerHTML = `<span class="delay-progress-track"><span class="delay-progress-fill"></span></span><span class="delay-progress__seconds" aria-hidden="true"></span>`;
+      parent.append(element);
       return element;
     })();
-  const percent = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+
+  if (progress.parentElement !== parent) {
+    parent.append(progress);
+  }
+
+  const clampedRatio = Math.min(1, Math.max(0, ratio));
+  const percent = Math.round(clampedRatio * 100);
   const fill = progress.querySelector<HTMLElement>(".delay-progress-fill");
+  const seconds = progress.querySelector<HTMLElement>(".delay-progress__seconds");
 
   progress.setAttribute("aria-valuemin", "0");
   progress.setAttribute("aria-valuemax", "100");
@@ -928,6 +989,10 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) 
 
   if (fill) {
     fill.style.width = `${percent}%`;
+  }
+
+  if (seconds) {
+    seconds.textContent = `${(Math.max(0, remainingMs) / 1000).toFixed(1)}s`;
   }
 }
 

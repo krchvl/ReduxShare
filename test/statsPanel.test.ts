@@ -107,7 +107,7 @@ function renderMainScreen(userProfile?: UserProfile | null) {
 
 function clickStatsTab() {
   const statsTab = Array.from(container.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
-    (tab) => tab.textContent === "Статистика",
+    (tab) => tab.querySelector(".settings-tab__label")?.textContent === "Статистика",
   );
 
   if (!statsTab) {
@@ -152,9 +152,9 @@ describe("MainScreen stats tab", () => {
     const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>(".settings-tab"));
 
     expect(tabs).toHaveLength(6);
-    expect(tabs[0]?.textContent).toBe("Статистика");
+    expect(tabs[0]?.querySelector(".settings-tab__label")?.textContent).toBe("Статистика");
     expect(tabs[0]?.getAttribute("aria-pressed")).toBe("false");
-    expect(tabs[1]?.textContent).toBe("Основные");
+    expect(tabs[1]?.querySelector(".settings-tab__label")?.textContent).toBe("Основные");
     expect(tabs[1]?.getAttribute("aria-pressed")).toBe("true");
     expect(clickStatsTab()).toBe(true);
     expect(container.querySelector(".stats-panel")).not.toBeNull();

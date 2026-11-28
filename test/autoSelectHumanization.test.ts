@@ -20,8 +20,6 @@ function baseStoredState(overrides: Record<string, unknown> = {}) {
       autoSelectAvgSeconds: 4,
       humanTyping: false,
       humanPrecursors: false,
-      humanReading: false,
-      humanOrder: false,
       ...overrides,
     },
     authSession: null,
@@ -181,9 +179,9 @@ describe("humanized auto-select scheduling", () => {
     vi.useRealTimers();
   });
 
-  it("fills the answer without a long blackout when reading time is enabled", async () => {
+  it("fills the answer without a long blackout", async () => {
     vi.useFakeTimers();
-    const state = baseStoredState({ humanReading: true });
+    const state = baseStoredState();
     const api = await setupPage(state);
 
     await dispatchStorageChange(state);
@@ -198,10 +196,10 @@ describe("humanized auto-select scheduling", () => {
     expect(getCorrectInput()?.checked).toBe(true);
   });
 
-  it("re-plans the pending schedule when a humanization card is toggled", async () => {
+  it("re-plans the pending schedule when a setting changes", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const readingState = baseStoredState({ humanReading: true });
+    const readingState = baseStoredState();
     const api = await setupPage(readingState);
 
     await dispatchStorageChange(readingState);
@@ -214,12 +212,19 @@ describe("humanized auto-select scheduling", () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(getCorrectInput()?.checked).toBe(false);
 
-    const plainState = baseStoredState({ humanReading: false });
+    const originalDelay = api.getPendingAutoSelectScheduleDelays()[0]?.delayMs ?? 0;
+
+    const plainState = baseStoredState({ autoSelectAvgSeconds: 1 });
     await dispatchStorageChange(plainState);
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
-    await vi.advanceTimersByTimeAsync(2000);
+    const replannedDelay = api.getPendingAutoSelectScheduleDelays()[0]?.delayMs ?? 0;
+
+    expect(replannedDelay).toBeGreaterThan(0);
+    expect(replannedDelay).toBeLessThan(originalDelay);
+
+    await vi.advanceTimersByTimeAsync(replannedDelay);
 
     expect(getCorrectInput()?.checked).toBe(true);
     expect(api.countPendingAutoSelectSchedules()).toBe(0);
@@ -238,13 +243,14 @@ describe("humanized auto-select scheduling", () => {
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
-    await vi.advanceTimersByTimeAsync(2000);
-    await vi.advanceTimersByTimeAsync(300);
+    while ((getTextInput()?.value.length ?? 0) === 0) {
+      await vi.advanceTimersByTimeAsync(1000);
+    }
 
-    expect(getTextInput()?.value.length ?? 0).toBeGreaterThan(0);
+    expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
-    const readingState = baseStoredState({ humanTyping: true, humanReading: true });
-    await dispatchStorageChange(readingState);
+    const replacementState = baseStoredState({ humanTyping: true, autoSelectAvgSeconds: 8 });
+    await dispatchStorageChange(replacementState);
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
@@ -268,7 +274,7 @@ describe("humanized auto-select scheduling", () => {
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(30000);
 
     expect(api.countPendingAutoSelectSchedules()).toBe(0);
     expect(getCorrectInput()?.checked).toBe(true);
@@ -277,7 +283,7 @@ describe("humanized auto-select scheduling", () => {
   it("does not stagger questions that have no answer data", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const state = baseStoredState({ humanReading: true });
+    const state = baseStoredState();
     const api = await setupTwoQuestionPage(state);
 
     await dispatchStorageChange(state);
@@ -325,12 +331,10 @@ describe("humanized auto-select scheduling", () => {
     node.remove();
   });
 
-  it("keeps the staggered gap only while reading simulation is on", async () => {
+  it("always staggers the answers by a fixed gap", async () => {
     const api = await getQuizAttemptTestApi();
 
-    expect(api.getHumanizedAnswerGapMs({ humanReading: true })).toBe(2000);
-    expect(api.getHumanizedAnswerGapMs({ humanReading: false })).toBe(0);
-    expect(api.getHumanizedAnswerGapMs(undefined)).toBe(2000);
+    expect(api.getHumanizedAnswerGapMs()).toBe(2000);
   });
 
   it("keeps staggered delays distinct instead of collapsing them at the cap", async () => {
@@ -360,7 +364,7 @@ describe("humanized auto-select scheduling", () => {
 
   it("keeps the schedule alive when the extension applies the answer itself", async () => {
     vi.useFakeTimers();
-    const state = baseStoredState({ humanReading: true });
+    const state = baseStoredState();
     const api = await setupPage(state);
 
     await dispatchStorageChange(state);

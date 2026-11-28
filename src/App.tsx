@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { LoginScreen, RegisterScreen } from "./components/AuthScreens";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
+import { Splash } from "./components/Splash";
 import { getLocalizedErrorMessage, getTranslator } from "./i18n";
 import { I18nProvider } from "./i18n/react";
 import { logout, requestLogin, requestRegister } from "./lib/auth";
@@ -84,13 +85,17 @@ export function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>(DEFAULT_UPDATE_STATE);
   const [popupState, setPopupState] = useState<PopupState | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(true);
   const persistedSnapshotRef = useRef<{
     settings: Settings;
     authSession: AuthSession | null;
     userProfile: UserProfile | null;
+    guestMode: boolean;
   } | null>(null);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [isThemeSplashVisible, setIsThemeSplashVisible] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -98,10 +103,25 @@ export function App() {
   const [, setSystemSchemeTick] = useState(0);
   const t = useMemo(() => getTranslator(settings.language), [settings.language]);
   const colorScheme = resolveColorScheme(settings.colorScheme);
+  const previousColorSchemeRef = useRef(colorScheme);
 
   useEffect(() => {
     document.documentElement.dataset.theme = colorScheme;
   }, [colorScheme]);
+
+  useEffect(() => {
+    const previousColorScheme = previousColorSchemeRef.current;
+    previousColorSchemeRef.current = colorScheme;
+
+    if (!hydrated || previousColorScheme === colorScheme) {
+      return undefined;
+    }
+
+    setIsThemeSplashVisible(true);
+    const timeoutId = window.setTimeout(() => setIsThemeSplashVisible(false), 620);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [colorScheme, hydrated]);
 
   useEffect(() => {
     if (
@@ -148,10 +168,12 @@ export function App() {
 
         setSettings(nextState.settings);
         setPopupState(nextState.popupState ?? null);
+        setMenuOpen(nextState.popupState ? nextState.popupState.menuOpen === true : true);
         setAuthSession(nextState.authSession);
         setUserProfile(nextState.userProfile);
         setUpdateState(nextState.updateState ?? DEFAULT_UPDATE_STATE);
-        setView(nextState.authSession ? "main" : "login");
+        setGuestMode(Boolean(nextState.guestMode));
+        setView(nextState.authSession || nextState.guestMode ? "main" : "login");
         setHydrated(true);
       })
       .catch((error: unknown) => {
@@ -169,12 +191,24 @@ export function App() {
     }
 
     const previousState = persistedSnapshotRef.current;
-    persistedSnapshotRef.current = { settings, authSession, userProfile };
+    persistedSnapshotRef.current = { settings, authSession, userProfile, guestMode };
 
     const patch: StoredStatePatch = {};
 
     if (!previousState || previousState.settings !== settings) {
-      patch.settings = settings;
+      const changedSettings: Record<string, unknown> = {};
+
+      if (previousState) {
+        for (const key of Object.keys(settings) as Array<keyof Settings>) {
+          if (settings[key] !== previousState.settings[key]) {
+            changedSettings[key] = settings[key];
+          }
+        }
+      } else {
+        Object.assign(changedSettings, settings);
+      }
+
+      patch.settings = changedSettings as unknown as Settings;
     }
 
     if (!previousState || previousState.authSession !== authSession) {
@@ -185,10 +219,14 @@ export function App() {
       patch.userProfile = userProfile;
     }
 
+    if (!previousState || previousState.guestMode !== guestMode) {
+      patch.guestMode = guestMode;
+    }
+
     if (Object.keys(patch).length > 0) {
       void patchStoredState(patch);
     }
-  }, [authSession, hydrated, settings, userProfile]);
+  }, [authSession, guestMode, hydrated, settings, userProfile]);
 
   useEffect(() => {
     if (isFirebaseBackend()) {
@@ -278,6 +316,7 @@ export function App() {
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
+      setGuestMode(false);
       setView("main");
     } catch (error) {
       setLoginError(getLocalizedErrorMessage(error, t, "errors.loginGeneric"));
@@ -318,6 +357,7 @@ export function App() {
 
       setAuthSession(refreshedSession);
       setUserProfile(nextProfile);
+      setGuestMode(false);
       setView("main");
     } catch (error) {
       setRegisterMessage(getLocalizedErrorMessage(error, t, "errors.registerFailed"));
@@ -332,6 +372,7 @@ export function App() {
     void logout(authSession);
     setAuthSession(null);
     setUserProfile(null);
+    setGuestMode(false);
     setLoginError(null);
     setRegisterMessage(null);
 
@@ -343,6 +384,7 @@ export function App() {
   function handleContinueAsGuest() {
     setLoginError(null);
     setRegisterMessage(null);
+    setGuestMode(true);
     setView("main");
   }
 
@@ -355,9 +397,7 @@ export function App() {
     try {
       const response = await requestUpdateCheck({ force: true, reason: "manual" });
 
-      if (response.updateState) {
-        setUpdateState(response.updateState);
-      } else if (!response.ok) {
+      if (!response.ok) {
         setUpdateState((currentState) =>
           normalizeUpdateState({
             ...currentState,
@@ -366,6 +406,8 @@ export function App() {
             error: response.error ?? t("errors.updateCheckFailed"),
           }),
         );
+      } else if (response.updateState) {
+        setUpdateState(response.updateState);
       }
     } finally {
       setIsCheckingUpdates(false);
@@ -380,8 +422,10 @@ export function App() {
           accentColor={settings.accentColor}
           updateState={updateState}
           popupOpacity={settings.popupOpacity}
+          showHeader={view !== "main" || menuOpen}
         >
-          {view === "login" && (
+          {!hydrated && <Splash />}
+          {hydrated && view === "login" && (
             <LoginScreen
               isLoading={isLoginLoading}
               errorMessage={loginError}
@@ -390,7 +434,7 @@ export function App() {
               onContinueAsGuest={handleContinueAsGuest}
             />
           )}
-          {view === "register" && (
+          {hydrated && view === "register" && (
             <RegisterScreen
               isLoading={isRegisterLoading}
               message={registerMessage}
@@ -398,8 +442,8 @@ export function App() {
               onOpenLogin={() => setView("login")}
             />
           )}
-          {view === "main" && (
-            <Suspense fallback={null}>
+          {hydrated && view === "main" && (
+            <Suspense fallback={<Splash />}>
               <MainScreen
                 settings={settings}
                 updateState={updateState}
@@ -409,6 +453,7 @@ export function App() {
                 popupState={popupState}
                 onSettingsChange={setSettings}
                 onPopupStateChange={setPopupState}
+                onMenuOpenChange={setMenuOpen}
                 onCheckUpdates={handleCheckUpdates}
                 onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
                 onLogout={handleLogout}
@@ -416,6 +461,7 @@ export function App() {
               />
             </Suspense>
           )}
+          {isThemeSplashVisible && <Splash variant="overlay" label={t("splash.theme")} />}
         </Shell>
       </ErrorBoundary>
     </I18nProvider>

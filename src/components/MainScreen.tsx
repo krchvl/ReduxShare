@@ -70,6 +70,7 @@ interface MainScreenProps {
   popupState?: PopupState | null;
   onSettingsChange: (settings: Settings) => void;
   onPopupStateChange?: (popupState: PopupState) => void;
+  onMenuOpenChange?: (menuOpen: boolean) => void;
   onCheckUpdates: () => void;
   onResetSettings: () => void;
   onLogout: () => void;
@@ -145,6 +146,7 @@ function resolveInitialAiDraft(
 interface TabConfig {
   key: SettingsTab;
   label: TranslationKey;
+  description: TranslationKey;
   icon: ReactNode;
 }
 
@@ -176,9 +178,9 @@ interface AiModelsState {
 
 function GearIcon() {
   return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M20.7 5.8h6.6l1.4 5.6c1.2.4 2.3.8 3.3 1.4l5-3 4.7 4.7-3 5c.6 1.1 1.1 2.2 1.4 3.4l5.6 1.3v6.6l-5.6 1.4a18 18 0 0 1-1.4 3.3l3 5-4.7 4.7-5-3c-1 .6-2.1 1.1-3.3 1.4l-1.4 5.6h-6.6l-1.4-5.6a18 18 0 0 1-3.3-1.4l-5 3-4.7-4.7 3-5a18 18 0 0 1-1.4-3.3l-5.6-1.4v-6.6l5.6-1.3c.4-1.2.8-2.3 1.4-3.4l-3-5L11 9.8l5 3c1.1-.6 2.2-1 3.3-1.4l1.4-5.6Z" />
-      <circle cx="24" cy="27" r="7" />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="settings-gear">
+      <path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.8l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.8v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -224,6 +226,25 @@ function AiIcon() {
   );
 }
 
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 10.4 12 4l8 6.4" />
+      <path d="M6.5 9.4V19h11V9.4" />
+      <path d="M10 19v-4.4h4V19" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.5 5 7.5 12l7 7" />
+      <path d="M8 12h9" />
+    </svg>
+  );
+}
+
 function DotsIcon() {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
@@ -235,12 +256,37 @@ function DotsIcon() {
 }
 
 const SETTINGS_TABS: TabConfig[] = [
-  { key: "stats", label: "main.tabs.stats", icon: <ChartIcon /> },
-  { key: "main", label: "main.tabs.basic", icon: <GearIcon /> },
-  { key: "ui", label: "main.tabs.ui", icon: <PaletteIcon /> },
-  { key: "security", label: "main.tabs.security", icon: <ShieldIcon /> },
-  { key: "ai", label: "main.tabs.ai", icon: <AiIcon /> },
-  { key: "extra", label: "main.tabs.extra", icon: <DotsIcon /> },
+  {
+    key: "stats",
+    label: "main.tabs.stats",
+    description: "main.tabs.stats.desc",
+    icon: <ChartIcon />,
+  },
+  {
+    key: "main",
+    label: "main.tabs.basic",
+    description: "main.tabs.basic.desc",
+    icon: <GearIcon />,
+  },
+  {
+    key: "ui",
+    label: "main.tabs.ui",
+    description: "main.tabs.ui.desc",
+    icon: <PaletteIcon />,
+  },
+  {
+    key: "security",
+    label: "main.tabs.security",
+    description: "main.tabs.security.desc",
+    icon: <ShieldIcon />,
+  },
+  { key: "ai", label: "main.tabs.ai", description: "main.tabs.ai.desc", icon: <AiIcon /> },
+  {
+    key: "extra",
+    label: "main.tabs.extra",
+    description: "main.tabs.extra.desc",
+    icon: <DotsIcon />,
+  },
 ];
 
 function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
@@ -254,57 +300,6 @@ function SettingPanelRow({ title, lines, control }: SettingPanelRowProps) {
       <div className="settings-row__control">{control}</div>
     </section>
   );
-}
-
-function formatUpdateDate(value: string | null, locale: string, t: TranslateFn) {
-  if (!value) {
-    return t("updates.date.never");
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function getUpdateLines(
-  updateState: UpdateState,
-  locale: string,
-  t: TranslateFn,
-): [string, string] {
-  if (updateState.status === "checking") {
-    return [t("updates.checking.line1"), t("updates.checking.line2")];
-  }
-
-  if (updateState.status === "available") {
-    return [
-      t("updates.available.line1", {
-        version: updateState.latestVersion ?? updateState.currentVersion,
-      }),
-      t("updates.available.line2", {
-        currentVersion: updateState.currentVersion,
-        date: formatUpdateDate(updateState.checkedAt, locale, t),
-      }),
-    ];
-  }
-
-  if (updateState.status === "error") {
-    return [
-      updateState.error ?? t("updates.error.fallback"),
-      t("updates.error.line2", { date: formatUpdateDate(updateState.nextCheckAt, locale, t) }),
-    ];
-  }
-
-  if (updateState.status === "up-to-date") {
-    return [
-      t("updates.uptodate.line1", { version: updateState.currentVersion }),
-      t("updates.uptodate.line2", { date: formatUpdateDate(updateState.checkedAt, locale, t) }),
-    ];
-  }
-
-  return [t("updates.idle.line1"), t("updates.idle.line2")];
 }
 
 function getAiProviderLabel(provider: AiSettings["provider"], t: TranslateFn) {
@@ -373,13 +368,15 @@ export function MainScreen({
   popupState = null,
   onSettingsChange,
   onPopupStateChange,
+  onMenuOpenChange,
   onCheckUpdates,
   onResetSettings,
   onLogout,
   onOpenLogin = () => {},
 }: MainScreenProps) {
-  const { resolvedLanguage, t } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>(popupState?.activeTab ?? "main");
+  const [menuOpen, setMenuOpen] = useState(popupState ? popupState.menuOpen === true : true);
   const [isBindingHotkey, setIsBindingHotkey] = useState(false);
   const [aiAccessMode, setAiAccessMode] = useState<AiAccessMode>(
     popupState?.aiDraft ? "custom" : settings.ai.accessMode,
@@ -411,7 +408,10 @@ export function MainScreen({
   const [modelsActiveIndex, setModelsActiveIndex] = useState(0);
   const modelsAddButtonRef = useRef<HTMLButtonElement | null>(null);
   const modelsPopoverRef = useRef<HTMLDivElement | null>(null);
-  const [updateToastDismissed, setUpdateToastDismissed] = useState(false);
+  const [dismissedUpdateToast, setDismissedUpdateToast] = useState<string | null>(null);
+  const [updateToastRequested, setUpdateToastRequested] = useState(false);
+  const [updateCheckCycle, setUpdateCheckCycle] = useState(0);
+  const [persistedDismissedCheckAt, setPersistedDismissedCheckAt] = useState<string | null>(null);
 
   const aiDraftRef = useRef(aiDraft);
   const aiTestRequestRef = useRef(0);
@@ -419,7 +419,11 @@ export function MainScreen({
   const aiModelsStateRef = useRef(aiModelsState);
   const appliedPopupStateRef = useRef<PopupState | null>(popupState ?? null);
   const reportedPopupStateRef = useRef<PopupState | null>(null);
-  const latestPopupStateRef = useRef<PopupState>({ activeTab, aiDraft: toAiDraft(aiDraft) });
+  const latestPopupStateRef = useRef<PopupState>({
+    activeTab,
+    menuOpen,
+    aiDraft: toAiDraft(aiDraft),
+  });
 
   useEffect(() => {
     refreshBroadPermissionCache().catch(() => {});
@@ -478,6 +482,7 @@ export function MainScreen({
 
     appliedPopupStateRef.current = popupState;
     setActiveTab(popupState.activeTab);
+    setMenuOpen(popupState.menuOpen === true);
 
     if (!popupState.aiDraft) {
       return;
@@ -494,7 +499,11 @@ export function MainScreen({
   }, [officialAiAvailable, popupState, settings]);
 
   useEffect(() => {
-    const nextPopupState: PopupState = { activeTab, aiDraft: toAiDraft(aiDraft) };
+    onMenuOpenChange?.(menuOpen);
+  }, [menuOpen, onMenuOpenChange]);
+
+  useEffect(() => {
+    const nextPopupState: PopupState = { activeTab, menuOpen, aiDraft: toAiDraft(aiDraft) };
     latestPopupStateRef.current = nextPopupState;
 
     const timeoutId = window.setTimeout(() => {
@@ -504,13 +513,37 @@ export function MainScreen({
     }, POPUP_STATE_PERSIST_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeTab, aiDraft, onPopupStateChange]);
+  }, [activeTab, menuOpen, aiDraft, onPopupStateChange]);
 
   useEffect(() => {
     return () => {
       if (latestPopupStateRef.current !== reportedPopupStateRef.current) {
         void patchStoredState({ popupState: latestPopupStateRef.current });
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) {
+      return;
+    }
+
+    let cancelled = false;
+
+    chrome.storage.local
+      .get(UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        const value = result[UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY];
+        setPersistedDismissedCheckAt(typeof value === "string" ? value : null);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -1019,6 +1052,11 @@ export function MainScreen({
     });
   }
 
+  function openSection(tab: SettingsTab) {
+    setActiveTab(tab);
+    setMenuOpen(false);
+  }
+
   function renderActivePanel() {
     if (activeTab === "stats") {
       return (
@@ -1071,37 +1109,126 @@ export function MainScreen({
       return (
         <div className="settings-panel__rows">
           <SettingPanelRow
-            title={t("settings.copyUnlock.title")}
+            title={t("settings.autoselect.title")}
             lines={
-              settings.copyUnlock
-                ? [t("settings.copyUnlock.on.line1"), t("settings.copyUnlock.on.line2")]
-                : [t("settings.copyUnlock.off.line1"), t("settings.copyUnlock.off.line2")]
+              settings.autoSelect
+                ? [t("settings.autoselect.on.line1"), t("settings.autoselect.on.line2")]
+                : [t("settings.autoselect.off.line1"), t("settings.autoselect.off.line2")]
             }
             control={
               <Switch
-                checked={settings.copyUnlock}
-                label={t("settings.copyUnlock.title")}
-                onChange={(checked) => updateSetting("copyUnlock", checked)}
+                checked={settings.autoSelect}
+                label={t("settings.autoselect.title")}
+                onChange={(checked) => updateSetting("autoSelect", checked)}
               />
             }
           />
-          <SettingPanelRow
-            title={t("settings.hotkey.title")}
-            lines={hotkeyLines}
-            control={
-              <Button
-                className={`hotkey-button ${isBindingHotkey ? "hotkey-button--binding" : ""}`}
-                variant="outline"
-                aria-label={t("settings.hotkey.title")}
-                aria-pressed={isBindingHotkey}
-                tabIndex={-1}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setIsBindingHotkey(true)}
-              >
-                {isBindingHotkey ? "..." : settings.hotkey}
-              </Button>
-            }
-          />
+          {settings.autoSelect && (
+            <SettingPanelRow
+              title={t("settings.autoselectAvg.title")}
+              lines={[t("settings.autoselectAvg.line"), ""]}
+              control={
+                <div className="autoselect-timing">
+                  <div
+                    className="autoselect-timing__chips"
+                    role="group"
+                    aria-label={t("settings.autoselectAvg.title")}
+                  >
+                    {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map(
+                      (preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          className={`autoselect-timing__chip ${
+                            settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
+                              ? "autoselect-timing__chip--active"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])
+                          }
+                        >
+                          {t(`settings.autoselectTempo.${preset}`)}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  <div className="autoselect-timing__slider">
+                    <div className="autoselect-timing__field">
+                      <input
+                        className="opacity-slider"
+                        type="range"
+                        min={AUTO_SELECT_SLIDER_POSITION_MIN}
+                        max={AUTO_SELECT_SLIDER_POSITION_MAX}
+                        step={1}
+                        value={autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds)}
+                        aria-label={t("settings.autoselectAvg.title")}
+                        style={
+                          {
+                            "--slider-fill": `${
+                              ((autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds) -
+                                AUTO_SELECT_SLIDER_POSITION_MIN) *
+                                100) /
+                              (AUTO_SELECT_SLIDER_POSITION_MAX - AUTO_SELECT_SLIDER_POSITION_MIN)
+                            }%`,
+                          } as CSSProperties
+                        }
+                        onChange={(event) =>
+                          updateSetting(
+                            "autoSelectAvgSeconds",
+                            autoSelectTempoPositionToSeconds(Number(event.target.value)),
+                          )
+                        }
+                      />
+                      <div className="autoselect-timing__scale" aria-hidden="true">
+                        {(
+                          [
+                            ["brisk", "10px"],
+                            ["balanced", "calc(10px + (100% - 16px) * 0.5)"],
+                            ["realistic", "calc(100% - 6px)"],
+                          ] as const
+                        ).map(([preset, position]) => (
+                          <span
+                            key={preset}
+                            className="autoselect-timing__tick"
+                            style={{ left: position }}
+                          >
+                            {t(`settings.autoselectTempo.${preset}`)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
+                  </div>
+                </div>
+              }
+            />
+          )}
+          {settings.autoSelect && (
+            <SettingPanelRow
+              title={t("settings.human.title")}
+              lines={[t("settings.human.line1"), t("settings.human.line2")]}
+              control={
+                <TabCardGroup label={t("settings.human.title")} columns={2}>
+                  {(
+                    [
+                      ["humanTyping", "settings.humanTyping"],
+                      ["humanPrecursors", "settings.humanPrecursors"],
+                    ] as const
+                  ).map(([settingKey, keyPrefix]) => (
+                    <TabCard
+                      key={settingKey}
+                      icon={<HumanizationIcon option={settingKey} />}
+                      label={t(`${keyPrefix}.title`)}
+                      role="switch"
+                      active={settings[settingKey]}
+                      onClick={() => updateSetting(settingKey, !settings[settingKey])}
+                    />
+                  ))}
+                </TabCardGroup>
+              }
+            />
+          )}
         </div>
       );
     }
@@ -1552,60 +1679,25 @@ export function MainScreen({
     }
 
     if (activeTab === "extra") {
-      const releaseUrl = updateState.status === "available" ? updateState.releaseUrl : null;
-      const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
-      const previewUpdateState: UpdateState =
-        isDevBuild && updateState.status !== "available"
-          ? {
-              ...updateState,
-              status: "available",
-              latestVersion: "9.9.9-dev",
-              releaseUrl: null,
-            }
-          : updateState;
-      const showUpdateToast =
-        isDevBuild &&
-        previewUpdateState.status === "available" &&
-        previewUpdateState.latestVersion !== null &&
-        !updateToastDismissed;
-      const previewReleaseUrl = previewUpdateState.releaseUrl;
-
-      const dismissUpdateToast = () => {
-        setUpdateToastDismissed(true);
-
-        if (
-          typeof chrome !== "undefined" &&
-          chrome.storage?.local &&
-          previewUpdateState.checkedAt !== null
-        ) {
-          void chrome.storage.local.set({
-            [UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]: previewUpdateState.checkedAt,
-          });
-        }
-      };
-
       return (
         <div className="settings-panel__rows">
-          {showUpdateToast && (
-            <div className="update-toast" role="status">
-              <div className="update-toast__title">{t("updates.toast.title")}</div>
-              <div className="update-toast__body">
-                {t("updates.toast.body", {
-                  version: previewUpdateState.latestVersion ?? "",
-                })}
-              </div>
-              <div className="update-toast__actions">
-                {previewReleaseUrl && (
-                  <Button variant="primary" onClick={() => openExternalUrl(previewReleaseUrl)}>
-                    {t("updates.toast.open")}
-                  </Button>
-                )}
-                <Button variant="outline" onClick={dismissUpdateToast}>
-                  {t("updates.toast.later")}
-                </Button>
-              </div>
-            </div>
-          )}
+          <SettingPanelRow
+            title={t("settings.hotkey.title")}
+            lines={hotkeyLines}
+            control={
+              <Button
+                className={`hotkey-button ${isBindingHotkey ? "hotkey-button--binding" : ""}`}
+                variant="outline"
+                aria-label={t("settings.hotkey.title")}
+                aria-pressed={isBindingHotkey}
+                tabIndex={-1}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setIsBindingHotkey(true)}
+              >
+                {isBindingHotkey ? "..." : settings.hotkey}
+              </Button>
+            }
+          />
           {officialAiAvailable && (
             <SettingPanelRow
               title={t("settings.server.title")}
@@ -1619,60 +1711,58 @@ export function MainScreen({
               }
             />
           )}
-          <SettingPanelRow
-            title={t("updates.title")}
-            lines={getUpdateLines(updateState, resolvedLanguage, t)}
-            control={
+          <div className="settings-panel__actions">
+            <div className="settings-panel__action-row">
               <Button
                 className="secondary-wide-button"
                 variant="outline"
                 disabled={isUpdateCheckInProgress}
                 onClick={() => {
-                  if (releaseUrl) {
-                    openExternalUrl(releaseUrl);
+                  if (updateState.releaseUrl) {
+                    openExternalUrl(updateState.releaseUrl);
                     return;
                   }
 
-                  onCheckUpdates();
+                  startUpdateCheck();
                 }}
               >
                 {isUpdateCheckInProgress
                   ? t("updates.action.checking")
-                  : releaseUrl
+                  : updateState.releaseUrl
                     ? t("updates.action.openRelease")
                     : t("updates.action.check")}
               </Button>
-            }
-          />
-          <div className="settings-panel__account-actions">
-            <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
-              {t("settings.actions.reset")}
-            </Button>
-            <Button
-              className="secondary-wide-button"
-              variant="outline"
-              onClick={isAuthenticated ? onLogout : onOpenLogin}
-            >
-              {isAuthenticated ? t("settings.actions.logout") : t("auth.gate.action")}
-            </Button>{" "}
-            <a href="https://github.com/krchvl/ReduxShare" target="_blank">
-              <button
-                className="social-button"
-                type="button"
-                aria-label={t("settings.social.github")}
+              <Button
+                className="secondary-wide-button"
+                variant="outline"
+                onClick={isAuthenticated ? onLogout : onOpenLogin}
               >
-                <img src={githubIcon} alt="" />
-              </button>
-            </a>
-            <a href="https://t.me/a1b2c3d4e5f6g7h8i9j10k11l12m17" target="_blank">
-              <button
-                className="social-button"
-                type="button"
-                aria-label={t("settings.social.telegram")}
-              >
-                <img src={telegramIcon} alt="" />
-              </button>
-            </a>
+                {isAuthenticated ? t("settings.actions.logout") : t("auth.gate.action")}
+              </Button>
+            </div>
+            <div className="settings-panel__action-row">
+              <Button className="secondary-wide-button" variant="outline" onClick={onResetSettings}>
+                {t("settings.actions.reset")}
+              </Button>
+              <a href="https://github.com/krchvl/ReduxShare" target="_blank">
+                <button
+                  className="social-button"
+                  type="button"
+                  aria-label={t("settings.social.github")}
+                >
+                  <img src={githubIcon} alt="" />
+                </button>
+              </a>
+              <a href="https://t.me/a1b2c3d4e5f6g7h8i9j10k11l12m17" target="_blank">
+                <button
+                  className="social-button"
+                  type="button"
+                  aria-label={t("settings.social.telegram")}
+                >
+                  <img src={telegramIcon} alt="" />
+                </button>
+              </a>
+            </div>
           </div>
         </div>
       );
@@ -1695,129 +1785,6 @@ export function MainScreen({
             />
           }
         />
-        <SettingPanelRow
-          title={t("settings.autoselect.title")}
-          lines={
-            settings.autoSelect
-              ? [t("settings.autoselect.on.line1"), t("settings.autoselect.on.line2")]
-              : [t("settings.autoselect.off.line1"), t("settings.autoselect.off.line2")]
-          }
-          control={
-            <Switch
-              checked={settings.autoSelect}
-              label={t("settings.autoselect.title")}
-              onChange={(checked) => updateSetting("autoSelect", checked)}
-            />
-          }
-        />
-        {settings.autoSelect && (
-          <SettingPanelRow
-            title={t("settings.autoselectAvg.title")}
-            lines={[t("settings.autoselectAvg.line"), ""]}
-            control={
-              <div className="autoselect-timing">
-                <div
-                  className="autoselect-timing__chips"
-                  role="group"
-                  aria-label={t("settings.autoselectAvg.title")}
-                >
-                  {(Object.keys(AUTO_SELECT_TEMPO_PRESETS) as AutoSelectTempoPreset[]).map(
-                    (preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        className={`autoselect-timing__chip ${
-                          settings.autoSelectAvgSeconds === AUTO_SELECT_TEMPO_PRESETS[preset]
-                            ? "autoselect-timing__chip--active"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          updateSetting("autoSelectAvgSeconds", AUTO_SELECT_TEMPO_PRESETS[preset])
-                        }
-                      >
-                        {t(`settings.autoselectTempo.${preset}`)}
-                      </button>
-                    ),
-                  )}
-                </div>
-                <div className="autoselect-timing__slider">
-                  <div className="autoselect-timing__field">
-                    <input
-                      className="opacity-slider"
-                      type="range"
-                      min={AUTO_SELECT_SLIDER_POSITION_MIN}
-                      max={AUTO_SELECT_SLIDER_POSITION_MAX}
-                      step={1}
-                      value={autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds)}
-                      aria-label={t("settings.autoselectAvg.title")}
-                      style={
-                        {
-                          "--slider-fill": `${
-                            ((autoSelectTempoSecondsToPosition(settings.autoSelectAvgSeconds) -
-                              AUTO_SELECT_SLIDER_POSITION_MIN) *
-                              100) /
-                            (AUTO_SELECT_SLIDER_POSITION_MAX - AUTO_SELECT_SLIDER_POSITION_MIN)
-                          }%`,
-                        } as CSSProperties
-                      }
-                      onChange={(event) =>
-                        updateSetting(
-                          "autoSelectAvgSeconds",
-                          autoSelectTempoPositionToSeconds(Number(event.target.value)),
-                        )
-                      }
-                    />
-                    <div className="autoselect-timing__scale" aria-hidden="true">
-                      {(
-                        [
-                          ["brisk", "10px"],
-                          ["balanced", "calc(10px + (100% - 16px) * 0.5)"],
-                          ["realistic", "calc(100% - 6px)"],
-                        ] as const
-                      ).map(([preset, position]) => (
-                        <span
-                          key={preset}
-                          className="autoselect-timing__tick"
-                          style={{ left: position }}
-                        >
-                          {t(`settings.autoselectTempo.${preset}`)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="opacity-value">{`${settings.autoSelectAvgSeconds} ${t("settings.autoselectAvg.unit")}`}</span>
-                </div>
-              </div>
-            }
-          />
-        )}
-        {settings.autoSelect && (
-          <SettingPanelRow
-            title={t("settings.human.title")}
-            lines={[t("settings.human.line1"), t("settings.human.line2")]}
-            control={
-              <TabCardGroup label={t("settings.human.title")} columns={2}>
-                {(
-                  [
-                    ["humanTyping", "settings.humanTyping"],
-                    ["humanPrecursors", "settings.humanPrecursors"],
-                    ["humanReading", "settings.humanReading"],
-                    ["humanOrder", "settings.humanOrder"],
-                  ] as const
-                ).map(([settingKey, keyPrefix]) => (
-                  <TabCard
-                    key={settingKey}
-                    icon={<HumanizationIcon option={settingKey} />}
-                    label={t(`${keyPrefix}.title`)}
-                    role="switch"
-                    active={settings[settingKey]}
-                    onClick={() => updateSetting(settingKey, !settings[settingKey])}
-                  />
-                ))}
-              </TabCardGroup>
-            }
-          />
-        )}
         <SettingPanelRow
           title={t("settings.attemptStatusPanel.title")}
           lines={
@@ -1843,27 +1810,146 @@ export function MainScreen({
     );
   }
 
+  const activeTabConfig = SETTINGS_TABS.find((tab) => tab.key === activeTab) ?? SETTINGS_TABS[1]!;
+  const isUpdateCheckInProgress = isCheckingUpdates || updateState.status === "checking";
+  const previewUpdateState: UpdateState =
+    isDevBuild && !isUpdateCheckInProgress && updateState.status !== "available"
+      ? {
+          ...updateState,
+          status: "available",
+          latestVersion: "9.9.9-dev",
+          releaseUrl: null,
+        }
+      : updateState;
+  const updateToastStatus = isUpdateCheckInProgress ? "checking" : previewUpdateState.status;
+  const updateToastSignature = `check:${updateCheckCycle}`;
+  const updateToastReleaseUrl =
+    updateToastStatus === "available" ? previewUpdateState.releaseUrl : null;
+  const isPersistedDismissalMatching =
+    updateToastStatus === "available" &&
+    persistedDismissedCheckAt !== null &&
+    previewUpdateState.checkedAt === persistedDismissedCheckAt;
+  const showUpdateToast =
+    updateToastRequested &&
+    updateToastStatus !== "idle" &&
+    !isPersistedDismissalMatching &&
+    dismissedUpdateToast !== updateToastSignature;
+
+  const startUpdateCheck = () => {
+    setUpdateToastRequested(true);
+    setUpdateCheckCycle((cycle) => cycle + 1);
+    onCheckUpdates();
+  };
+
+  const dismissUpdateToast = (dismissedFor: string) => {
+    setDismissedUpdateToast(dismissedFor);
+
+    if (
+      updateToastStatus === "available" &&
+      previewUpdateState.checkedAt !== null &&
+      typeof chrome !== "undefined" &&
+      chrome.storage?.local
+    ) {
+      void chrome.storage.local.set({
+        [UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]: previewUpdateState.checkedAt,
+      });
+    }
+  };
+
   return (
-    <div className="main-content">
-      <nav className="settings-tabs" data-active-tab={activeTab} aria-label={t("main.tabs.aria")}>
-        {SETTINGS_TABS.map((tab) => (
+    <div className="main-content" data-view={menuOpen ? "menu" : "panel"}>
+      {showUpdateToast && (
+        <div className={`update-pill update-pill--${updateToastStatus}`} role="status">
+          <span className="update-pill__text">
+            {updateToastStatus === "checking" && t("updates.toast.checking")}
+            {updateToastStatus === "available" &&
+              t("updates.toast.body", { version: previewUpdateState.latestVersion ?? "" })}
+            {updateToastStatus === "error" &&
+              (previewUpdateState.error ?? t("updates.error.fallback"))}
+            {updateToastStatus === "up-to-date" &&
+              t("updates.toast.uptodate", { version: previewUpdateState.currentVersion })}
+          </span>
+          {updateToastReleaseUrl && (
+            <button
+              type="button"
+              className="update-pill__action"
+              onClick={() => openExternalUrl(updateToastReleaseUrl)}
+            >
+              {t("updates.toast.open")}
+            </button>
+          )}
+          {updateToastStatus === "error" && (
+            <button type="button" className="update-pill__action" onClick={startUpdateCheck}>
+              {t("updates.action.check")}
+            </button>
+          )}
           <button
-            key={tab.key}
-            className={`settings-tab ${activeTab === tab.key ? "settings-tab--active" : ""}`}
             type="button"
-            aria-pressed={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            className="update-pill__close"
+            aria-label={t("updates.toast.dismiss")}
+            onClick={() => dismissUpdateToast(updateToastSignature)}
           >
-            <span className="settings-tab__icon">{tab.icon}</span>
-            <span>{t(tab.label)}</span>
+            ✕
           </button>
-        ))}
-      </nav>
-      <section className="settings-panel" aria-label={t("main.panel.aria")}>
-        <div key={activeTab} className="settings-panel__view">
-          {renderActivePanel()}
         </div>
-      </section>
+      )}
+      <nav
+        className="settings-tabs"
+        data-view={menuOpen ? "menu" : "panel"}
+        data-active-tab={activeTab}
+        aria-label={t("main.tabs.aria")}
+      >
+        {!menuOpen && (
+          <button
+            type="button"
+            className="settings-tabs__home"
+            aria-label={t("main.menu.home")}
+            title={t("main.menu.home")}
+            onClick={() => setMenuOpen(true)}
+          >
+            <HomeIcon />
+          </button>
+        )}
+        {SETTINGS_TABS.map((tab, index) => {
+          const isActive = activeTab === tab.key;
+          const label = t(tab.label);
+
+          return (
+            <button
+              key={tab.key}
+              className={`settings-tab ${isActive ? "settings-tab--active" : ""}`}
+              type="button"
+              aria-pressed={isActive}
+              aria-current={isActive ? "true" : undefined}
+              title={menuOpen ? undefined : label}
+              style={{ "--index": index } as CSSProperties}
+              onClick={() => openSection(tab.key)}
+            >
+              <span className="settings-tab__icon">{tab.icon}</span>
+              <span className="settings-tab__text">
+                <span className="settings-tab__label">{label}</span>
+                <span className="settings-tab__desc">{t(tab.description)}</span>
+              </span>
+              <span className="settings-tab__chevron" aria-hidden="true">
+                <ArrowLeftIcon />
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+      {!menuOpen && (
+        <section className="settings-panel" aria-label={t("main.panel.aria")}>
+          <div className="settings-panel__head">
+            <div className="settings-panel__heading">
+              <span className="settings-panel__icon">{activeTabConfig.icon}</span>
+              <h1>{t(activeTabConfig.label)}</h1>
+            </div>
+          </div>
+          <div key={activeTab} className="settings-panel__view">
+            {renderActivePanel()}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

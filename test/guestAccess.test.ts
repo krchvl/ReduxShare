@@ -90,7 +90,7 @@ function renderMainScreen(overrides: { isAuthenticated?: boolean; settings?: Set
 function clickTab(labels: string | string[]) {
   const expected = Array.isArray(labels) ? labels : [labels];
   const tab = Array.from(container!.querySelectorAll<HTMLButtonElement>(".settings-tab")).find(
-    (button) => expected.includes(button.textContent ?? ""),
+    (button) => expected.includes(button.querySelector(".settings-tab__label")?.textContent ?? ""),
   );
   expect(tab).toBeTruthy();
 
@@ -101,7 +101,7 @@ function clickTab(labels: string | string[]) {
 
 const statsTab = ["Stats", "Статистика"];
 const aiTab = ["AI", "ИИ"];
-const extraTab = ["Extra", "Дополнительно"];
+const extraTab = ["Other", "Прочее"];
 const gateMessages = {
   en: "Sign in for full access",
   ru: "Войдите для полного доступа к расширению",
@@ -226,7 +226,7 @@ describe("guest access in MainScreen", () => {
     renderMainScreen({ isAuthenticated: false });
     clickTab(extraTab);
 
-    const actions = container!.querySelector(".settings-panel__account-actions");
+    const actions = container!.querySelector(".settings-panel__actions");
     expect(actions).toBeTruthy();
     expect(
       Array.from(actions!.querySelectorAll("button")).map((button) => button.textContent),
@@ -237,7 +237,7 @@ describe("guest access in MainScreen", () => {
     renderMainScreen({ isAuthenticated: true });
     clickTab(extraTab);
 
-    const actions = container!.querySelector(".settings-panel__account-actions");
+    const actions = container!.querySelector(".settings-panel__actions");
     expect(actions).toBeTruthy();
     expect(
       Array.from(actions!.querySelectorAll("button")).map((button) => button.textContent),
@@ -279,6 +279,53 @@ describe("guest access through the popup entry", () => {
 
     clickTab(statsTab);
     expect(container!.querySelector(".auth-gated__message")?.textContent).toBe(gateMessages.ru);
+  });
+
+  it("remembers the guest choice when the popup is opened again", async () => {
+    appMocks.loadStoredState.mockResolvedValue({
+      settings: DEFAULT_SETTINGS,
+      authSession: null,
+      userProfile: null,
+    });
+
+    await renderApp();
+
+    await act(async () => {
+      container!
+        .querySelector<HTMLButtonElement>(".auth-button--guest")!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (container.querySelector(".settings-tab")) {
+        break;
+      }
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+    }
+
+    expect(appMocks.saveStoredState).toHaveBeenCalledWith(
+      expect.objectContaining({ guestMode: true }),
+    );
+
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+
+    appMocks.loadStoredState.mockResolvedValue({
+      settings: DEFAULT_SETTINGS,
+      authSession: null,
+      userProfile: null,
+      guestMode: true,
+    });
+
+    await renderApp();
+
+    expect(container!.querySelector(".auth-button--guest")).toBeNull();
+    expect(container!.querySelectorAll(".settings-tab").length).toBeGreaterThan(0);
   });
 
   it("skips the login screen for a stored session and leaves the stats tab ungated", async () => {

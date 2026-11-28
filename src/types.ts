@@ -87,13 +87,10 @@ export interface ServerConfig {
 
 export interface Settings {
   extensionEnabled: boolean;
-  copyUnlock: boolean;
   autoSelect: boolean;
   autoSelectAvgSeconds: number;
   humanTyping: boolean;
   humanPrecursors: boolean;
-  humanReading: boolean;
-  humanOrder: boolean;
 
   attemptStatusPanelClosed: boolean;
   hotkey: string;
@@ -186,6 +183,7 @@ export interface AiSettingsDraft {
 
 export interface PopupState {
   activeTab: PopupTab;
+  menuOpen?: boolean;
   aiDraft: AiSettingsDraft | null;
 }
 
@@ -196,17 +194,15 @@ export interface StoredState {
   latestQuizAttemptContext?: QuizAttemptContext | null;
   updateState?: UpdateState | null;
   popupState?: PopupState | null;
+  guestMode?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   extensionEnabled: true,
-  copyUnlock: true,
   autoSelect: true,
   autoSelectAvgSeconds: 4,
   humanTyping: true,
   humanPrecursors: true,
-  humanReading: true,
-  humanOrder: true,
   attemptStatusPanelClosed: false,
   hotkey: DEFAULT_HOTKEY,
   hotkeyCode: DEFAULT_HOTKEY_CODE,
@@ -244,6 +240,7 @@ export const DEFAULT_STORED_STATE: StoredState = {
   userProfile: null,
   latestQuizAttemptContext: null,
   updateState: DEFAULT_UPDATE_STATE,
+  guestMode: false,
 };
 
 export function isLanguageSetting(value: unknown): value is LanguageSetting {
@@ -373,6 +370,7 @@ export function normalizePopupState(value: unknown): PopupState | null {
 
   return {
     activeTab,
+    menuOpen: raw.menuOpen === true,
     aiDraft: normalizeAiDraft(raw.aiDraft),
   };
 }
@@ -480,14 +478,11 @@ export function normalizeSettings(
 
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
-    copyUnlock: settings?.copyUnlock ?? DEFAULT_SETTINGS.copyUnlock,
     autoSelect: settings?.autoSelect ?? DEFAULT_SETTINGS.autoSelect,
     attemptStatusPanelClosed: settings?.attemptStatusPanelClosed === true,
     autoSelectAvgSeconds: normalizeAutoSelectAvgSeconds(settings?.autoSelectAvgSeconds),
     humanTyping: settings?.humanTyping ?? DEFAULT_SETTINGS.humanTyping,
     humanPrecursors: settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors,
-    humanReading: settings?.humanReading ?? DEFAULT_SETTINGS.humanReading,
-    humanOrder: settings?.humanOrder ?? DEFAULT_SETTINGS.humanOrder,
     hotkey: normalizeHotkeyValue(settings?.hotkey),
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
     accentColor: normalizeAccentColor(

@@ -28,15 +28,16 @@ describe("opacity settings", () => {
   it("keeps stored opacity values with safe defaults", () => {
     expect(DEFAULT_SETTINGS.popupOpacity).toBe(1);
     expect(DEFAULT_SETTINGS.pageOverlayOpacity).toBe(1);
-    expect(DEFAULT_SETTINGS.copyUnlock).toBe(true);
 
     const normalized = normalizeSettings({ popupOpacity: 0.5, pageOverlayOpacity: 0.7 });
 
     expect(normalized.popupOpacity).toBe(0.5);
     expect(normalized.pageOverlayOpacity).toBe(0.7);
     expect(normalizeSettings({}).popupOpacity).toBe(1);
-    expect(normalizeSettings({ copyUnlock: false }).copyUnlock).toBe(false);
-    expect(normalizeSettings({}).copyUnlock).toBe(true);
+  });
+
+  it("drops the legacy copy unlock flag", () => {
+    expect(normalizeSettings({ copyUnlock: false })).not.toHaveProperty("copyUnlock");
   });
 
   it("normalizes the color scheme with a system default", () => {
@@ -96,25 +97,17 @@ describe("opacity settings", () => {
   it("defaults humanization flags to on and preserves explicit choices", () => {
     expect(DEFAULT_SETTINGS.humanTyping).toBe(true);
     expect(DEFAULT_SETTINGS.humanPrecursors).toBe(true);
-    expect(DEFAULT_SETTINGS.humanReading).toBe(true);
-    expect(DEFAULT_SETTINGS.humanOrder).toBe(true);
 
     const normalized = normalizeSettings({
       humanTyping: false,
       humanPrecursors: false,
-      humanReading: false,
-      humanOrder: false,
     });
     expect(normalized.humanTyping).toBe(false);
     expect(normalized.humanPrecursors).toBe(false);
-    expect(normalized.humanReading).toBe(false);
-    expect(normalized.humanOrder).toBe(false);
 
     const defaults = normalizeSettings({});
     expect(defaults.humanTyping).toBe(true);
     expect(defaults.humanPrecursors).toBe(true);
-    expect(defaults.humanReading).toBe(true);
-    expect(defaults.humanOrder).toBe(true);
   });
 
   it("keeps humanization locale keys in sync between languages", async () => {
@@ -126,8 +119,6 @@ describe("opacity settings", () => {
       "settings.human.line2",
       "settings.humanTyping.title",
       "settings.humanPrecursors.title",
-      "settings.humanReading.title",
-      "settings.humanOrder.title",
     ];
 
     for (const key of keys) {

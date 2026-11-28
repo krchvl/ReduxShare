@@ -32,7 +32,7 @@ export function syncContentUi() {
 }
 
 export function syncCopyUnlock(storedState: StoredStateLike | undefined) {
-  const enabled = canUseQuizFeatures(storedState) && storedState?.settings?.copyUnlock === true;
+  const enabled = canUseQuizFeatures(storedState);
   window.postMessage(
     {
       source: CONTENT_MESSAGE_SOURCE,
