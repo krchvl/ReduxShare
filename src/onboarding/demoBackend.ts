@@ -328,7 +328,6 @@ export function buildStoredState(): StoredStateLike {
   return {
     settings: {
       extensionEnabled: true,
-      copyUnlock: false,
       autoSelect: false,
       language: "ru",
       accentColor: DEMO_ACCENT_COLOR,

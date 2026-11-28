@@ -28,15 +28,16 @@ describe("opacity settings", () => {
   it("keeps stored opacity values with safe defaults", () => {
     expect(DEFAULT_SETTINGS.popupOpacity).toBe(1);
     expect(DEFAULT_SETTINGS.pageOverlayOpacity).toBe(1);
-    expect(DEFAULT_SETTINGS.copyUnlock).toBe(true);
 
     const normalized = normalizeSettings({ popupOpacity: 0.5, pageOverlayOpacity: 0.7 });
 
     expect(normalized.popupOpacity).toBe(0.5);
     expect(normalized.pageOverlayOpacity).toBe(0.7);
     expect(normalizeSettings({}).popupOpacity).toBe(1);
-    expect(normalizeSettings({ copyUnlock: false }).copyUnlock).toBe(false);
-    expect(normalizeSettings({}).copyUnlock).toBe(true);
+  });
+
+  it("drops the legacy copy unlock flag", () => {
+    expect(normalizeSettings({ copyUnlock: false })).not.toHaveProperty("copyUnlock");
   });
 
   it("normalizes the color scheme with a system default", () => {

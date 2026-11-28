@@ -2628,7 +2628,6 @@ function resetRestrictedQuizState() {
 
 const PIPELINE_RELEVANT_SETTING_KEYS = [
   "extensionEnabled",
-  "copyUnlock",
   "attemptStatusPanelClosed",
   "autoSelect",
   "autoSelectAvgSeconds",

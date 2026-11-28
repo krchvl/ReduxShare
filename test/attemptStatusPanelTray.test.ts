@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, type Mock } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -6,7 +6,6 @@ vi.mock("../src/content/quizAttempt/quizUrl", async (importOriginal) => ({
 }));
 
 import { getQuizAttemptTestApi } from "./helpers/quizAttemptApi";
-import { APP_STORAGE_KEY } from "../src/shared/storageKeys";
 import { setCurrentStoredState } from "../src/state";
 import { syncContentUi } from "../src/logic/runtime";
 
@@ -44,10 +43,6 @@ async function mountPanel(copyUnlock: boolean) {
   return api;
 }
 
-function flushMicrotasks() {
-  return new Promise<void>((resolve) => setTimeout(resolve, 0));
-}
-
 describe("attempt status panel settings tray", () => {
   it("opens the tray from the side ear and reflects copy unlock state", async () => {
     await mountPanel(false);
@@ -67,9 +62,8 @@ describe("attempt status panel settings tray", () => {
     expect(tray.dataset.open).toBe("true");
     expect(ear.getAttribute("aria-expanded")).toBe("true");
 
-    const action = shadow.querySelector<HTMLButtonElement>('[data-tray-action="copyUnlock"]')!;
-    expect(action.getAttribute("aria-pressed")).toBe("false");
-    expect(action.getAttribute("title")).toBe("Разблокировать копирование");
+    const action = shadow.querySelector<HTMLButtonElement>('[data-tray-action="autoPass"]')!;
+    expect(action.dataset.mode).toBe("idle");
 
     document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true }));
 
@@ -77,37 +71,14 @@ describe("attempt status panel settings tray", () => {
     expect(ear.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("toggles the copy unlock setting and persists it", async () => {
+  it("keeps the auto-pass action in the tray instead of copy unlock", async () => {
     await mountPanel(false);
 
     const shadow = getPanelShadow();
     shadow.querySelector<HTMLButtonElement>(".settings-ear")!.click();
 
-    const action = shadow.querySelector<HTMLButtonElement>('[data-tray-action="copyUnlock"]')!;
-    expect(action.getAttribute("aria-pressed")).toBe("false");
-
-    const setMock = chrome.storage.local.set as unknown as Mock;
-    setMock.mockClear();
-
-    action.click();
-    await flushMicrotasks();
-
-    expect(setMock).toHaveBeenCalledWith({
-      [APP_STORAGE_KEY]: expect.objectContaining({
-        settings: expect.objectContaining({ copyUnlock: true }),
-      }),
-    });
-    expect(action.getAttribute("aria-pressed")).toBe("true");
-
-    action.click();
-    await flushMicrotasks();
-
-    expect(setMock).toHaveBeenLastCalledWith({
-      [APP_STORAGE_KEY]: expect.objectContaining({
-        settings: expect.objectContaining({ copyUnlock: false }),
-      }),
-    });
-    expect(action.getAttribute("aria-pressed")).toBe("false");
+    expect(shadow.querySelector('[data-tray-action="copyUnlock"]')).toBeNull();
+    expect(shadow.querySelector('[data-tray-action="autoPass"]')).toBeInstanceOf(HTMLButtonElement);
   });
 
   it("flips the tray to the left side when the panel is anchored to the right", async () => {

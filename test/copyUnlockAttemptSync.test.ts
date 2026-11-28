@@ -33,12 +33,11 @@ function waitForPostMessageDelivery() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-function storedStateWith(copyUnlock: boolean) {
+function storedStateWith(extensionEnabled: boolean) {
   return {
     settings: {
-      extensionEnabled: true,
+      extensionEnabled,
       language: "ru",
-      copyUnlock,
     },
     authSession: { user: { id: "u1" } },
   };
@@ -60,7 +59,21 @@ describe("copy unlock sync on quiz pages", () => {
     ]);
   });
 
-  it("pushes disabled copy unlock state when the setting is off", async () => {
+  it("pushes enabled copy unlock state when the extension setting is missing", async () => {
+    const api = await getQuizAttemptTestApi();
+    api.reset();
+
+    const { messages, stop } = collectCopyUnlockMessages();
+    syncCopyUnlock(api.getStoredState());
+    await waitForPostMessageDelivery();
+    stop();
+
+    expect(messages).toEqual([
+      { source: "ReduxShare", type: "REDUXSHARE_COPY_UNLOCK", enabled: true },
+    ]);
+  });
+
+  it("pushes disabled copy unlock state when the extension is disabled", async () => {
     const api = await getQuizAttemptTestApi();
     api.reset();
     api.setStoredState(storedStateWith(false));

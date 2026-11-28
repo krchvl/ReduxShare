@@ -87,7 +87,6 @@ export interface ServerConfig {
 
 export interface Settings {
   extensionEnabled: boolean;
-  copyUnlock: boolean;
   autoSelect: boolean;
   autoSelectAvgSeconds: number;
   humanTyping: boolean;
@@ -200,7 +199,6 @@ export interface StoredState {
 
 export const DEFAULT_SETTINGS: Settings = {
   extensionEnabled: true,
-  copyUnlock: true,
   autoSelect: true,
   autoSelectAvgSeconds: 4,
   humanTyping: true,
@@ -480,7 +478,6 @@ export function normalizeSettings(
 
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
-    copyUnlock: settings?.copyUnlock ?? DEFAULT_SETTINGS.copyUnlock,
     autoSelect: settings?.autoSelect ?? DEFAULT_SETTINGS.autoSelect,
     attemptStatusPanelClosed: settings?.attemptStatusPanelClosed === true,
     autoSelectAvgSeconds: normalizeAutoSelectAvgSeconds(settings?.autoSelectAvgSeconds),
