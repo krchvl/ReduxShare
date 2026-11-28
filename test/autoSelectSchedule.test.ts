@@ -202,9 +202,10 @@ describe("paced auto-select on a live quiz page", () => {
     expect(stylesheet).toMatch(/\.delay-progress \{[^}]*width: 20px/);
     expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*width: max-content/);
     expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*font-weight: 400/);
-    expect(stylesheet).toMatch(
-      /\.delay-progress__seconds \{[^}]*color: var\(--reduxshare-accent\)/,
-    );
+    expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*color: #ccd2dc/);
+    expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*\}/);
+    expect(stylesheet).not.toMatch(/\.delay-progress__seconds \{[^}]*text-shadow/);
+    expect(stylesheet).toMatch(/:host\(\[data-theme="light"\]\) \.delay-progress__seconds \{/);
     expect(stylesheet).toMatch(
       /:host\(\[data-reduxshare-inline-widget="true"\]\) \.delay-progress \{/,
     );

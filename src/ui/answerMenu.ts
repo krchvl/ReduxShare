@@ -906,18 +906,14 @@ export function getAnswerTriggerMarkup() {
         display: block;
         width: max-content;
         margin-top: 3px;
-        color: var(--reduxshare-accent);
+        color: #ccd2dc;
         font-family: Inter, Arial, sans-serif;
         font-size: 9px;
         font-weight: 400;
         font-variant-numeric: tabular-nums;
         letter-spacing: 0.2px;
         line-height: 1;
-        text-shadow:
-          0 1px 2px rgba(0, 0, 0, 0.75),
-          0 0 6px rgba(0, 0, 0, 0.45);
         transition: opacity 120ms ease;
-        -webkit-font-smoothing: antialiased;
       }
 
       :host([data-reduxshare-inline-widget="true"]) .delay-progress__seconds {
@@ -936,10 +932,7 @@ export function getAnswerTriggerMarkup() {
       }
 
       :host([data-theme="light"]) .delay-progress__seconds {
-        color: color-mix(in srgb, var(--reduxshare-accent) 55%, #0d1016);
-        text-shadow:
-          0 1px 1px rgba(255, 255, 255, 0.9),
-          0 0 5px rgba(255, 255, 255, 0.7);
+        color: #5c6472;
       }
     </style>
 
