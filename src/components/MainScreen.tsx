@@ -410,6 +410,8 @@ export function MainScreen({
   const modelsPopoverRef = useRef<HTMLDivElement | null>(null);
   const [dismissedUpdateToast, setDismissedUpdateToast] = useState<string | null>(null);
   const [updateToastRequested, setUpdateToastRequested] = useState(false);
+  const [updateCheckCycle, setUpdateCheckCycle] = useState(0);
+  const [persistedDismissedCheckAt, setPersistedDismissedCheckAt] = useState<string | null>(null);
 
   const aiDraftRef = useRef(aiDraft);
   const aiTestRequestRef = useRef(0);
@@ -518,6 +520,30 @@ export function MainScreen({
       if (latestPopupStateRef.current !== reportedPopupStateRef.current) {
         void patchStoredState({ popupState: latestPopupStateRef.current });
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) {
+      return;
+    }
+
+    let cancelled = false;
+
+    chrome.storage.local
+      .get(UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        const value = result[UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY];
+        setPersistedDismissedCheckAt(typeof value === "string" ? value : null);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -1082,6 +1108,21 @@ export function MainScreen({
     if (activeTab === "security") {
       return (
         <div className="settings-panel__rows">
+          <SettingPanelRow
+            title={t("settings.autoselect.title")}
+            lines={
+              settings.autoSelect
+                ? [t("settings.autoselect.on.line1"), t("settings.autoselect.on.line2")]
+                : [t("settings.autoselect.off.line1"), t("settings.autoselect.off.line2")]
+            }
+            control={
+              <Switch
+                checked={settings.autoSelect}
+                label={t("settings.autoselect.title")}
+                onChange={(checked) => updateSetting("autoSelect", checked)}
+              />
+            }
+          />
           {settings.autoSelect && (
             <SettingPanelRow
               title={t("settings.autoselectAvg.title")}
@@ -1745,21 +1786,6 @@ export function MainScreen({
           }
         />
         <SettingPanelRow
-          title={t("settings.autoselect.title")}
-          lines={
-            settings.autoSelect
-              ? [t("settings.autoselect.on.line1"), t("settings.autoselect.on.line2")]
-              : [t("settings.autoselect.off.line1"), t("settings.autoselect.off.line2")]
-          }
-          control={
-            <Switch
-              checked={settings.autoSelect}
-              label={t("settings.autoselect.title")}
-              onChange={(checked) => updateSetting("autoSelect", checked)}
-            />
-          }
-        />
-        <SettingPanelRow
           title={t("settings.attemptStatusPanel.title")}
           lines={
             settings.attemptStatusPanelClosed
@@ -1796,18 +1822,22 @@ export function MainScreen({
         }
       : updateState;
   const updateToastStatus = isUpdateCheckInProgress ? "checking" : previewUpdateState.status;
-  const updateToastSignature = `${updateToastStatus}:${previewUpdateState.checkedAt ?? ""}:${
-    previewUpdateState.latestVersion ?? ""
-  }`;
+  const updateToastSignature = `check:${updateCheckCycle}`;
   const updateToastReleaseUrl =
     updateToastStatus === "available" ? previewUpdateState.releaseUrl : null;
+  const isPersistedDismissalMatching =
+    updateToastStatus === "available" &&
+    persistedDismissedCheckAt !== null &&
+    previewUpdateState.checkedAt === persistedDismissedCheckAt;
   const showUpdateToast =
     updateToastRequested &&
     updateToastStatus !== "idle" &&
+    !isPersistedDismissalMatching &&
     dismissedUpdateToast !== updateToastSignature;
 
   const startUpdateCheck = () => {
     setUpdateToastRequested(true);
+    setUpdateCheckCycle((cycle) => cycle + 1);
     onCheckUpdates();
   };
 

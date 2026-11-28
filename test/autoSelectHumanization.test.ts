@@ -212,12 +212,19 @@ describe("humanized auto-select scheduling", () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(getCorrectInput()?.checked).toBe(false);
 
+    const originalDelay = api.getPendingAutoSelectScheduleDelays()[0]?.delayMs ?? 0;
+
     const plainState = baseStoredState({ autoSelectAvgSeconds: 1 });
     await dispatchStorageChange(plainState);
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
-    await vi.advanceTimersByTimeAsync(30000);
+    const replannedDelay = api.getPendingAutoSelectScheduleDelays()[0]?.delayMs ?? 0;
+
+    expect(replannedDelay).toBeGreaterThan(0);
+    expect(replannedDelay).toBeLessThan(originalDelay);
+
+    await vi.advanceTimersByTimeAsync(replannedDelay);
 
     expect(getCorrectInput()?.checked).toBe(true);
     expect(api.countPendingAutoSelectSchedules()).toBe(0);
@@ -242,8 +249,8 @@ describe("humanized auto-select scheduling", () => {
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 
-    const readingState = baseStoredState({ humanTyping: true });
-    await dispatchStorageChange(readingState);
+    const replacementState = baseStoredState({ humanTyping: true, autoSelectAvgSeconds: 8 });
+    await dispatchStorageChange(replacementState);
 
     expect(api.countPendingAutoSelectSchedules()).toBe(1);
 

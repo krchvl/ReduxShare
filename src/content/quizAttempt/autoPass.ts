@@ -28,6 +28,7 @@ import {
   getPreferredAutoSelectAnswerDataForQuestion,
   hasExactAutoSelectData,
   scheduleAutoSelectAnswer,
+  shuffleScheduleOrder,
 } from "./autoSelect";
 import {
   getAttemptStatusPanelQuestionNavButtons,
@@ -408,8 +409,7 @@ export async function runAutoPassPage(): Promise<void> {
 
       let unsolvedEntry: AnswerEntry | null = null;
       let unsolvedIndex = 0;
-      const gapMs = getHumanizedAnswerGapMs();
-      let offsetMs = 0;
+      const schedulableEntries: AnswerEntry[] = [];
 
       for (const [index, entry] of entries.entries()) {
         if (isAttemptStatusPanelQuestionAnswered(entry)) {
@@ -424,14 +424,7 @@ export async function runAutoPassPage(): Promise<void> {
         );
 
         if (hasExactAutoSelectData(answerData)) {
-          scheduleAutoSelectAnswer(
-            entry.questionId,
-            entry.questionNode,
-            scheduleState,
-            undefined,
-            offsetMs,
-          );
-          offsetMs += gapMs;
+          schedulableEntries.push(entry);
           continue;
         }
 
@@ -439,6 +432,20 @@ export async function runAutoPassPage(): Promise<void> {
           unsolvedEntry = entry;
           unsolvedIndex = index;
         }
+      }
+
+      const gapMs = getHumanizedAnswerGapMs();
+      let offsetMs = 0;
+
+      for (const entry of shuffleScheduleOrder(schedulableEntries)) {
+        scheduleAutoSelectAnswer(
+          entry.questionId,
+          entry.questionNode,
+          scheduleState,
+          undefined,
+          offsetMs,
+        );
+        offsetMs += gapMs;
       }
 
       const pendingCount = countPendingAutoSelectSchedules();

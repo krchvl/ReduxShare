@@ -104,6 +104,7 @@ describe("update pill", () => {
     expect(stored[UPDATE_NOTICE_DISMISSED_CHECK_STORAGE_KEY]).toBe(availableState.checkedAt);
 
     renderPill({ ...availableState, checkedAt: "2026-11-28T11:00:00.000Z" }, false, "extra");
+    pressCheckButton(element);
 
     expect(element.querySelector(".update-pill")).not.toBeNull();
   });

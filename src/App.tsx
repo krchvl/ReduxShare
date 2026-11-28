@@ -196,7 +196,19 @@ export function App() {
     const patch: StoredStatePatch = {};
 
     if (!previousState || previousState.settings !== settings) {
-      patch.settings = settings;
+      const changedSettings: Record<string, unknown> = {};
+
+      if (previousState) {
+        for (const key of Object.keys(settings) as Array<keyof Settings>) {
+          if (settings[key] !== previousState.settings[key]) {
+            changedSettings[key] = settings[key];
+          }
+        }
+      } else {
+        Object.assign(changedSettings, settings);
+      }
+
+      patch.settings = changedSettings as unknown as Settings;
     }
 
     if (!previousState || previousState.authSession !== authSession) {
@@ -385,9 +397,7 @@ export function App() {
     try {
       const response = await requestUpdateCheck({ force: true, reason: "manual" });
 
-      if (response.updateState) {
-        setUpdateState(response.updateState);
-      } else if (!response.ok) {
+      if (!response.ok) {
         setUpdateState((currentState) =>
           normalizeUpdateState({
             ...currentState,
@@ -396,6 +406,8 @@ export function App() {
             error: response.error ?? t("errors.updateCheckFailed"),
           }),
         );
+      } else if (response.updateState) {
+        setUpdateState(response.updateState);
       }
     } finally {
       setIsCheckingUpdates(false);
