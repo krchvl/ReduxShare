@@ -822,6 +822,10 @@ export function getAnswerTriggerMarkup() {
         vertical-align: middle;
       }
 
+      :host(:not([data-reduxshare-inline-widget="true"]):has(.delay-progress)) {
+        margin-bottom: 18px;
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -874,7 +878,6 @@ export function getAnswerTriggerMarkup() {
         border-radius: 3px;
         background: rgba(0, 0, 0, 0.38);
         box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
-        overflow: hidden;
         pointer-events: none;
       }
 
@@ -882,6 +885,7 @@ export function getAnswerTriggerMarkup() {
         display: block;
         width: 0%;
         height: 100%;
+        border-radius: 3px;
         background: var(--reduxshare-accent);
         transition: width 120ms linear;
       }
@@ -902,6 +906,16 @@ export function getAnswerTriggerMarkup() {
         text-align: center;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
         transition: opacity 120ms ease;
+      }
+
+      :host([data-theme="light"]) .delay-progress {
+        background: rgba(15, 18, 26, 0.16);
+        box-shadow: 0 0 0 1px rgba(15, 18, 26, 0.14);
+      }
+
+      :host([data-theme="light"]) .delay-progress__seconds {
+        color: rgba(74, 80, 94, 0.95);
+        text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
       }
     </style>
 
@@ -927,7 +941,10 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null, 
     return;
   }
 
-  const parent = shadowRoot.querySelector<HTMLElement>(".widget") ?? shadowRoot;
+  const isInline = host.getAttribute("data-reduxshare-inline-widget") === "true";
+  const parent = isInline
+    ? (shadowRoot.querySelector<HTMLElement>(".widget") ?? shadowRoot)
+    : shadowRoot;
   const progress =
     existing ??
     (() => {
@@ -939,6 +956,11 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null, 
       parent.append(element);
       return element;
     })();
+
+  if (progress.parentElement !== parent) {
+    parent.append(progress);
+  }
+
   const clampedRatio = Math.min(1, Math.max(0, ratio));
   const percent = Math.round(clampedRatio * 100);
   const fill = progress.querySelector<HTMLElement>(".delay-progress-fill");
