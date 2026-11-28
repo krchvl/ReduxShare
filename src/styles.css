@@ -1026,6 +1026,8 @@ body:has(.main-content[data-view="menu"]) #root {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 15px;
+  line-height: 22px;
 }
 
 .settings-tab__desc {
