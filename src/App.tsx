@@ -11,6 +11,7 @@ import { setActivePocketBaseUrl } from "./lib/pocketbase";
 import { loadStoredState, patchStoredState, type StoredStatePatch } from "./lib/storage";
 import { getActiveTabHostname } from "./lib/tabs";
 import { getThemeKind } from "./shared/themePalettes";
+import { createThemeSplashTrigger } from "./shared/themeSplash";
 import { normalizeUpdateState, requestUpdateCheck } from "./lib/updates";
 import { requestTouchUserProfile } from "./lib/userProfiles";
 import {
@@ -102,17 +103,14 @@ export function App() {
   const [registerMessage, setRegisterMessage] = useState<string | null>(null);
   const t = useMemo(() => getTranslator(settings.language), [settings.language]);
   const themeKind = getThemeKind(settings);
-  const previousThemeIdRef = useRef(settings.themeId);
+  const themeSplashTriggerRef = useRef(createThemeSplashTrigger());
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeKind;
   }, [themeKind]);
 
   useEffect(() => {
-    const previousThemeId = previousThemeIdRef.current;
-    previousThemeIdRef.current = settings.themeId;
-
-    if (!hydrated || previousThemeId === settings.themeId) {
+    if (!themeSplashTriggerRef.current(settings.themeId, hydrated)) {
       return undefined;
     }
 
