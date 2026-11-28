@@ -102,18 +102,17 @@ export function App() {
   const [registerMessage, setRegisterMessage] = useState<string | null>(null);
   const t = useMemo(() => getTranslator(settings.language), [settings.language]);
   const themeKind = getThemeKind(settings);
-  const themeSignature = JSON.stringify([settings.themeId, settings.customTheme]);
-  const previousThemeSignatureRef = useRef(themeSignature);
+  const previousThemeIdRef = useRef(settings.themeId);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeKind;
   }, [themeKind]);
 
   useEffect(() => {
-    const previousThemeSignature = previousThemeSignatureRef.current;
-    previousThemeSignatureRef.current = themeSignature;
+    const previousThemeId = previousThemeIdRef.current;
+    previousThemeIdRef.current = settings.themeId;
 
-    if (!hydrated || previousThemeSignature === themeSignature) {
+    if (!hydrated || previousThemeId === settings.themeId) {
       return undefined;
     }
 
@@ -121,7 +120,7 @@ export function App() {
     const timeoutId = window.setTimeout(() => setIsThemeSplashVisible(false), 620);
 
     return () => window.clearTimeout(timeoutId);
-  }, [themeSignature, hydrated]);
+  }, [settings.themeId, hydrated]);
 
   useEffect(() => {
     let cancelled = false;
