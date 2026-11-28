@@ -479,12 +479,13 @@ button:focus-visible {
   animation: splash-spin 1100ms linear infinite;
 }
 
-.splash__glyph {
-  color: color-mix(in srgb, var(--accent) 68%, var(--white));
-  font-size: 40px;
-  font-weight: 400;
-  line-height: 1;
-  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
+.splash__logo {
+  width: 66px;
+  height: 66px;
+  border-radius: 17px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 22px color-mix(in srgb, var(--accent) 34%, transparent);
   animation: splash-breathe 1700ms ease-in-out infinite;
 }
 
@@ -531,9 +532,10 @@ button:focus-visible {
     0 18px 40px rgba(20, 30, 60, 0.16);
 }
 
-:root[data-theme="light"] .splash__glyph {
-  color: color-mix(in srgb, var(--accent) 34%, #12182a);
-  text-shadow: none;
+:root[data-theme="light"] .splash__logo {
+  box-shadow:
+    0 8px 22px rgba(20, 30, 60, 0.22),
+    0 0 20px color-mix(in srgb, var(--accent) 46%, transparent);
 }
 
 @keyframes splash-in {

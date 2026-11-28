@@ -59,7 +59,9 @@ describe("Splash", () => {
     expect(splash?.getAttribute("role")).toBe("status");
     expect(splash?.getAttribute("aria-live")).toBe("polite");
     expect(splash?.querySelector(".splash__label")?.textContent).toBe("Загружаем ReduxShare…");
-    expect(splash?.querySelector(".splash__glyph")?.textContent).toBe("R");
+    const logo = splash?.querySelector("img.splash__logo");
+    expect(logo).toBeInstanceOf(HTMLImageElement);
+    expect(logo?.getAttribute("src")).toBe("icons/reduxshare-icon-128.png");
   });
 
   it("accepts a custom label and an overlay variant", () => {
