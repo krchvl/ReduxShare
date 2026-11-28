@@ -186,12 +186,18 @@ describe("legacy theme migration", () => {
 
   it("preserves an explicit theme id over legacy markers", () => {
     const migrated = normalizeSettings({
-      themeId: "violet",
+      themeId: "monochrome",
       theme: "Devil",
       accentColor: "#ff0000",
     });
 
-    expect(migrated.themeId).toBe("violet");
+    expect(migrated.themeId).toBe("monochrome");
     expect(migrated.customTheme).toEqual(CUSTOM_THEME_DEFAULTS);
+  });
+
+  it("aliases the removed violet theme to monochrome", () => {
+    const migrated = normalizeSettings({ themeId: "violet" as "monochrome" });
+
+    expect(migrated.themeId).toBe("monochrome");
   });
 });

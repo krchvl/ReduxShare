@@ -64,7 +64,7 @@ describe("theme picker", () => {
     const darkCards = Array.from(
       container.querySelectorAll(".theme-picker__grid--dark .theme-picker__card"),
     ).map((card) => card.textContent);
-    expect(darkCards).toEqual(["Стандартная", "Океан", "Алый", "Лес", "Аметист"]);
+    expect(darkCards).toEqual(["Стандартная", "Океан", "Алый", "Лес", "Монохром"]);
 
     const wideCard = container.querySelector(
       ".theme-picker__grid--custom .theme-picker__card--wide",

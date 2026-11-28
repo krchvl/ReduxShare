@@ -61,6 +61,19 @@ describe("theme presets", () => {
     expect(THEMES.daylight.palette.backgroundMain).toBe("#e9ecf1");
   });
 
+  it("renders the monochrome theme in black and white", () => {
+    expect(THEMES.monochrome.kind).toBe("dark");
+    expect(THEMES.monochrome.palette.backgroundMain).toBe("#0b0b0b");
+    expect(THEMES.monochrome.palette.accent).toBe("#f5f5f5");
+    expect(THEMES.monochrome.palette.textPrimary).toBe("#fafafa");
+  });
+
+  it("renders the scarlet theme black with a red accent", () => {
+    expect(THEMES.devil.palette.backgroundMain).toBe("#0f0d0d");
+    expect(THEMES.devil.palette.accent).toBe("#ff6b6f");
+    expect(THEMES.devil.palette.border).toBe("rgba(255, 130, 135, 0.13)");
+  });
+
   it("validates theme ids", () => {
     expect(isThemeId("ocean")).toBe(true);
     expect(isThemeId("custom")).toBe(true);

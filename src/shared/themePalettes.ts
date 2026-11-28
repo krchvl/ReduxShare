@@ -1,5 +1,5 @@
 export type ThemeId =
-  "standard" | "daylight" | "ocean" | "devil" | "forest" | "violet" | "pearl" | "custom";
+  "standard" | "daylight" | "ocean" | "devil" | "forest" | "monochrome" | "pearl" | "custom";
 
 export type ThemeKind = "dark" | "light";
 
@@ -12,9 +12,13 @@ export const THEME_PRESET_IDS = [
   "ocean",
   "devil",
   "forest",
-  "violet",
+  "monochrome",
   "pearl",
 ] as const satisfies readonly Exclude<ThemeId, "custom">[];
+
+const LEGACY_THEME_ID_ALIASES = {
+  violet: "monochrome",
+} as const satisfies Record<string, ThemeId>;
 
 const THEME_ID_SET = new Set<string>([...THEME_PRESET_IDS, "custom"]);
 
@@ -136,15 +140,15 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
       accent: "#ff6b6f",
       accentSoft: "#ff9497",
       accentStrong: "#a44649",
-      backgroundMain: "#241a1b",
-      backgroundPanel: "#271d1e",
-      backgroundPanelSoft: "#2e2223",
-      inputColor: "#1f1516",
-      border: "rgba(255, 205, 205, 0.13)",
-      borderStrong: "rgba(255, 205, 205, 0.19)",
-      muted: "#b3a1a2",
-      disabled: "#8a7a7b",
-      textPrimary: "#fdf1f1",
+      backgroundMain: "#0f0d0d",
+      backgroundPanel: "#161213",
+      backgroundPanelSoft: "#1c1617",
+      inputColor: "#120e0f",
+      border: "rgba(255, 130, 135, 0.13)",
+      borderStrong: "rgba(255, 130, 135, 0.19)",
+      muted: "#a89899",
+      disabled: "#7c6f70",
+      textPrimary: "#f9eff0",
       textOnAccent: "#1a0507",
     }),
   },
@@ -166,22 +170,22 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
       textOnAccent: "#071608",
     }),
   },
-  violet: {
+  monochrome: {
     kind: "dark",
     palette: darkPalette({
-      accent: "#c084fc",
-      accentSoft: "#d2a6fd",
-      accentStrong: "#7a54a2",
-      backgroundMain: "#1e1926",
-      backgroundPanel: "#211c2b",
-      backgroundPanelSoft: "#282034",
-      inputColor: "#191422",
-      border: "rgba(222, 199, 255, 0.13)",
-      borderStrong: "rgba(222, 199, 255, 0.19)",
-      muted: "#ada2bd",
-      disabled: "#857a94",
-      textPrimary: "#f3eefb",
-      textOnAccent: "#150722",
+      accent: "#f5f5f5",
+      accentSoft: "#f8f8f8",
+      accentStrong: "#999b9e",
+      backgroundMain: "#0b0b0b",
+      backgroundPanel: "#131313",
+      backgroundPanelSoft: "#191919",
+      inputColor: "#0e0e0e",
+      border: "rgba(255, 255, 255, 0.12)",
+      borderStrong: "rgba(255, 255, 255, 0.18)",
+      muted: "#a3a3a3",
+      disabled: "#757575",
+      textPrimary: "#fafafa",
+      textOnAccent: "#0d0d0d",
     }),
   },
   pearl: {
@@ -354,6 +358,14 @@ export function deriveCustomPalette(custom: CustomThemePalette): ThemePalette {
 export function resolveThemeId(settings: ThemeSettingsLike | undefined): ThemeId {
   if (isThemeId(settings?.themeId)) {
     return settings.themeId;
+  }
+
+  const rawThemeId = typeof settings?.themeId === "string" ? settings.themeId : "";
+  const aliasedThemeId =
+    LEGACY_THEME_ID_ALIASES[rawThemeId as keyof typeof LEGACY_THEME_ID_ALIASES];
+
+  if (aliasedThemeId) {
+    return aliasedThemeId;
   }
 
   const legacyAccent = normalizeHexColor(settings?.accentColor, "");

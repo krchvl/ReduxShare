@@ -25,7 +25,7 @@ const THEME_NAME_KEYS: Record<ThemeId, TranslationKey> = {
   ocean: "settings.theme.preset.ocean",
   devil: "settings.theme.preset.devil",
   forest: "settings.theme.preset.forest",
-  violet: "settings.theme.preset.violet",
+  monochrome: "settings.theme.preset.monochrome",
   pearl: "settings.theme.preset.pearl",
   custom: "settings.theme.preset.custom",
 };
