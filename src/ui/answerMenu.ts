@@ -871,11 +871,8 @@ export function getAnswerTriggerMarkup() {
 
       .delay-progress {
         display: block;
-        height: 5px;
+        max-width: 260px;
         margin-top: 4px;
-        border-radius: 3px;
-        background: rgba(0, 0, 0, 0.38);
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
         pointer-events: none;
       }
 
@@ -884,7 +881,16 @@ export function getAnswerTriggerMarkup() {
         right: 0;
         bottom: -9px;
         left: 0;
+        max-width: none;
         margin-top: 0;
+      }
+
+      .delay-progress-track {
+        display: block;
+        height: 5px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.38);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
       }
 
       .delay-progress-fill {
@@ -899,14 +905,16 @@ export function getAnswerTriggerMarkup() {
       .delay-progress__seconds {
         display: block;
         margin-top: 3px;
-        color: rgba(232, 235, 242, 0.96);
+        color: var(--reduxshare-accent);
         font-family: Inter, Arial, sans-serif;
         font-size: 9px;
         font-weight: 400;
         font-variant-numeric: tabular-nums;
         letter-spacing: 0.2px;
         line-height: 1;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+        text-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.75),
+          0 0 6px rgba(0, 0, 0, 0.45);
         transition: opacity 120ms ease;
         -webkit-font-smoothing: antialiased;
       }
@@ -920,14 +928,16 @@ export function getAnswerTriggerMarkup() {
         text-align: center;
       }
 
-      :host([data-theme="light"]) .delay-progress {
+      :host([data-theme="light"]) .delay-progress-track {
         background: rgba(15, 18, 26, 0.16);
         box-shadow: 0 0 0 1px rgba(15, 18, 26, 0.14);
       }
 
       :host([data-theme="light"]) .delay-progress__seconds {
-        color: rgba(58, 63, 74, 0.95);
-        text-shadow: 0 1px 1px rgba(255, 255, 255, 0.85);
+        color: color-mix(in srgb, var(--reduxshare-accent) 55%, #0d1016);
+        text-shadow:
+          0 1px 1px rgba(255, 255, 255, 0.9),
+          0 0 5px rgba(255, 255, 255, 0.7);
       }
     </style>
 
@@ -964,7 +974,7 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null, 
       element.className = ANSWER_DELAY_PROGRESS_CLASS;
       element.setAttribute("role", "progressbar");
       element.setAttribute("aria-label", "ReduxShare");
-      element.innerHTML = `<span class="delay-progress-fill"></span><span class="delay-progress__seconds" aria-hidden="true"></span>`;
+      element.innerHTML = `<span class="delay-progress-track"><span class="delay-progress-fill"></span></span><span class="delay-progress__seconds" aria-hidden="true"></span>`;
       parent.append(element);
       return element;
     })();

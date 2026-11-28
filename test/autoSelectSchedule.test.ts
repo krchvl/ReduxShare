@@ -199,16 +199,24 @@ describe("paced auto-select on a live quiz page", () => {
     const stylesheet = hosts[0].shadowRoot?.querySelector("style")?.textContent ?? "";
 
     expect(stylesheet).toMatch(/\.delay-progress \{[^}]*display: block/);
+    expect(stylesheet).toMatch(/\.delay-progress \{[^}]*max-width: 260px/);
     expect(stylesheet).toMatch(/\.delay-progress__seconds \{[^}]*font-weight: 400/);
+    expect(stylesheet).toMatch(
+      /\.delay-progress__seconds \{[^}]*color: var\(--reduxshare-accent\)/,
+    );
     expect(stylesheet).toMatch(
       /:host\(\[data-reduxshare-inline-widget="true"\]\) \.delay-progress \{/,
     );
 
     for (const host of hosts) {
       const progress = host.shadowRoot?.querySelector<HTMLElement>(".delay-progress");
+      const track = host.shadowRoot?.querySelector<HTMLElement>(".delay-progress-track");
       const seconds = host.shadowRoot?.querySelector<HTMLElement>(".delay-progress__seconds");
 
       expect(progress?.parentNode).toBe(host.shadowRoot);
+      expect(track?.parentNode).toBe(progress);
+      expect(seconds?.parentNode).toBe(progress);
+      expect(track?.nextElementSibling).toBe(seconds);
       expect(seconds?.textContent).toMatch(/^\d+\.\ds$/);
     }
   });
