@@ -10,6 +10,8 @@ import { isAuthSessionForProvider, isFirebaseBackend } from "./lib/envConfig";
 import { setActivePocketBaseUrl } from "./lib/pocketbase";
 import { loadStoredState, patchStoredState, type StoredStatePatch } from "./lib/storage";
 import { getActiveTabHostname } from "./lib/tabs";
+import { getThemeKind } from "./shared/themePalettes";
+import { createThemeSplashTrigger } from "./shared/themeSplash";
 import { normalizeUpdateState, requestUpdateCheck } from "./lib/updates";
 import { requestTouchUserProfile } from "./lib/userProfiles";
 import {
@@ -18,7 +20,6 @@ import {
   DEFAULT_UPDATE_STATE,
   normalizePopupState,
   normalizeSettings,
-  resolveColorScheme,
   type AuthSession,
   type LoginCredentials,
   type PopupState,
@@ -100,20 +101,16 @@ export function App() {
   const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [registerMessage, setRegisterMessage] = useState<string | null>(null);
-  const [, setSystemSchemeTick] = useState(0);
   const t = useMemo(() => getTranslator(settings.language), [settings.language]);
-  const colorScheme = resolveColorScheme(settings.colorScheme);
-  const previousColorSchemeRef = useRef(colorScheme);
+  const themeKind = getThemeKind(settings);
+  const themeSplashTriggerRef = useRef(createThemeSplashTrigger());
 
   useEffect(() => {
-    document.documentElement.dataset.theme = colorScheme;
-  }, [colorScheme]);
+    document.documentElement.dataset.theme = themeKind;
+  }, [themeKind]);
 
   useEffect(() => {
-    const previousColorScheme = previousColorSchemeRef.current;
-    previousColorSchemeRef.current = colorScheme;
-
-    if (!hydrated || previousColorScheme === colorScheme) {
+    if (!themeSplashTriggerRef.current(settings.themeId, hydrated)) {
       return undefined;
     }
 
@@ -121,27 +118,7 @@ export function App() {
     const timeoutId = window.setTimeout(() => setIsThemeSplashVisible(false), 620);
 
     return () => window.clearTimeout(timeoutId);
-  }, [colorScheme, hydrated]);
-
-  useEffect(() => {
-    if (
-      settings.colorScheme !== "system" ||
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    ) {
-      return undefined;
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
-    const handleChange = () => setSystemSchemeTick((tick) => tick + 1);
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
-    }
-
-    return undefined;
-  }, [settings.colorScheme]);
+  }, [settings.themeId, hydrated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -419,7 +396,8 @@ export function App() {
       <ErrorBoundary>
         <Shell
           extensionEnabled={settings.extensionEnabled}
-          accentColor={settings.accentColor}
+          themeId={settings.themeId}
+          customTheme={settings.customTheme}
           updateState={updateState}
           popupOpacity={settings.popupOpacity}
           showHeader={view !== "main" || menuOpen}

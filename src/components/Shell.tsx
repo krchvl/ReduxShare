@@ -1,59 +1,98 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from "react";
 import { Header } from "./Header";
 import type { UpdateState } from "../types";
+import {
+  deriveCustomPalette,
+  getSwitchHandleColor,
+  getThemeKind,
+  normalizeCustomThemePalette,
+  resolveThemeId,
+  THEMES,
+  type CustomThemePalette,
+  type ThemeId,
+  type ThemePalette,
+} from "../shared/themePalettes";
 
 interface ShellProps {
   children: ReactNode;
   extensionEnabled: boolean;
-  accentColor: string;
+  themeId: ThemeId;
+  customTheme: CustomThemePalette;
   updateState: UpdateState;
   popupOpacity: number;
   showHeader?: boolean;
 }
 
 const DISABLED_ACCENT_COLOR = "#9ca3aa";
+const DISABLED_ACCENT_SOFT_COLOR = "#c1c6cc";
 
-function mixHexWithWhite(hexColor: string, amount: number) {
-  const normalizedColor = /^#[0-9a-f]{6}$/i.test(hexColor) ? hexColor.slice(1) : "9cb9f6";
-  const channel = (start: number) => Math.round(start + (255 - start) * amount);
-  const red = channel(Number.parseInt(normalizedColor.slice(0, 2), 16));
-  const green = channel(Number.parseInt(normalizedColor.slice(2, 4), 16));
-  const blue = channel(Number.parseInt(normalizedColor.slice(4, 6), 16));
-
-  return `#${[red, green, blue].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
-}
+const POPUP_PALETTE_VARS = {
+  "--accent": "accent",
+  "--accent-soft": "accentSoft",
+  "--accent-strong": "accentStrong",
+  "--background-main": "backgroundMain",
+  "--background-panel": "backgroundPanel",
+  "--background-panel-soft": "backgroundPanelSoft",
+  "--input-color": "inputColor",
+  "--border": "border",
+  "--border-strong": "borderStrong",
+  "--muted": "muted",
+  "--disabled": "disabled",
+  "--white": "textPrimary",
+  "--black": "textOnAccent",
+  "--beta": "beta",
+  "--danger": "danger",
+  "--success": "success",
+  "--warning": "warning",
+} as const satisfies Record<string, keyof ThemePalette>;
 
 export function Shell({
   children,
   extensionEnabled,
-  accentColor,
+  themeId,
+  customTheme,
   updateState,
   popupOpacity,
   showHeader = true,
 }: ShellProps) {
-  const effectiveAccentColor = extensionEnabled ? accentColor : DISABLED_ACCENT_COLOR;
+  const resolvedThemeId = resolveThemeId({ themeId });
+  const palette = useMemo<ThemePalette>(
+    () =>
+      resolvedThemeId === "custom"
+        ? deriveCustomPalette(normalizeCustomThemePalette(customTheme))
+        : THEMES[resolvedThemeId].palette,
+    [resolvedThemeId, customTheme],
+  );
+  const themeKind = useMemo(() => getThemeKind({ themeId, customTheme }), [themeId, customTheme]);
+  const accentColor = extensionEnabled ? palette.accent : DISABLED_ACCENT_COLOR;
+  const accentSoftColor = extensionEnabled ? palette.accentSoft : DISABLED_ACCENT_SOFT_COLOR;
+  const switchHandleColor = getSwitchHandleColor(accentColor, palette.textOnAccent);
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--accent", effectiveAccentColor);
-    root.style.setProperty("--accent-soft", mixHexWithWhite(effectiveAccentColor, 0.28));
-    return () => {
-      root.style.removeProperty("--accent");
-      root.style.removeProperty("--accent-soft");
-    };
-  }, [effectiveAccentColor]);
+
+    root.dataset.theme = themeKind;
+
+    for (const [cssVar, paletteKey] of Object.entries(POPUP_PALETTE_VARS)) {
+      root.style.setProperty(cssVar, palette[paletteKey]);
+    }
+
+    root.style.setProperty("--accent", accentColor);
+    root.style.setProperty("--accent-soft", accentSoftColor);
+    root.style.setProperty("--switch-handle", switchHandleColor);
+  }, [palette, accentColor, accentSoftColor, switchHandleColor, themeKind]);
+
+  const shellStyle = {
+    "--accent": accentColor,
+    "--accent-soft": accentSoftColor,
+    opacity: popupOpacity,
+  } as CSSProperties;
 
   return (
     <main
       className="popup-shell"
       data-extension-enabled={extensionEnabled ? "true" : "false"}
-      style={
-        {
-          "--accent": effectiveAccentColor,
-          "--accent-soft": mixHexWithWhite(effectiveAccentColor, 0.28),
-          opacity: popupOpacity,
-        } as CSSProperties
-      }
+      style={shellStyle}
     >
       {showHeader && <Header updateState={updateState} />}
       {children}

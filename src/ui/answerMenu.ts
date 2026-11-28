@@ -1,13 +1,13 @@
-import {
-  DEFAULT_ACCENT_COLOR,
-  type AiAnswerState,
-  type AnswerData,
-  type EssayExampleEntry,
-  type SourceAnswerData,
-  type StoredStateLike,
-  type SubmissionItem,
-  type SuggestionItem,
+import type {
+  AiAnswerState,
+  AnswerData,
+  EssayExampleEntry,
+  SourceAnswerData,
+  StoredStateLike,
+  SubmissionItem,
+  SuggestionItem,
 } from "../model";
+import { CONTENT_THEME_HOST_DEFAULTS } from "../logic/theme";
 import { getContentTranslator, type TranslateFn } from "../i18n/contentI18n";
 import { getBooleanSuggestionValue } from "../shared/answerParsing";
 import { isDownvotedAnswerItem } from "../data/answerData";
@@ -805,7 +805,7 @@ export function getAnswerTriggerMarkup() {
     <style>
       :host {
         all: initial;
-        --reduxshare-accent: ${DEFAULT_ACCENT_COLOR};
+        ${CONTENT_THEME_HOST_DEFAULTS}
         display: block;
         position: relative;
         width: max-content;
@@ -1009,7 +1009,7 @@ export function getAnswerMenuMarkup(
     <style>
       :host {
         all: initial;
-        --reduxshare-accent: ${DEFAULT_ACCENT_COLOR};
+        ${CONTENT_THEME_HOST_DEFAULTS}
         display: block;
         position: fixed;
         top: 0;
@@ -1031,9 +1031,9 @@ export function getAnswerMenuMarkup(
         width: 348px;
         max-width: calc(100vw - 24px);
         min-height: 100%;
-        border: 1px solid rgba(32, 32, 32, 0.78);
+        border: 1px solid var(--reduxshare-border-strong);
         border-radius: 6px;
-        background: #000000;
+        background: var(--reduxshare-panel);
         box-shadow:
           0 12px 28px rgba(0, 0, 0, 0.22),
           0 2px 8px rgba(0, 0, 0, 0.14);
@@ -1064,7 +1064,7 @@ export function getAnswerMenuMarkup(
         display: grid;
         grid-template-columns: repeat(var(--menu-tab-count, 3), minmax(0, 1fr));
         min-height: 58px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid var(--reduxshare-border);
         overflow: hidden;
       }
 
@@ -1090,9 +1090,9 @@ export function getAnswerMenuMarkup(
         align-content: center;
         justify-items: center;
         gap: 4px;
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        border-right: 1px solid var(--reduxshare-border);
         padding: 7px 6px 9px;
-        color: rgba(255, 255, 255, 0.62);
+        color: var(--reduxshare-muted);
         cursor: pointer;
         font-family: Inter, Arial, sans-serif;
         font-size: 10.5px;
@@ -1111,14 +1111,14 @@ export function getAnswerMenuMarkup(
 
       .menu-tab:not([data-active="true"]):hover,
       .menu-tab:not([data-active="true"]):focus-visible {
-        background: rgba(255, 255, 255, 0.045);
-        color: #ffffff;
+        background: color-mix(in srgb, var(--reduxshare-text) 5%, transparent);
+        color: var(--reduxshare-text);
         outline: 0;
       }
 
       .menu-tab[data-active="true"] {
         color: var(--reduxshare-accent);
-        background: rgba(255, 255, 255, 0.03);
+        background: color-mix(in srgb, var(--reduxshare-text) 4%, transparent);
       }
 
       .menu-tab__icon {
@@ -1184,8 +1184,8 @@ export function getAnswerMenuMarkup(
         align-items: center;
         gap: 8px;
         padding: 7px 10px 7px 9px;
-        background: #000000;
-        color: #ffffff;
+        background: var(--reduxshare-panel);
+        color: var(--reduxshare-text);
         cursor: pointer;
         overflow: visible;
         transition:
@@ -1205,7 +1205,7 @@ export function getAnswerMenuMarkup(
         position: absolute;
         inset: 0;
         z-index: 0;
-        background: #ffffff;
+        background: var(--reduxshare-text);
         content: "";
         opacity: 0;
         pointer-events: none;
@@ -1213,7 +1213,7 @@ export function getAnswerMenuMarkup(
       }
 
       .menu-item + .menu-item {
-        border-top: 1px solid rgba(32, 32, 32, 0.72);
+        border-top: 1px solid var(--reduxshare-border);
       }
 
       .menu-ai-button {
@@ -1226,8 +1226,8 @@ export function getAnswerMenuMarkup(
         align-items: center;
         gap: 8px;
         padding: 7px 10px 7px 9px;
-        background: #000000;
-        color: #ffffff;
+        background: var(--reduxshare-panel);
+        color: var(--reduxshare-text);
         cursor: pointer;
         overflow: hidden;
         transition:
@@ -1242,8 +1242,8 @@ export function getAnswerMenuMarkup(
 
       .menu-ai-button:hover,
       .menu-ai-button:focus-visible {
-        background: #181818;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        background: color-mix(in srgb, var(--reduxshare-text) 9%, var(--reduxshare-panel));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reduxshare-text) 9%, transparent);
         outline: 0;
       }
 
@@ -1254,7 +1254,7 @@ export function getAnswerMenuMarkup(
 
       .menu-ai-button + .menu-ai-button,
       .menu-ai-button + .menu-item {
-        border-top: 1px solid rgba(32, 32, 32, 0.72);
+        border-top: 1px solid var(--reduxshare-border);
       }
 
       .menu-ai-button[hidden],
@@ -1264,8 +1264,8 @@ export function getAnswerMenuMarkup(
 
       .menu-item:hover,
       .menu-item:focus-visible {
-        background: #050505;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+        background: color-mix(in srgb, var(--reduxshare-text) 3%, var(--reduxshare-panel));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reduxshare-text) 5%, transparent);
         outline: 0;
       }
 
@@ -1295,7 +1295,7 @@ export function getAnswerMenuMarkup(
 
       .label {
         overflow: hidden;
-        color: #ffffff;
+        color: var(--reduxshare-text);
         font-family: Inter, Arial, sans-serif;
         font-size: 14px;
         font-weight: 540;
@@ -1341,9 +1341,9 @@ export function getAnswerMenuMarkup(
         left: calc(100% - 4px);
         width: 190px;
         min-height: calc(100% + 2px);
-        border: 1px solid rgba(32, 32, 32, 0.78);
+        border: 1px solid var(--reduxshare-border-strong);
         border-radius: 5px;
-        background: #000000;
+        background: var(--reduxshare-panel);
         box-shadow:
           0 12px 28px rgba(0, 0, 0, 0.22),
           0 2px 8px rgba(0, 0, 0, 0.14);
@@ -1369,7 +1369,7 @@ export function getAnswerMenuMarkup(
 
       .flyout-text {
         padding: 5px 7px;
-        color: #ffffff;
+        color: var(--reduxshare-text);
         font-family: Inter, Arial, sans-serif;
         font-size: 13px;
         font-weight: 400;
@@ -1385,7 +1385,7 @@ export function getAnswerMenuMarkup(
       }
 
       .flyout-text--error {
-        color: #f87171;
+        color: var(--reduxshare-danger);
       }
 
       .flyout-row {
@@ -1400,7 +1400,7 @@ export function getAnswerMenuMarkup(
       .flyout-label {
         flex: 1;
         overflow: hidden;
-        color: #ffffff;
+        color: var(--reduxshare-text);
         font-family: Inter, Arial, sans-serif;
         font-size: 13px;
         font-weight: 400;
@@ -1409,7 +1409,7 @@ export function getAnswerMenuMarkup(
       }
 
       .flyout-label--wrong {
-        color: #f87171;
+        color: var(--reduxshare-danger);
         text-decoration: line-through;
         text-decoration-thickness: 1px;
       }
@@ -1428,9 +1428,9 @@ export function getAnswerMenuMarkup(
         display: grid;
         gap: 4px;
         width: 230px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        border: 1px solid var(--reduxshare-border);
         border-radius: 8px;
-        background: rgba(18, 19, 26, 0.97);
+        background: color-mix(in srgb, var(--reduxshare-panel) 97%, transparent);
         box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
         padding: 10px 12px;
         pointer-events: none;
@@ -1452,7 +1452,7 @@ export function getAnswerMenuMarkup(
 
       .flyout-hovercard__title {
         overflow: hidden;
-        color: #ffffff;
+        color: var(--reduxshare-text);
         font-family: Inter, Arial, sans-serif;
         font-size: 13px;
         font-weight: 700;
@@ -1462,7 +1462,7 @@ export function getAnswerMenuMarkup(
       }
 
       .flyout-hovercard__line {
-        color: rgba(255, 255, 255, 0.66);
+        color: var(--reduxshare-muted);
         font-family: Inter, Arial, sans-serif;
         font-size: 11.5px;
         font-weight: 400;
@@ -1494,7 +1494,7 @@ export function getAnswerMenuMarkup(
         box-sizing: border-box;
         padding: 2px 3px;
         border-radius: 3px;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--reduxshare-disabled);
         cursor: pointer;
       }
 
@@ -1509,8 +1509,8 @@ export function getAnswerMenuMarkup(
       }
 
       .flyout-vote-btn:hover {
-        background: rgba(255, 255, 255, 0.09);
-        color: #ffffff;
+        background: color-mix(in srgb, var(--reduxshare-text) 9%, transparent);
+        color: var(--reduxshare-text);
       }
 
       .flyout-vote-btn--active {
@@ -1530,11 +1530,11 @@ export function getAnswerMenuMarkup(
       }
 
       .flyout-label--dubious {
-        color: #fbbf24;
+        color: var(--reduxshare-warning);
       }
 
       .flyout-label--wrong.flyout-label--dubious {
-        text-decoration-color: #fbbf24;
+        text-decoration-color: var(--reduxshare-warning);
       }
 
       .essay-examples-list {
@@ -1550,7 +1550,7 @@ export function getAnswerMenuMarkup(
         flex-direction: column;
         gap: 6px;
         padding: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--reduxshare-border);
         border-radius: 6px;
       }
 
@@ -1604,7 +1604,7 @@ export function getAnswerMenuMarkup(
 
       .flyout-option + .flyout-option {
         margin-top: 3px;
-        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 1px solid var(--reduxshare-border);
       }
 
       .flyout-option {
@@ -1624,7 +1624,7 @@ export function getAnswerMenuMarkup(
         position: absolute;
         inset: 0;
         z-index: 0;
-        background: #ffffff;
+        background: var(--reduxshare-text);
         content: "";
         opacity: 0;
         pointer-events: none;
@@ -1633,8 +1633,8 @@ export function getAnswerMenuMarkup(
 
       .flyout-option:hover,
       .flyout-option:focus-visible {
-        background: #050505;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+        background: color-mix(in srgb, var(--reduxshare-text) 3%, var(--reduxshare-panel));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reduxshare-text) 5%, transparent);
         outline: 0;
         transform: translateY(-1px);
       }
@@ -1651,7 +1651,7 @@ export function getAnswerMenuMarkup(
 
       .flyout-empty {
         padding: 5px 7px;
-        color: rgba(255, 255, 255, 0.35);
+        color: color-mix(in srgb, var(--reduxshare-disabled) 75%, transparent);
         font-family: Inter, Arial, sans-serif;
         font-size: 13px;
         pointer-events: none;
@@ -1663,7 +1663,7 @@ export function getAnswerMenuMarkup(
 
       .menu-empty {
         padding: 8px 10px;
-        color: rgba(255, 255, 255, 0.42);
+        color: color-mix(in srgb, var(--reduxshare-disabled) 85%, transparent);
         font-family: Inter, Arial, sans-serif;
         font-size: 13px;
         line-height: 1.25;
@@ -1672,7 +1672,7 @@ export function getAnswerMenuMarkup(
 
       .ai-settings-missing {
         padding: 14px 12px;
-        color: rgba(255, 255, 255, 0.58);
+        color: var(--reduxshare-muted);
         font-family: Inter, Arial, sans-serif;
         font-size: 13px;
         font-weight: 420;
@@ -1691,140 +1691,24 @@ export function getAnswerMenuMarkup(
       }
 
       :host([data-theme="light"]) .menu {
-        border-color: rgba(15, 20, 35, 0.14);
-        background: #ffffff;
+        border-color: var(--reduxshare-border);
         box-shadow:
           0 12px 28px rgba(20, 30, 60, 0.16),
           0 2px 8px rgba(20, 30, 60, 0.1);
-      }
-
-      :host([data-theme="light"]) .menu-tabs {
-        border-bottom-color: rgba(15, 20, 35, 0.1);
-      }
-
-      :host([data-theme="light"]) .menu-tab {
-        border-right-color: rgba(15, 20, 35, 0.08);
-        color: rgba(20, 25, 40, 0.6);
-      }
-
-      :host([data-theme="light"]) .menu-tab:not([data-active="true"]):hover,
-      :host([data-theme="light"]) .menu-tab:not([data-active="true"]):focus-visible {
-        background: rgba(15, 20, 35, 0.05);
-        color: #14171d;
       }
 
       :host([data-theme="light"]) .menu-tab[data-active="true"],
       :host([data-theme="light"]) .icon,
       :host([data-theme="light"]) .chevron {
-        color: color-mix(in srgb, var(--reduxshare-accent) 62%, #16213c);
-      }
-
-      :host([data-theme="light"]) .menu-tab[data-active="true"] {
-        background: color-mix(in srgb, var(--reduxshare-accent) 10%, transparent);
-      }
-
-      :host([data-theme="light"]) .menu-item,
-      :host([data-theme="light"]) .menu-ai-button {
-        background: #ffffff;
-        color: #14171d;
-      }
-
-      :host([data-theme="light"]) .menu-item::before {
-        background: #14171d;
-      }
-
-      :host([data-theme="light"]) .menu-item + .menu-item,
-      :host([data-theme="light"]) .menu-ai-button + .menu-ai-button,
-      :host([data-theme="light"]) .menu-ai-button + .menu-item {
-        border-top-color: rgba(15, 20, 35, 0.08);
-      }
-
-      :host([data-theme="light"]) .menu-ai-button:hover,
-      :host([data-theme="light"]) .menu-ai-button:focus-visible,
-      :host([data-theme="light"]) .menu-item:hover,
-      :host([data-theme="light"]) .menu-item:focus-visible {
-        background: #f2f4f8;
-        box-shadow: inset 0 0 0 1px rgba(15, 20, 35, 0.07);
-      }
-
-      :host([data-theme="light"]) .label {
-        color: #14171d;
+        color: var(--reduxshare-accent-strong);
       }
 
       :host([data-theme="light"]) .flyout {
-        border-color: rgba(15, 20, 35, 0.14);
-        background: #ffffff;
+        border-color: var(--reduxshare-border);
         box-shadow:
           0 12px 28px rgba(20, 30, 60, 0.16),
           0 2px 8px rgba(20, 30, 60, 0.1);
       }
-
-      :host([data-theme="light"]) .flyout-text,
-      :host([data-theme="light"]) .flyout-label {
-        color: #14171d;
-      }
-
-      :host([data-theme="light"]) .flyout-text--error,
-      :host([data-theme="light"]) .flyout-label--wrong {
-        color: #d9484f;
-      }
-
-      :host([data-theme="light"]) .flyout-meta {
-        color: rgba(20, 25, 40, 0.6);
-      }
-
-      :host([data-theme="light"]) .flyout-empty,
-      :host([data-theme="light"]) .menu-empty {
-        color: rgba(20, 25, 40, 0.5);
-      }
-
-      :host([data-theme="light"]) .ai-settings-missing {
-        color: rgba(20, 25, 40, 0.66);
-      }
-
-      :host([data-theme="light"]) .flyout-option + .flyout-option {
-        border-top-color: rgba(15, 20, 35, 0.08);
-      }
-
-      :host([data-theme="light"]) .flyout-option::before {
-        background: #14171d;
-      }
-
-      :host([data-theme="light"]) .flyout-option:hover,
-      :host([data-theme="light"]) .flyout-option:focus-visible {
-        background: #f2f4f8;
-        box-shadow: inset 0 0 0 1px rgba(15, 20, 35, 0.07);
-      }
-
-      :host([data-theme="light"]) .flyout-hovercard {
-        border-color: rgba(15, 20, 35, 0.14);
-        background: rgba(255, 255, 255, 0.97);
-        box-shadow: 0 16px 40px rgba(20, 30, 60, 0.2);
-      }
-
-      :host([data-theme="light"]) .flyout-hovercard__title {
-        color: #14171d;
-      }
-
-      :host([data-theme="light"]) .flyout-hovercard__line {
-        color: rgba(20, 25, 40, 0.66);
-      }
-
-      :host([data-theme="light"]) .flyout-vote-btn {
-        color: rgba(20, 25, 40, 0.45);
-      }
-
-      :host([data-theme="light"]) .flyout-vote-btn:hover {
-        background: rgba(20, 25, 40, 0.08);
-        color: #14171d;
-      }
-
-      :host([data-theme="light"]) .flyout-label--dubious {
-        color: #b45309;
-      }
-
-      :host([data-theme="light"]) .flyout-label--wrong.flyout-label--dubious {
-        text-decoration-color: #b45309;
       }
 
       @media (max-width: 640px) {

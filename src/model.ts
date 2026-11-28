@@ -2,12 +2,7 @@ import type { AuthSession, Settings, UpdateState, UserProfile } from "./types";
 
 export const ANSWER_WIDGET_ATTR = "data-reduxshare-answer-widget";
 export const ANSWER_MENU_PORTAL_ATTR = "data-reduxshare-answer-menu-portal";
-export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
-export const LEGACY_THEME_ACCENTS = {
-  Night: "#9cb9f6",
-  Devil: "#ff6b6f",
-  Peace: "#76d982",
-} as const;
+export { DEFAULT_ACCENT_COLOR } from "./shared/themePalettes";
 export const DEFAULT_HOTKEY = "R";
 export const DEFAULT_HOTKEY_CODE = "KeyR";
 export const MAX_METADATA_WAIT_MS = 10_000;

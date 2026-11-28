@@ -27,7 +27,7 @@ export interface QuizAttemptDemoApi {
     source: "reduxshare" | "external",
     data: AnswerData,
   ) => void;
-  mountAnswerWidgets: (accentColor: string) => void;
+  mountAnswerWidgets: () => void;
 }
 
 export const DEMO_ACCENT_COLOR = "#9cb9f6";
@@ -330,8 +330,16 @@ export function buildStoredState(): StoredStateLike {
       extensionEnabled: true,
       autoSelect: false,
       language: "ru",
-      accentColor: DEMO_ACCENT_COLOR,
-      colorScheme: "dark",
+      themeId: "standard",
+      customTheme: {
+        accent: DEMO_ACCENT_COLOR,
+        backgroundMain: "#222322",
+        backgroundPanel: "#242525",
+        backgroundPanelSoft: "#292a2a",
+        inputColor: "#1e1f1f",
+        textPrimary: "#ffffff",
+        textMuted: "#aaa9a9",
+      },
       ai: {
         provider: "google",
         model: "gemini-2.5-flash",

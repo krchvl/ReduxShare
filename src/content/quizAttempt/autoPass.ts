@@ -12,7 +12,7 @@ import {
 import { AUTO_PASS_SESSION_STORAGE_KEY } from "../../shared/storageKeys";
 import { canUseQuizFeatures, isLoggedInToExtension } from "../../logic/settings";
 import { logReduxShareInfo, logReduxShareWarning } from "../../logic/runtime";
-import { applyContentColorSchemeToHost, getAccentColor, getRgbCssValue } from "../../logic/theme";
+import { applyContentThemeToHost } from "../../logic/theme";
 import {
   answerDataByQuestionId,
   currentQuizAttemptContext,
@@ -703,11 +703,7 @@ export function updateAutoPassStartButton(button: HTMLElement): void {
     shadow.innerHTML = AUTO_PASS_START_BUTTON_MARKUP;
   }
 
-  const accentColor = getAccentColor(currentStoredState?.settings);
-
-  button.style.setProperty("--reduxshare-accent", accentColor);
-  button.style.setProperty("--reduxshare-accent-rgb", getRgbCssValue(accentColor));
-  applyContentColorSchemeToHost(button);
+  applyContentThemeToHost(button);
 
   const labelNode = shadow.querySelector<HTMLElement>(".apx-trigger-label");
   const label = currentT("quiz.autoPass.buttonStart");
@@ -900,9 +896,9 @@ const AUTO_PASS_SUMMARY_NOTICE_MARKUP = `
       border-radius: 14px;
       background:
         radial-gradient(circle at top right, rgba(var(--reduxshare-accent-rgb), 0.14), transparent 60%),
-        linear-gradient(180deg, rgba(19, 20, 27, 0.97), rgba(15, 16, 22, 0.94));
+        color-mix(in srgb, var(--reduxshare-panel, #17181f) 95%, transparent);
       box-shadow: 0 18px 36px rgba(0, 0, 0, 0.32);
-      color: #f6f7fb;
+      color: var(--reduxshare-text, #f6f7fb);
       font-size: 13px;
       line-height: 1.45;
       pointer-events: auto;
@@ -912,8 +908,8 @@ const AUTO_PASS_SUMMARY_NOTICE_MARKUP = `
     :host([data-theme="light"]) .notice {
       background:
         radial-gradient(circle at top right, rgba(var(--reduxshare-accent-rgb), 0.12), transparent 60%),
-        linear-gradient(180deg, rgba(252, 252, 255, 0.98), rgba(244, 245, 250, 0.96));
-      color: #1c2233;
+        var(--reduxshare-panel, #f7f8fa);
+      color: var(--reduxshare-text, #1c2233);
     }
 
     .notice__icon {
@@ -969,11 +965,7 @@ function showAutoPassSummaryNotice(): void {
 
   shadow.innerHTML = AUTO_PASS_SUMMARY_NOTICE_MARKUP;
 
-  const accentColor = getAccentColor(currentStoredState?.settings);
-
-  host.style.setProperty("--reduxshare-accent", accentColor);
-  host.style.setProperty("--reduxshare-accent-rgb", getRgbCssValue(accentColor));
-  applyContentColorSchemeToHost(host);
+  applyContentThemeToHost(host);
 
   const textNode = shadow.querySelector<HTMLElement>(".notice__text");
 

@@ -5,7 +5,6 @@ import { essayExamplesByQuestionId } from "../state";
 import { getTranslator } from "../i18n";
 import { I18nProvider, useI18n } from "../i18n/react";
 import {
-  DEMO_ACCENT_COLOR,
   buildStoredState,
   getEssayExamplesForQuestion,
   installChromeMock,
@@ -74,7 +73,7 @@ async function boot() {
   api.setSourceAnswerData("1385", "external", multichoiceExternalAnswerData());
   api.setSourceAnswerData("3699", "reduxshare", matchAnswerData());
   api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
-  api.mountAnswerWidgets(DEMO_ACCENT_COLOR);
+  api.mountAnswerWidgets();
 
   essayExamplesByQuestionId.set("2101", getEssayExamplesForQuestion("2101"));
 

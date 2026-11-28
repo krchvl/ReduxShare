@@ -61,7 +61,7 @@ function mountMultichoiceWithExactSlots(api: Awaited<ReturnType<typeof getQuizAt
     ]),
   );
 
-  api.mountAnswerWidgets("#5eead4");
+  api.mountAnswerWidgets();
 }
 
 describe("auto-pass tray action", () => {

@@ -87,7 +87,7 @@ describe("paced auto-select on a live quiz page", () => {
         }),
       ]),
     );
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = getSubZeroSelect();
     vi.stubGlobal(TEST_MODE_STUB, false);

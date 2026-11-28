@@ -706,7 +706,6 @@ describe("AI quiz behavior", () => {
       const questionNode = loadQuestionFixture(type, caseName);
       const answerNode = questionNode.querySelector(".answer, .ddarea")!;
       const host = api.createAnswerWidgetHost(
-        "#76d982",
         questionId,
         api.createEmptyVariantCounts(),
         api.createEmptySourceAnswerData(),
@@ -751,7 +750,6 @@ describe("AI explain flow", () => {
     const questionNode = loadQuestionFixture("multichoice", "attempt");
     const answerNode = questionNode.querySelector(".answer")!;
     const host = api.createAnswerWidgetHost(
-      "#76d982",
       "1385",
       api.createEmptyVariantCounts(),
       api.createEmptySourceAnswerData(),

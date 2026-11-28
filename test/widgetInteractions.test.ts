@@ -66,7 +66,6 @@ function mountChoiceWidget(
   expect(label).toBeInstanceOf(HTMLElement);
 
   const host = api.createAnswerWidgetHost(
-    "#ff6b6f",
     "1385",
     api.createEmptyVariantCounts(),
     answerData,
@@ -92,7 +91,7 @@ describe("R-menu widget interactions", () => {
     vi.useRealTimers();
   });
 
-  it("propagates accent color changes from storage to widgets", async () => {
+  it("propagates theme accent changes from storage to widgets", async () => {
     const api = await getQuizAttemptTestApi();
     loadQuestionFixture("match", "attempt");
     removeFixtureWidgetPlaceholders();
@@ -100,7 +99,7 @@ describe("R-menu widget interactions", () => {
       settings: {
         extensionEnabled: true,
         language: "ru",
-        accentColor: "#9cb9f6",
+        themeId: "standard",
       },
       authSession: null,
     });
@@ -111,7 +110,7 @@ describe("R-menu widget interactions", () => {
     syncContentUi();
     syncAnswerWidgetHotkey(currentState);
     syncPageOverlayOpacity(currentState);
-    api.mountAnswerWidgets("#9cb9f6");
+    api.mountAnswerWidgets();
 
     api.watchStoredSettingsChanges();
 
@@ -127,7 +126,7 @@ describe("R-menu widget interactions", () => {
       settings: {
         extensionEnabled: true,
         language: "ru",
-        accentColor: "#9cb9f6",
+        themeId: "standard",
       },
       authSession: null,
     };
@@ -140,7 +139,7 @@ describe("R-menu widget interactions", () => {
         settings: {
           extensionEnabled: true,
           language: "ru",
-          accentColor: "#ff0000",
+          themeId: "devil",
         },
         authSession: null,
       },
@@ -149,7 +148,7 @@ describe("R-menu widget interactions", () => {
     for (const host of Array.from(
       document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
     )) {
-      expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#ff0000");
+      expect(host.style.getPropertyValue("--reduxshare-accent")).toBe("#ff6b6f");
     }
   });
 
@@ -161,11 +160,11 @@ describe("R-menu widget interactions", () => {
       settings: {
         extensionEnabled: true,
         language: "ru",
-        colorScheme: "light",
+        themeId: "daylight",
       },
       authSession: null,
     });
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const hosts = Array.from(
       document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
@@ -392,7 +391,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const host = document.querySelector<HTMLElement>(
       '[data-reduxshare-choice-input-id="q125:1_choice0"]',
@@ -430,7 +429,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const host = document.querySelector<HTMLElement>(
       '[data-reduxshare-choice-input-id="q125:1_choice1"]',
@@ -478,7 +477,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -522,7 +521,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -576,7 +575,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -632,7 +631,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -686,7 +685,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -731,7 +730,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq126:12_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -840,7 +839,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const select = document.getElementById("menuq130:4_sub0") as HTMLSelectElement;
     expect(select).toBeInstanceOf(HTMLSelectElement);
@@ -897,7 +896,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const firstSelect = document.getElementById("menuq130:4_sub0") as HTMLSelectElement;
     expect(firstSelect).toBeInstanceOf(HTMLSelectElement);
@@ -953,7 +952,7 @@ describe("R-menu widget interactions", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const firstSelect = document.getElementById("menuq130:4_sub0") as HTMLSelectElement;
     expect(firstSelect).toBeInstanceOf(HTMLSelectElement);
@@ -1034,7 +1033,6 @@ describe("R-menu widget interactions", () => {
     api.setSourceAnswerData("3700", "external", fullAnswerData);
 
     const host = api.createAnswerWidgetHost(
-      "#5eead4",
       "3700",
       api.createEmptyVariantCounts(),
       sourceAnswerData({
@@ -1115,7 +1113,7 @@ describe("R-menu widget interactions", () => {
     ]);
     api.setSourceAnswerData("3700", "reduxshare", answerData);
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const hosts = Array.from(
       document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
@@ -1185,7 +1183,7 @@ describe("human-like auto-select scheduling", () => {
         }),
       ]),
     );
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     api.watchStoredSettingsChanges();
 
@@ -1414,7 +1412,7 @@ describe("human-like auto-select scheduling", () => {
       ]),
     );
 
-    api.mountAnswerWidgets("#5eead4");
+    api.mountAnswerWidgets();
 
     const slotIndexes = Array.from(
       document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
@@ -1444,7 +1442,7 @@ describe("human-like auto-select scheduling", () => {
           }),
         ]),
       );
-      api.mountAnswerWidgets("#5eead4");
+      api.mountAnswerWidgets();
 
       const questionNode = document.querySelector(".que");
       expect(questionNode).toBeInstanceOf(Element);
@@ -1501,7 +1499,7 @@ describe("human-like auto-select scheduling", () => {
           }),
         ]),
       );
-      api.mountAnswerWidgets("#5eead4");
+      api.mountAnswerWidgets();
 
       const questionNode = document.querySelector(".que");
       expect(questionNode).toBeInstanceOf(Element);

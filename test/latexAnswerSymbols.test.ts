@@ -211,7 +211,6 @@ describe("LaTeX answer symbols", () => {
     renderChoiceQuestion();
     const answerData = sourceAnswerData({ external: exactAnswerData("\\gt") });
     const host = api.createAnswerWidgetHost(
-      "#ff6b6f",
       QUESTION_ID,
       api.createEmptyVariantCounts(),
       answerData,

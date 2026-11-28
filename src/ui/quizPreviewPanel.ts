@@ -3,7 +3,7 @@ import { currentStoredState, currentT } from "../state";
 import { canUseQuizFeatures } from "../logic/settings";
 import { EXTERNAL_TYPE_PROBE_ORDER } from "../lib/externalProvider";
 import { QUIZ_ID_SCAN_DEFAULT_FROM, QUIZ_ID_SCAN_DEFAULT_TO } from "../lib/quizIdScan";
-import { applyContentColorSchemeToHost, getAccentColor, getRgbCssValue } from "../logic/theme";
+import { applyContentThemeToHost } from "../logic/theme";
 import { getQuestionTypeLabel } from "../shared/questionTypes";
 import { getCheckIconMarkup, getQuestionTypeScanIconMarkup, getSourceTabIconMarkup } from "./icons";
 import type { AnswerData, QuizPreviewQuestion, StoredStateLike } from "../model";
@@ -90,8 +90,8 @@ const PREVIEW_STYLES = `
     border-radius: 16px;
     background:
       radial-gradient(circle at top right, rgba(var(--reduxshare-accent-rgb), 0.17), transparent 55%),
-      linear-gradient(180deg, rgba(20, 21, 29, 0.98), rgba(15, 16, 22, 0.96));
-    color: #f6f7fb;
+      linear-gradient(180deg, color-mix(in srgb, var(--reduxshare-panel, #1d1e26) 98%, transparent), color-mix(in srgb, var(--reduxshare-panel, #1d1e26) 96%, transparent));
+    color: var(--reduxshare-text, #f6f7fb);
     box-shadow:
       0 28px 72px rgba(0, 0, 0, 0.45),
       0 0 0 1px rgba(var(--reduxshare-accent-rgb), 0.06) inset;
@@ -105,7 +105,7 @@ const PREVIEW_STYLES = `
     align-items: center;
     gap: 12px;
     padding: 16px 18px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
     flex: none;
   }
 
@@ -117,7 +117,7 @@ const PREVIEW_STYLES = `
     flex: none;
     box-shadow:
       0 8px 24px rgba(var(--reduxshare-accent-rgb), 0.24),
-      0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+      0 0 0 1px color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent) inset;
   }
 
   .rpx-heading {
@@ -139,7 +139,7 @@ const PREVIEW_STYLES = `
   .rpx-subtitle {
     font-size: 12px;
     font-weight: 500;
-    color: rgba(246, 247, 251, 0.55);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 55%, transparent);
   }
 
   .rpx-header-actions {
@@ -157,7 +157,7 @@ const PREVIEW_STYLES = `
     border: 1px solid rgba(var(--reduxshare-accent-rgb), 0.2);
     border-radius: 10px;
     background: rgba(var(--reduxshare-accent-rgb), 0.09);
-    color: #f6f7fb;
+    color: var(--reduxshare-text, #f6f7fb);
     cursor: pointer;
     transition:
       background-color 140ms ease,
@@ -194,7 +194,7 @@ const PREVIEW_STYLES = `
   .reduxshare-preview-close:hover {
     background: rgba(217, 72, 79, 0.18);
     border-color: rgba(217, 72, 79, 0.5);
-    color: #ff9aa0;
+    color: var(--reduxshare-beta, #ff9aa0);
     box-shadow: 0 8px 20px rgba(217, 72, 79, 0.18);
   }
 
@@ -210,7 +210,7 @@ const PREVIEW_STYLES = `
   }
 
   .rpx-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.14);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 14%, transparent);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: content-box;
@@ -225,7 +225,7 @@ const PREVIEW_STYLES = `
     display: grid;
     grid-template-columns: 1fr 1fr;
     margin-bottom: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
   }
 
   .rpx-tabs-indicator {
@@ -251,7 +251,7 @@ const PREVIEW_STYLES = `
     padding: 6px 10px 10px;
     border: none;
     background: transparent;
-    color: rgba(246, 247, 251, 0.55);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 55%, transparent);
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 620;
@@ -272,7 +272,7 @@ const PREVIEW_STYLES = `
   }
 
   .reduxshare-preview-tab:hover:not(.active) {
-    color: rgba(246, 247, 251, 0.82);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 82%, transparent);
   }
 
   .reduxshare-preview-tab.active {
@@ -283,7 +283,7 @@ const PREVIEW_STYLES = `
     min-width: 20px;
     padding: 1px 6px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
     font-size: 11px;
     font-weight: 700;
     text-align: center;
@@ -304,9 +304,9 @@ const PREVIEW_STYLES = `
   }
 
   .reduxshare-preview-question {
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 9%, transparent);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.035);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 4%, transparent);
     overflow: hidden;
   }
 
@@ -316,15 +316,15 @@ const PREVIEW_STYLES = `
     justify-content: space-between;
     gap: 10px;
     padding: 10px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 7%, transparent);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 3%, transparent);
   }
 
   .rpx-card-title {
     font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.02em;
-    color: rgba(246, 247, 251, 0.85);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 85%, transparent);
   }
 
   .rpx-type-badge {
@@ -349,13 +349,13 @@ const PREVIEW_STYLES = `
     margin-bottom: 10px;
     font-size: 13.5px;
     line-height: 1.45;
-    color: rgba(246, 247, 251, 0.92);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 92%, transparent);
   }
 
   .reduxshare-preview-condition--missing {
     font-size: 12px;
     font-style: italic;
-    color: rgba(246, 247, 251, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 50%, transparent);
   }
 
   .reduxshare-preview-answers {
@@ -385,7 +385,7 @@ const PREVIEW_STYLES = `
 
   .reduxshare-preview-answer--exact .reduxshare-preview-answer-label {
     font-weight: 700;
-    color: #4ade80;
+    color: var(--reduxshare-success, #4ade80);
   }
 
   .rpx-answer-check {
@@ -398,7 +398,7 @@ const PREVIEW_STYLES = `
     width: 12px;
     height: 12px;
     fill: none;
-    stroke: #4ade80;
+    stroke: var(--reduxshare-success, #4ade80);
     stroke-width: 4.5;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -410,13 +410,13 @@ const PREVIEW_STYLES = `
 
   .reduxshare-preview-answer-meta {
     font-size: 11.5px;
-    color: rgba(246, 247, 251, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 50%, transparent);
   }
 
   .reduxshare-preview-empty {
     margin: 0;
     font-size: 12.5px;
-    color: rgba(246, 247, 251, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 50%, transparent);
   }
 
   .reduxshare-preview-scan {
@@ -427,7 +427,7 @@ const PREVIEW_STYLES = `
     background: linear-gradient(
       180deg,
       rgba(var(--reduxshare-accent-rgb), 0.06),
-      rgba(255, 255, 255, 0.02)
+      color-mix(in srgb, var(--reduxshare-text, #ffffff) 2%, transparent)
     );
     display: grid;
     gap: 11px;
@@ -438,7 +438,7 @@ const PREVIEW_STYLES = `
     align-items: center;
     gap: 10px;
     padding-bottom: 11px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
   }
 
   .rpx-scan-icon {
@@ -472,13 +472,13 @@ const PREVIEW_STYLES = `
   .rpx-scan-title {
     font-size: 12.5px;
     font-weight: 700;
-    color: rgba(246, 247, 251, 0.9);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 90%, transparent);
   }
 
   .rpx-scan-hint {
     font-size: 11px;
     line-height: 1.35;
-    color: rgba(246, 247, 251, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 50%, transparent);
   }
 
   .reduxshare-preview-scan-row {
@@ -494,7 +494,7 @@ const PREVIEW_STYLES = `
     gap: 6px;
     font-size: 12px;
     font-weight: 600;
-    color: rgba(246, 247, 251, 0.65);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 65%, transparent);
     margin-bottom: 0;
   }
 
@@ -502,10 +502,10 @@ const PREVIEW_STYLES = `
     box-sizing: border-box;
     width: 76px;
     padding: 5px 9px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 14%, transparent);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    color: #f6f7fb;
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 6%, transparent);
+    color: var(--reduxshare-text, #f6f7fb);
     font-family: inherit;
     font-size: 12.5px;
   }
@@ -524,7 +524,7 @@ const PREVIEW_STYLES = `
     border: none;
     border-radius: 9px;
     background: var(--reduxshare-accent);
-    color: #14151b;
+    color: var(--reduxshare-text-on-accent, #14151b);
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 700;
@@ -568,10 +568,10 @@ const PREVIEW_STYLES = `
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 18%, transparent);
     border-radius: 9px;
     background: transparent;
-    color: #f6f7fb;
+    color: var(--reduxshare-text, #f6f7fb);
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 650;
@@ -582,7 +582,7 @@ const PREVIEW_STYLES = `
   }
 
   .rpx-btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
   }
 
   .rpx-btn-ghost:active {
@@ -621,7 +621,7 @@ const PREVIEW_STYLES = `
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: rgba(246, 247, 251, 0.55);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 55%, transparent);
   }
 
   .rpx-scan-types-actions {
@@ -642,10 +642,10 @@ const PREVIEW_STYLES = `
     align-content: start;
     gap: 5px;
     padding: 9px 7px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 12%, transparent);
     border-radius: 10px;
     background: transparent;
-    color: rgba(246, 247, 251, 0.6);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 60%, transparent);
     font-size: 10.5px;
     font-weight: 600;
     line-height: 1.25;
@@ -661,8 +661,8 @@ const PREVIEW_STYLES = `
   }
 
   .reduxshare-preview-scan-type-option:hover {
-    background: rgba(255, 255, 255, 0.045);
-    color: rgba(246, 247, 251, 0.9);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 4%, transparent);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 90%, transparent);
   }
 
   .reduxshare-preview-scan-type-option:focus-within {
@@ -722,7 +722,7 @@ const PREVIEW_STYLES = `
   .rpx-progress-track {
     height: 5px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.09);
+    background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 9%, transparent);
     overflow: hidden;
   }
 
@@ -740,7 +740,7 @@ const PREVIEW_STYLES = `
 
   .reduxshare-preview-scan-progress {
     font-size: 11.5px;
-    color: rgba(246, 247, 251, 0.65);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 65%, transparent);
     min-height: 1.2em;
   }
 
@@ -751,19 +751,19 @@ const PREVIEW_STYLES = `
     gap: 10px;
     min-height: 110px;
     font-size: 13px;
-    color: rgba(246, 247, 251, 0.6);
+    color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 60%, transparent);
     text-align: center;
   }
 
   .reduxshare-preview-placeholder--error {
-    color: #f87171;
+    color: var(--reduxshare-danger, #f87171);
   }
 
   .rpx-spinner {
     width: 18px;
     height: 18px;
     flex: none;
-    border: 2.5px solid rgba(255, 255, 255, 0.15);
+    border: 2.5px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 15%, transparent);
     border-top-color: var(--reduxshare-accent);
     border-radius: 50%;
     animation: rpx-spin 700ms linear infinite;
@@ -795,8 +795,8 @@ const PREVIEW_STYLES = `
     border-color: rgba(15, 20, 35, 0.14);
     background:
       radial-gradient(circle at top right, rgba(var(--reduxshare-accent-rgb), 0.1), transparent 55%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 253, 0.97));
-    color: #14171d;
+      linear-gradient(180deg, var(--reduxshare-panel, #ffffff), var(--reduxshare-panel, #fbfbfd));
+    color: var(--reduxshare-text, #14171d);
     box-shadow: 0 24px 64px rgba(15, 20, 35, 0.22);
   }
 
@@ -811,13 +811,13 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .rpx-subtitle {
-    color: rgba(20, 23, 29, 0.55);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 55%, transparent);
   }
 
   :host([data-theme="light"]) .rpx-icon-btn {
     background: rgba(var(--reduxshare-accent-rgb), 0.08);
     border-color: rgba(var(--reduxshare-accent-rgb), 0.2);
-    color: #14171d;
+    color: var(--reduxshare-text, #14171d);
   }
 
   :host([data-theme="light"]) .rpx-icon-btn:hover {
@@ -827,7 +827,7 @@ const PREVIEW_STYLES = `
   :host([data-theme="light"]) .reduxshare-preview-close:hover {
     background: rgba(217, 72, 79, 0.12);
     border-color: rgba(217, 72, 79, 0.42);
-    color: #d9484f;
+    color: var(--reduxshare-danger, #d9484f);
     box-shadow: 0 8px 20px rgba(217, 72, 79, 0.14);
   }
 
@@ -842,11 +842,11 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .reduxshare-preview-tab {
-    color: rgba(20, 23, 29, 0.55);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 55%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-tab:hover:not(.active) {
-    color: rgba(20, 23, 29, 0.82);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 82%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-tab.active {
@@ -855,7 +855,7 @@ const PREVIEW_STYLES = `
 
   :host([data-theme="light"]) .rpx-tab-count {
     background: rgba(15, 20, 35, 0.07);
-    color: rgba(20, 23, 29, 0.7);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 70%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-tab.active .rpx-tab-count {
@@ -865,7 +865,7 @@ const PREVIEW_STYLES = `
 
   :host([data-theme="light"]) .reduxshare-preview-question {
     border-color: rgba(15, 20, 35, 0.12);
-    background: #ffffff;
+    background: var(--reduxshare-panel, #ffffff);
   }
 
   :host([data-theme="light"]) .rpx-card-header {
@@ -874,7 +874,7 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .rpx-card-title {
-    color: rgba(20, 23, 29, 0.85);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 85%, transparent);
   }
 
   :host([data-theme="light"]) .rpx-type-badge {
@@ -882,11 +882,11 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .reduxshare-preview-condition {
-    color: rgba(20, 23, 29, 0.92);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 92%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-condition--missing {
-    color: rgba(20, 23, 29, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 50%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-answer--exact {
@@ -895,19 +895,19 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .reduxshare-preview-answer--exact .reduxshare-preview-answer-label {
-    color: #1f9d4d;
+    color: var(--reduxshare-success, #1f9d4d);
   }
 
   :host([data-theme="light"]) .rpx-answer-check svg {
-    stroke: #1f9d4d;
+    stroke: var(--reduxshare-success, #1f9d4d);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-answer-meta {
-    color: rgba(20, 23, 29, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 50%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-empty {
-    color: rgba(20, 23, 29, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 50%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan {
@@ -924,26 +924,26 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .rpx-scan-title {
-    color: rgba(20, 23, 29, 0.9);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 90%, transparent);
   }
 
   :host([data-theme="light"]) .rpx-scan-hint {
-    color: rgba(20, 23, 29, 0.5);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 50%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-row label {
-    color: rgba(20, 23, 29, 0.65);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 65%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-row input[type="number"] {
-    background: #ffffff;
+    background: var(--reduxshare-panel, #ffffff);
     border-color: rgba(15, 20, 35, 0.16);
-    color: #14171d;
+    color: var(--reduxshare-text, #14171d);
   }
 
   :host([data-theme="light"]) .rpx-btn-ghost {
     border-color: rgba(15, 20, 35, 0.18);
-    color: #14171d;
+    color: var(--reduxshare-text, #14171d);
   }
 
   :host([data-theme="light"]) .rpx-btn-ghost:hover {
@@ -951,18 +951,18 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-types-label {
-    color: rgba(20, 23, 29, 0.7);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 70%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-type-option {
     border-color: rgba(15, 20, 35, 0.14);
     background: transparent;
-    color: rgba(20, 23, 29, 0.65);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 65%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-type-option:hover {
     background: rgba(15, 20, 35, 0.04);
-    color: rgba(20, 23, 29, 0.9);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 90%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-type-option:has(input:checked) {
@@ -976,15 +976,15 @@ const PREVIEW_STYLES = `
   }
 
   :host([data-theme="light"]) .reduxshare-preview-scan-progress {
-    color: rgba(20, 23, 29, 0.65);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 65%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-placeholder {
-    color: rgba(20, 23, 29, 0.6);
+    color: color-mix(in srgb, var(--reduxshare-text, #14171d) 60%, transparent);
   }
 
   :host([data-theme="light"]) .reduxshare-preview-placeholder--error {
-    color: #d9484f;
+    color: var(--reduxshare-danger, #d9484f);
   }
 
   :host([data-theme="light"]) .rpx-spinner {
@@ -1481,11 +1481,7 @@ function getBrandIconUrl() {
 }
 
 function applyQuizPreviewHostTheme(host: HTMLElement) {
-  const accentColor = getAccentColor(currentStoredState?.settings);
-
-  host.style.setProperty("--reduxshare-accent", accentColor);
-  host.style.setProperty("--reduxshare-accent-rgb", getRgbCssValue(accentColor));
-  applyContentColorSchemeToHost(host);
+  applyContentThemeToHost(host);
 }
 
 function ensureQuizPreviewRoot(): HTMLDivElement {
@@ -1527,35 +1523,6 @@ function ensureQuizPreviewEscapeListener() {
   );
 }
 
-let quizPreviewSchemeWatcherInstalled = false;
-
-function ensureQuizPreviewSchemeWatcher() {
-  if (quizPreviewSchemeWatcherInstalled) {
-    return;
-  }
-
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return;
-  }
-
-  quizPreviewSchemeWatcherInstalled = true;
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
-
-  const handleChange = () => {
-    if ((currentStoredState?.settings?.colorScheme ?? "system") !== "system") {
-      return;
-    }
-
-    if (panelState.visible) {
-      renderQuizPreviewPanel();
-    }
-  };
-
-  if (typeof mediaQuery.addEventListener === "function") {
-    mediaQuery.addEventListener("change", handleChange);
-  }
-}
-
 function renderQuizPreviewPanel() {
   if (
     !panelState.visible ||
@@ -1566,7 +1533,6 @@ function renderQuizPreviewPanel() {
   }
 
   ensureQuizPreviewEscapeListener();
-  ensureQuizPreviewSchemeWatcher();
 
   const host = ensureQuizPreviewRoot();
   applyQuizPreviewHostTheme(host);

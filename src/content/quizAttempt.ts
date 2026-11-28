@@ -235,11 +235,7 @@ import {
 } from "./quizAttempt/ddimageortext";
 import { autoSelectCompoundAnswers } from "./quizAttempt/compound";
 import { canUseQuizFeatures, isLoggedInToExtension } from "../logic/settings";
-import {
-  applyContentColorSchemeToHost,
-  getAccentColor,
-  getContentColorScheme,
-} from "../logic/theme";
+import { applyContentThemeToHost } from "../logic/theme";
 import {
   buildReviewAnswersForQuestion,
   buildReviewSaveRequestPayload,
@@ -510,59 +506,27 @@ function syncAllFeatures(storedState: StoredStateLike | undefined) {
   syncPageOverlayOpacity(storedState);
 }
 
-export type ContentColorScheme = "light" | "dark";
-
-function syncContentColorScheme() {
-  const colorScheme = getContentColorScheme();
-
+function syncContentTheme() {
   for (const host of answerWidgetCleanups.keys()) {
-    host.dataset.theme = colorScheme;
+    applyContentThemeToHost(host);
   }
 
   const menuPortal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);
 
   if (menuPortal instanceof HTMLElement) {
-    menuPortal.dataset.theme = colorScheme;
+    applyContentThemeToHost(menuPortal);
   }
 
   const statusPanel = document.getElementById(ATTEMPT_STATUS_PANEL_ID);
 
   if (statusPanel instanceof HTMLElement) {
-    statusPanel.dataset.theme = colorScheme;
+    applyContentThemeToHost(statusPanel);
   }
 
   const updateNotice = document.getElementById(UPDATE_NOTICE_HOST_ID);
 
   if (updateNotice instanceof HTMLElement) {
-    updateNotice.dataset.theme = colorScheme;
-  }
-}
-
-let colorSchemeWatcherInstalled = false;
-
-function installColorSchemeWatcher() {
-  if (colorSchemeWatcherInstalled) {
-    return;
-  }
-
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return;
-  }
-
-  colorSchemeWatcherInstalled = true;
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
-
-  const handleChange = () => {
-    if ((currentStoredState?.settings?.colorScheme ?? "system") !== "system") {
-      return;
-    }
-
-    syncContentColorScheme();
-    renderAttemptStatusPanel();
-  };
-
-  if (typeof mediaQuery.addEventListener === "function") {
-    mediaQuery.addEventListener("change", handleChange);
+    applyContentThemeToHost(updateNotice);
   }
 }
 
@@ -1216,7 +1180,6 @@ function upsertEssayExampleInMap(mapKey: string, example: EssayExampleEntry) {
 
 function openAnswerMenuPortal(
   trigger: HTMLButtonElement,
-  accentColor: string,
   answerData: SourceAnswerData,
   questionId: string | null,
 ) {
@@ -1253,8 +1216,7 @@ function openAnswerMenuPortal(
     : undefined;
 
   menuPortal.setAttribute(ANSWER_MENU_PORTAL_ATTR, "true");
-  menuPortal.style.setProperty("--reduxshare-accent", accentColor);
-  applyContentColorSchemeToHost(menuPortal);
+  applyContentThemeToHost(menuPortal);
   shadowRoot.innerHTML = getAnswerMenuMarkup(
     menuAnswerData,
     aiSettingsSaved,
@@ -1890,7 +1852,6 @@ function openAnswerMenuPortal(
 }
 
 function createAnswerWidgetHost(
-  accentColor: string,
   questionId: string | null,
   variantCounts: AnswerVariantCounts,
   answerData: SourceAnswerData,
@@ -1911,8 +1872,7 @@ function createAnswerWidgetHost(
     host.dataset.reduxshareSlotIndex = String(slotIndex);
   }
 
-  host.style.setProperty("--reduxshare-accent", accentColor);
-  applyContentColorSchemeToHost(host);
+  applyContentThemeToHost(host);
   shadowRoot.innerHTML = getAnswerTriggerMarkup();
   answerWidgetStates.set(host, {
     questionId,
@@ -1946,7 +1906,6 @@ function createAnswerWidgetHost(
     const state = answerWidgetStates.get(host);
     openAnswerMenuPortal(
       trigger,
-      host.style.getPropertyValue("--reduxshare-accent") || accentColor,
       state?.answerData ?? createEmptySourceAnswerData(),
       state?.questionId ?? questionId,
     );
@@ -1966,20 +1925,6 @@ function createAnswerWidgetHost(
   });
 
   return host;
-}
-
-function setAnswerWidgetAccent(accentColor: string) {
-  for (const host of answerWidgetCleanups.keys()) {
-    host.style.setProperty("--reduxshare-accent", accentColor);
-  }
-
-  const menuPortal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);
-
-  if (menuPortal instanceof HTMLElement) {
-    menuPortal.style.setProperty("--reduxshare-accent", accentColor);
-  }
-
-  syncContentColorScheme();
 }
 
 const OVERLAY_OPACITY_STYLE_ID = "reduxshare-overlay-opacity";
@@ -2074,7 +2019,7 @@ function getChoiceAnswerWidgetTarget(questionNode: Element, input: HTMLInputElem
   return isHTMLElement(row) ? row : null;
 }
 
-function mountGapSelectAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountGapSelectAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2096,7 +2041,7 @@ function mountGapSelectAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     const existingHost = targetNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
 
       if (slotIndex === null) {
@@ -2115,7 +2060,6 @@ function mountGapSelectAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2127,7 +2071,7 @@ function mountGapSelectAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   }
 }
 
-function mountMultiChoiceAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountMultiChoiceAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2157,7 +2101,7 @@ function mountMultiChoiceAnswerWidgets(entry: AnswerEntry, accentColor: string) 
     const existingHost = targetNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
 
       if (slotIndex === null) {
@@ -2182,7 +2126,6 @@ function mountMultiChoiceAnswerWidgets(entry: AnswerEntry, accentColor: string) 
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2199,7 +2142,7 @@ function mountMultiChoiceAnswerWidgets(entry: AnswerEntry, accentColor: string) 
   }
 }
 
-function mountTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountTextAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2232,7 +2175,7 @@ function mountTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     });
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
 
       if (slotIndex === null) {
@@ -2257,7 +2200,6 @@ function mountTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2278,7 +2220,7 @@ function mountTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   }
 }
 
-function mountDdwtosAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountDdwtosAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2300,7 +2242,7 @@ function mountDdwtosAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     const { answerData } = getAnswerDataForDdwtosDrop(questionId, drop);
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
       answerWidgetStates.set(existingHost, {
         questionId,
@@ -2312,7 +2254,6 @@ function mountDdwtosAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2329,7 +2270,7 @@ function mountDdwtosAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   }
 }
 
-function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountDdmarkerAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2378,7 +2319,7 @@ function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
       } else {
         resetDdmarkerAnswerWidgetHostPlacement(existingHost);
       }
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
       answerWidgetStates.set(existingHost, {
         questionId,
@@ -2390,7 +2331,6 @@ function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2408,7 +2348,7 @@ function mountDdmarkerAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   }
 }
 
-function mountDdimageOrTextAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountDdimageOrTextAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2430,7 +2370,7 @@ function mountDdimageOrTextAnswerWidgets(entry: AnswerEntry, accentColor: string
     const { answerData } = getAnswerDataForDdimageOrTextDrop(questionId, drop);
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
       answerWidgetStates.set(existingHost, {
         questionId,
@@ -2442,7 +2382,6 @@ function mountDdimageOrTextAnswerWidgets(entry: AnswerEntry, accentColor: string
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2459,7 +2398,7 @@ function mountDdimageOrTextAnswerWidgets(entry: AnswerEntry, accentColor: string
   }
 }
 
-function mountOrderingAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountOrderingAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const questionLevelHost = answerNode.querySelector(
     `[${ANSWER_WIDGET_ATTR}="true"]:not([data-reduxshare-inline-widget="true"])`,
@@ -2482,7 +2421,7 @@ function mountOrderingAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     const existingHost = targetNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
 
       if (slotIndex === null) {
@@ -2501,7 +2440,6 @@ function mountOrderingAnswerWidgets(entry: AnswerEntry, accentColor: string) {
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       answerData,
@@ -2513,13 +2451,12 @@ function mountOrderingAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   }
 }
 
-function mountCompoundAnswerWidgets(entry: AnswerEntry, accentColor: string) {
+function mountCompoundAnswerWidgets(entry: AnswerEntry) {
   const { questionId, questionNode, answerNode } = entry;
   const targetNode = questionNode.querySelector<HTMLElement>(".formulation") ?? answerNode;
   removeAnswerWidgetsFromQuestion(questionNode);
 
   const host = createAnswerWidgetHost(
-    accentColor,
     questionId,
     getVariantCountsForQuestion(questionId),
     getAnswerDataForQuestion(questionId),
@@ -2529,7 +2466,7 @@ function mountCompoundAnswerWidgets(entry: AnswerEntry, accentColor: string) {
   targetNode.append(host);
 }
 
-function mountAnswerWidgets(accentColor: string) {
+function mountAnswerWidgets() {
   for (const entry of getAnswerEntries()) {
     const { answerNode, questionId, questionNode } = entry;
 
@@ -2541,49 +2478,49 @@ function mountAnswerWidgets(accentColor: string) {
     }
 
     if (isOrderingQuestionType(questionNode)) {
-      mountOrderingAnswerWidgets(entry, accentColor);
+      mountOrderingAnswerWidgets(entry);
       continue;
     }
 
     if (isDragTextQuestionType(questionNode)) {
-      mountDdwtosAnswerWidgets(entry, accentColor);
+      mountDdwtosAnswerWidgets(entry);
       continue;
     }
 
     if (isDragMarkerQuestionType(questionNode)) {
-      mountDdmarkerAnswerWidgets(entry, accentColor);
+      mountDdmarkerAnswerWidgets(entry);
       continue;
     }
 
     if (isDragImageOrTextQuestionType(questionNode)) {
-      mountDdimageOrTextAnswerWidgets(entry, accentColor);
+      mountDdimageOrTextAnswerWidgets(entry);
       continue;
     }
 
     if (isCompoundQuestionType(questionNode)) {
-      mountCompoundAnswerWidgets(entry, accentColor);
+      mountCompoundAnswerWidgets(entry);
       continue;
     }
 
     if (isTextInputQuestionType(questionNode)) {
-      mountTextAnswerWidgets(entry, accentColor);
+      mountTextAnswerWidgets(entry);
       continue;
     }
 
     if (isSelectableQuestionType(questionNode)) {
-      mountGapSelectAnswerWidgets(entry, accentColor);
+      mountGapSelectAnswerWidgets(entry);
       continue;
     }
 
     if (isMultiAnswerMultichoiceQuestion(questionNode)) {
-      mountMultiChoiceAnswerWidgets(entry, accentColor);
+      mountMultiChoiceAnswerWidgets(entry);
       continue;
     }
 
     const existingHost = answerNode.querySelector(`[${ANSWER_WIDGET_ATTR}="true"]`);
 
     if (existingHost instanceof HTMLElement) {
-      existingHost.style.setProperty("--reduxshare-accent", accentColor);
+      applyContentThemeToHost(existingHost);
       existingHost.hidden = !answerWidgetsVisible;
       answerWidgetStates.set(existingHost, {
         questionId,
@@ -2595,7 +2532,6 @@ function mountAnswerWidgets(accentColor: string) {
     }
 
     const host = createAnswerWidgetHost(
-      accentColor,
       questionId,
       getVariantCountsForQuestion(questionId),
       getAnswerDataForQuestion(questionId),
@@ -2635,9 +2571,8 @@ const PIPELINE_RELEVANT_SETTING_KEYS = [
   "humanPrecursors",
   "hotkey",
   "hotkeyCode",
-  "accentColor",
-  "theme",
-  "colorScheme",
+  "themeId",
+  "customTheme",
   "pageOverlayOpacity",
   "language",
 ] as const;
@@ -2719,9 +2654,8 @@ function watchStoredSettingsChanges() {
         essayExamplesByQuestionId.clear();
       }
 
-      const accentColor = getAccentColor(nextState?.settings);
-      setAnswerWidgetAccent(accentColor);
-      mountAnswerWidgets(accentColor);
+      syncContentTheme();
+      mountAnswerWidgets();
       autoSelectExactAnswers(nextState);
       renderAttemptStatusPanel();
     }
@@ -2965,7 +2899,7 @@ async function loadQuizAnswers(context: QuizAttemptContext) {
     }
     applyQuizAnswerResults(response.externalResults, "external");
 
-    mountAnswerWidgets(getAccentColor(currentState.settings));
+    mountAnswerWidgets();
     autoSelectExactAnswers(currentState);
     renderAttemptStatusPanel();
   } catch (error) {
@@ -2993,8 +2927,6 @@ async function initializeQuizAttemptFeatures() {
     logReduxShareInfo("ReduxShare: continuing after page load wait timeout");
   }
 
-  const accentColor = getAccentColor(storedState.settings);
-
   const context = await waitForQuizAttemptContext();
   syncAllFeatures(await loadStoredState());
 
@@ -3006,13 +2938,13 @@ async function initializeQuizAttemptFeatures() {
   if (!context) {
     const bareContext = createBareQuizAttemptContext();
     await saveQuizAttemptContext(bareContext);
-    mountAnswerWidgets(accentColor);
+    mountAnswerWidgets();
     logReduxShareInfo("ReduxShare: quiz attempt page detected, metadata not found");
     return;
   }
 
   await saveQuizAttemptContext(context);
-  mountAnswerWidgets(accentColor);
+  mountAnswerWidgets();
   logReduxShareInfo("ReduxShare: quiz metadata detected");
   await loadQuizAnswers(context);
   void resumeAutoPassOnAttemptPage();
@@ -3053,7 +2985,6 @@ async function bootstrapQuizPageDetection() {
     return;
   }
 
-  installColorSchemeWatcher();
   watchStoredSettingsChanges();
   await loadUpdateNoticeDismissedState();
 
@@ -3153,12 +3084,7 @@ function openAnswerMenuForQuestion(
       continue;
     }
 
-    openAnswerMenuPortal(
-      trigger,
-      host.style.getPropertyValue("--reduxshare-accent"),
-      state.answerData,
-      state.questionId ?? questionId,
-    );
+    openAnswerMenuPortal(trigger, state.answerData, state.questionId ?? questionId);
 
     if (tab) {
       const portal = document.querySelector(`[${ANSWER_MENU_PORTAL_ATTR}="true"]`);

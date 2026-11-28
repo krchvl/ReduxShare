@@ -75,7 +75,7 @@ async function boot() {
   api.setSourceAnswerData("1385", "external", multichoiceExternalAnswerData());
   api.setSourceAnswerData("3699", "reduxshare", matchAnswerData());
   api.setSourceAnswerData("2011", "reduxshare", shortanswerAnswerData());
-  api.mountAnswerWidgets("#9cb9f6");
+  api.mountAnswerWidgets();
 
   essayExamplesByQuestionId.set("2101", getEssayExamplesForQuestion("2101"));
 
