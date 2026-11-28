@@ -36,6 +36,16 @@ function countDelayProgressBars() {
   ).filter((host) => host.shadowRoot?.querySelector(".delay-progress")).length;
 }
 
+function getFirstSecondsLabel() {
+  const label = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
+  )
+    .map((host) => host.shadowRoot?.querySelector(".delay-progress__seconds")?.textContent)
+    .find((text) => Boolean(text));
+
+  return label ?? "";
+}
+
 describe("paced auto-select on a live quiz page", () => {
   afterEach(() => {
     vi.stubGlobal(TEST_MODE_STUB, true);
@@ -86,10 +96,56 @@ describe("paced auto-select on a live quiz page", () => {
 
     expect(select.value).toBe("0");
     expect(countDelayProgressBars()).toBeGreaterThan(0);
+    expect(getFirstSecondsLabel()).toMatch(/^\d+\.\ds$/);
+
+    const secondsBefore = getFirstSecondsLabel();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(getFirstSecondsLabel()).not.toBe(secondsBefore);
 
     await vi.advanceTimersByTimeAsync(60000);
 
     expect(select.value).toBe("2");
     expect(countDelayProgressBars()).toBe(0);
+  });
+
+  it("keeps the progress bar under the widget trigger", async () => {
+    vi.useFakeTimers();
+    const api = await getQuizAttemptTestApi();
+    loadQuestionFixture("match", "attempt");
+    document
+      .querySelectorAll('[data-reduxshare-answer-widget="true"]')
+      .forEach((node) => node.remove());
+
+    const currentState = baseStoredState();
+    setCurrentStoredState(currentState);
+    syncLanguage(currentState);
+    syncContentUi();
+    syncAnswerWidgetHotkey(currentState);
+    syncPageOverlayOpacity(currentState);
+    api.setSourceAnswerData(
+      "3699",
+      "external",
+      slottedAnswerData([
+        answerSlot(1, { anchors: ["сила"], suggestions: [slottedExactSuggestion("ньютон", 1)] }),
+      ]),
+    );
+    api.mountAnswerWidgets("#5eead4");
+
+    vi.stubGlobal(TEST_MODE_STUB, false);
+    api.watchStoredSettingsChanges();
+
+    await dispatchStorageChange(baseStoredState());
+    await vi.advanceTimersByTimeAsync(300);
+    await dispatchStorageChange(baseStoredState());
+    await vi.advanceTimersByTimeAsync(300);
+
+    const hosts = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-reduxshare-answer-widget="true"]'),
+    ).filter((host) => host.shadowRoot?.querySelector(".delay-progress"));
+
+    expect(hosts.length).toBeGreaterThan(0);
+    for (const host of hosts) {
+      expect(host.shadowRoot?.querySelector(".widget > .delay-progress")).not.toBeNull();
+    }
   });
 });

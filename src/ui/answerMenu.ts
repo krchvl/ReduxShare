@@ -879,10 +879,29 @@ export function getAnswerTriggerMarkup() {
       }
 
       .delay-progress-fill {
+        display: block;
         width: 0%;
         height: 100%;
         background: var(--reduxshare-accent);
         transition: width 120ms linear;
+      }
+
+      .delay-progress__seconds {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        left: 0;
+        margin-top: 4px;
+        color: rgba(168, 172, 182, 0.92);
+        font-family: Inter, Arial, sans-serif;
+        font-size: 9px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.2px;
+        line-height: 1;
+        text-align: center;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+        transition: opacity 120ms ease;
       }
     </style>
 
@@ -894,7 +913,7 @@ export function getAnswerTriggerMarkup() {
 
 const ANSWER_DELAY_PROGRESS_CLASS = "delay-progress";
 
-export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) {
+export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null, remainingMs = 0) {
   const shadowRoot = host.shadowRoot;
 
   if (!shadowRoot) {
@@ -908,6 +927,7 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) 
     return;
   }
 
+  const parent = shadowRoot.querySelector<HTMLElement>(".widget") ?? shadowRoot;
   const progress =
     existing ??
     (() => {
@@ -915,12 +935,14 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) 
       element.className = ANSWER_DELAY_PROGRESS_CLASS;
       element.setAttribute("role", "progressbar");
       element.setAttribute("aria-label", "ReduxShare");
-      element.innerHTML = `<span class="delay-progress-fill"></span>`;
-      shadowRoot.append(element);
+      element.innerHTML = `<span class="delay-progress-fill"></span><span class="delay-progress__seconds" aria-hidden="true"></span>`;
+      parent.append(element);
       return element;
     })();
-  const percent = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+  const clampedRatio = Math.min(1, Math.max(0, ratio));
+  const percent = Math.round(clampedRatio * 100);
   const fill = progress.querySelector<HTMLElement>(".delay-progress-fill");
+  const seconds = progress.querySelector<HTMLElement>(".delay-progress__seconds");
 
   progress.setAttribute("aria-valuemin", "0");
   progress.setAttribute("aria-valuemax", "100");
@@ -928,6 +950,10 @@ export function setAnswerDelayProgress(host: HTMLElement, ratio: number | null) 
 
   if (fill) {
     fill.style.width = `${percent}%`;
+  }
+
+  if (seconds) {
+    seconds.textContent = `${(Math.max(0, remainingMs) / 1000).toFixed(1)}s`;
   }
 }
 

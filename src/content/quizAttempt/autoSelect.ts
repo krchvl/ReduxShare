@@ -91,7 +91,7 @@ type PendingAutoSelectAnswer = {
   questionNode: Element;
   timeoutId: number;
   intervalId: number | null;
-  hosts: HTMLElement[];
+  progressHosts: Set<HTMLElement>;
   startedAt: number;
   delayMs: number;
   cancelled: boolean;
@@ -344,10 +344,21 @@ function startAutoSelectProgress(pending: PendingAutoSelectAnswer) {
       return;
     }
 
-    const ratio = pending.delayMs > 0 ? (Date.now() - pending.startedAt) / pending.delayMs : 1;
+    const elapsedMs = Date.now() - pending.startedAt;
+    const ratio = pending.delayMs > 0 ? elapsedMs / pending.delayMs : 1;
+    const remainingMs = Math.max(0, pending.delayMs - elapsedMs);
+    const hosts = new Set(getAutoSelectWidgetHosts(pending.questionNode, pending.questionId));
 
-    for (const host of pending.hosts) {
-      setAnswerDelayProgress(host, ratio);
+    for (const host of pending.progressHosts) {
+      if (!hosts.has(host)) {
+        setAnswerDelayProgress(host, null);
+        pending.progressHosts.delete(host);
+      }
+    }
+
+    for (const host of hosts) {
+      pending.progressHosts.add(host);
+      setAnswerDelayProgress(host, ratio, remainingMs);
     }
   };
 
@@ -363,9 +374,11 @@ function stopAutoSelectProgress(pending: PendingAutoSelectAnswer) {
     pending.intervalId = null;
   }
 
-  for (const host of pending.hosts) {
+  for (const host of pending.progressHosts) {
     setAnswerDelayProgress(host, null);
   }
+
+  pending.progressHosts.clear();
 }
 
 function dropAutoSelectSchedule(key: string, pending: PendingAutoSelectAnswer) {
@@ -607,7 +620,7 @@ export function scheduleAutoSelectAnswer(
     questionNode,
     timeoutId: 0,
     intervalId: null,
-    hosts: getAutoSelectWidgetHosts(questionNode, questionId),
+    progressHosts: new Set<HTMLElement>(),
     startedAt: Date.now(),
     delayMs,
     cancelled: false,
