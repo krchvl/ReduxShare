@@ -906,7 +906,7 @@ export function getAnswerTriggerMarkup() {
         display: block;
         width: max-content;
         margin-top: 3px;
-        color: #ccd2dc;
+        color: #a9b1bf;
         font-family: Inter, Arial, sans-serif;
         font-size: 9px;
         font-weight: 400;
@@ -932,7 +932,7 @@ export function getAnswerTriggerMarkup() {
       }
 
       :host([data-theme="light"]) .delay-progress__seconds {
-        color: #5c6472;
+        color: #4e5563;
       }
     </style>
 
