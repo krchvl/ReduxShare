@@ -48,6 +48,8 @@
   "settings.theme.preset.violet": "Аметист",
   "settings.theme.preset.pearl": "Жемчуг",
   "settings.theme.preset.custom": "Своя",
+  "settings.theme.group.light": "Светлые",
+  "settings.theme.group.dark": "Тёмные",
   "settings.theme.custom.accent": "Акцент",
   "settings.theme.custom.backgroundMain": "Фон окна",
   "settings.theme.custom.backgroundPanel": "Фон панелей",

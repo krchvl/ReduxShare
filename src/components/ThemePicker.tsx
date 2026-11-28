@@ -77,23 +77,41 @@ export function ThemePicker({
   const { t } = useI18n();
   const editorIdPrefix = useId();
   const pickerPalette = resolvePickerPalette(themeId, customTheme);
+  const lightPresetIds = THEME_PRESET_IDS.filter((id) => THEMES[id].kind === "light");
+  const darkPresetIds = THEME_PRESET_IDS.filter((id) => THEMES[id].kind === "dark");
+
+  const renderThemeCard = (id: ThemeId, extraClassName = "") => (
+    <button
+      key={id}
+      type="button"
+      role="radio"
+      aria-checked={id === themeId}
+      className={`theme-picker__card ${extraClassName} ${id === themeId ? "theme-picker__card--active" : ""}`}
+      onClick={() => onThemeChange(id)}
+    >
+      <ThemeCardPreview palette={resolvePickerPalette(id, customTheme)} />
+      <span className="theme-picker__name">{t(THEME_NAME_KEYS[id])}</span>
+    </button>
+  );
 
   return (
     <div className="theme-picker">
-      <div className="theme-picker__grid" role="radiogroup" aria-label={t("settings.theme.title")}>
-        {[...THEME_PRESET_IDS, "custom" as const].map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="radio"
-            aria-checked={id === themeId}
-            className={`theme-picker__card ${id === themeId ? "theme-picker__card--active" : ""}`}
-            onClick={() => onThemeChange(id)}
-          >
-            <ThemeCardPreview palette={resolvePickerPalette(id, customTheme)} />
-            <span className="theme-picker__name">{t(THEME_NAME_KEYS[id])}</span>
-          </button>
-        ))}
+      <div
+        role="radiogroup"
+        aria-label={t("settings.theme.title")}
+        className="theme-picker__groups"
+      >
+        <span className="theme-picker__group-label">{t("settings.theme.group.light")}</span>
+        <div className="theme-picker__grid theme-picker__grid--light">
+          {lightPresetIds.map((id) => renderThemeCard(id))}
+        </div>
+        <span className="theme-picker__group-label">{t("settings.theme.group.dark")}</span>
+        <div className="theme-picker__grid theme-picker__grid--dark">
+          {darkPresetIds.map((id) => renderThemeCard(id))}
+        </div>
+        <div className="theme-picker__grid theme-picker__grid--custom">
+          {renderThemeCard("custom", "theme-picker__card--wide")}
+        </div>
       </div>
       {themeId === "custom" && (
         <div

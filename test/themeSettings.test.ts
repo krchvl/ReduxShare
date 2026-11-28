@@ -48,12 +48,28 @@ afterEach(() => {
 });
 
 describe("theme picker", () => {
-  it("renders all preset cards and the custom card", () => {
+  it("renders light and dark rows plus a full-width custom card", () => {
     const container = renderThemePicker({});
-    const cards = container.querySelectorAll<HTMLButtonElement>(".theme-picker__card");
 
+    expect(container.querySelector('[role="radiogroup"]')).toBeInstanceOf(HTMLElement);
+
+    const cards = container.querySelectorAll<HTMLButtonElement>(".theme-picker__card");
     expect(cards.length).toBe(8);
-    expect(container.querySelector(".theme-picker__grid")?.getAttribute("role")).toBe("radiogroup");
+
+    const lightCards = Array.from(
+      container.querySelectorAll(".theme-picker__grid--light .theme-picker__card"),
+    ).map((card) => card.textContent);
+    expect(lightCards).toEqual(["Дневная", "Жемчуг"]);
+
+    const darkCards = Array.from(
+      container.querySelectorAll(".theme-picker__grid--dark .theme-picker__card"),
+    ).map((card) => card.textContent);
+    expect(darkCards).toEqual(["Стандартная", "Океан", "Алый", "Лес", "Аметист"]);
+
+    const wideCard = container.querySelector(
+      ".theme-picker__grid--custom .theme-picker__card--wide",
+    );
+    expect(wideCard?.textContent).toBe("Своя");
   });
 
   it("reports preset clicks through onThemeChange", () => {

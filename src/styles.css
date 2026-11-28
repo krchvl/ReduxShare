@@ -2301,10 +2301,34 @@ body:has(.main-content[data-view="menu"]) #root {
   min-width: 0;
 }
 
+.theme-picker__groups {
+  display: grid;
+  gap: 10px;
+}
+
+.theme-picker__group-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .theme-picker__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.theme-picker__grid--light {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.theme-picker__grid--dark {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.theme-picker__grid--custom {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .theme-picker__card {
@@ -2325,6 +2349,24 @@ body:has(.main-content[data-view="menu"]) #root {
     background 150ms ease,
     box-shadow 150ms ease,
     transform 150ms ease;
+}
+
+.theme-picker__card--wide {
+  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-rows: none;
+  align-items: center;
+  justify-items: start;
+  gap: 12px;
+  padding: 10px 16px 10px 10px;
+  text-align: left;
+}
+
+.theme-picker__card--wide .theme-picker__preview {
+  height: 44px;
+}
+
+.theme-picker__card--wide .theme-picker__name {
+  font-size: 13px;
 }
 
 .theme-picker__card:hover {

@@ -48,6 +48,8 @@
   "settings.theme.preset.violet": "Amethyst",
   "settings.theme.preset.pearl": "Pearl",
   "settings.theme.preset.custom": "Custom",
+  "settings.theme.group.light": "Light",
+  "settings.theme.group.dark": "Dark",
   "settings.theme.custom.accent": "Accent",
   "settings.theme.custom.backgroundMain": "Window background",
   "settings.theme.custom.backgroundPanel": "Panel background",
