@@ -5,6 +5,7 @@ import {
   THEME_PRESET_IDS,
   THEMES,
   deriveCustomPalette,
+  getSwitchHandleColor,
   getThemeKind,
   isThemeId,
   normalizeCustomThemePalette,
@@ -151,6 +152,19 @@ describe("getThemeKind", () => {
         customTheme: { ...CUSTOM_THEME_DEFAULTS, backgroundMain: "#f0f0f0" },
       }),
     ).toBe("light");
+  });
+});
+
+describe("switch handle color", () => {
+  it("keeps a white handle for pastel and mid accents", () => {
+    expect(getSwitchHandleColor(THEMES.standard.palette.accent, "#070707")).toBe("#ffffff");
+    expect(getSwitchHandleColor(THEMES.devil.palette.accent, "#1a0507")).toBe("#ffffff");
+    expect(getSwitchHandleColor(THEMES.ocean.palette.accent, "#06201d")).toBe("#ffffff");
+  });
+
+  it("switches to the on-accent color for near-white accents", () => {
+    expect(getSwitchHandleColor(THEMES.monochrome.palette.accent, "#0d0d0d")).toBe("#0d0d0d");
+    expect(getSwitchHandleColor("#f5f5f5", "#0b0b0b")).toBe("#0b0b0b");
   });
 });
 

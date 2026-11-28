@@ -1563,7 +1563,7 @@ body:has(.main-content[data-view="menu"]) #root {
   width: 24px;
   height: 24px;
   border-radius: 999px;
-  background: var(--white);
+  background: var(--switch-handle, var(--white));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
   transition: left 140ms ease;
 }

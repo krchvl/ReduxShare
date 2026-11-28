@@ -3,6 +3,7 @@ import { Header } from "./Header";
 import type { UpdateState } from "../types";
 import {
   deriveCustomPalette,
+  getSwitchHandleColor,
   getThemeKind,
   normalizeCustomThemePalette,
   resolveThemeId,
@@ -65,6 +66,7 @@ export function Shell({
   const themeKind = useMemo(() => getThemeKind({ themeId, customTheme }), [themeId, customTheme]);
   const accentColor = extensionEnabled ? palette.accent : DISABLED_ACCENT_COLOR;
   const accentSoftColor = extensionEnabled ? palette.accentSoft : DISABLED_ACCENT_SOFT_COLOR;
+  const switchHandleColor = getSwitchHandleColor(accentColor, palette.textOnAccent);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -77,7 +79,8 @@ export function Shell({
 
     root.style.setProperty("--accent", accentColor);
     root.style.setProperty("--accent-soft", accentSoftColor);
-  }, [palette, accentColor, accentSoftColor, themeKind]);
+    root.style.setProperty("--switch-handle", switchHandleColor);
+  }, [palette, accentColor, accentSoftColor, switchHandleColor, themeKind]);
 
   const shellStyle = {
     "--accent": accentColor,

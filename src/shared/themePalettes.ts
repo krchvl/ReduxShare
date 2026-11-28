@@ -302,6 +302,15 @@ function isLightHex(hexColor: string) {
   return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255 > 0.55;
 }
 
+function isNearWhiteHex(hexColor: string) {
+  const { red, green, blue } = parseHexColor(hexColor);
+  return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255 > 0.85;
+}
+
+export function getSwitchHandleColor(accentHex: string, onAccentColor: string): string {
+  return isNearWhiteHex(accentHex) ? onAccentColor : "#ffffff";
+}
+
 export function normalizeCustomThemePalette(value: unknown): CustomThemePalette {
   const raw = (value && typeof value === "object" ? value : {}) as Partial<CustomThemePalette>;
 
