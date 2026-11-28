@@ -76,8 +76,10 @@ describe("theme presets", () => {
   });
 
   it("validates theme ids", () => {
-    expect(isThemeId("ocean")).toBe(true);
+    expect(isThemeId("rose")).toBe(true);
+    expect(isThemeId("mint")).toBe(true);
     expect(isThemeId("custom")).toBe(true);
+    expect(isThemeId("ocean")).toBe(false);
     expect(isThemeId("Night")).toBe(false);
     expect(isThemeId(42)).toBe(false);
     expect(DEFAULT_THEME_ID).toBe("standard");
@@ -86,7 +88,7 @@ describe("theme presets", () => {
 
 describe("resolveThemePalette", () => {
   it("returns the preset palette for a valid theme id", () => {
-    expect(resolveThemePalette({ themeId: "ocean" })).toBe(THEMES.ocean.palette);
+    expect(resolveThemePalette({ themeId: "rose" })).toBe(THEMES.rose.palette);
     expect(resolveThemePalette({ themeId: "pearl" })).toBe(THEMES.pearl.palette);
   });
 
@@ -159,7 +161,7 @@ describe("switch handle color", () => {
   it("keeps a white handle for pastel and mid accents", () => {
     expect(getSwitchHandleColor(THEMES.standard.palette.accent, "#070707")).toBe("#ffffff");
     expect(getSwitchHandleColor(THEMES.devil.palette.accent, "#1a0507")).toBe("#ffffff");
-    expect(getSwitchHandleColor(THEMES.ocean.palette.accent, "#06201d")).toBe("#ffffff");
+    expect(getSwitchHandleColor(THEMES.mint.palette.accent, "#121d15")).toBe("#ffffff");
   });
 
   it("switches to the on-accent color for near-white accents", () => {

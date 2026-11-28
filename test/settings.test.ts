@@ -44,7 +44,7 @@ describe("opacity settings", () => {
     expect(DEFAULT_SETTINGS.themeId).toBe("standard");
     expect(DEFAULT_SETTINGS.customTheme).toEqual(CUSTOM_THEME_DEFAULTS);
     expect(normalizeSettings({}).themeId).toBe("standard");
-    expect(normalizeSettings({ themeId: "ocean" }).themeId).toBe("ocean");
+    expect(normalizeSettings({ themeId: "devil" }).themeId).toBe("devil");
     expect(normalizeSettings({ themeId: "Night" as "standard" }).themeId).toBe("standard");
     expect(normalizeSettings({ themeId: 42 as "standard" }).themeId).toBe("standard");
   });

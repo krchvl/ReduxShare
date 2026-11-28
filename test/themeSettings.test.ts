@@ -54,17 +54,17 @@ describe("theme picker", () => {
     expect(container.querySelector('[role="radiogroup"]')).toBeInstanceOf(HTMLElement);
 
     const cards = container.querySelectorAll<HTMLButtonElement>(".theme-picker__card");
-    expect(cards.length).toBe(8);
+    expect(cards.length).toBe(9);
 
     const lightCards = Array.from(
       container.querySelectorAll(".theme-picker__grid--light .theme-picker__card"),
     ).map((card) => card.textContent);
-    expect(lightCards).toEqual(["Дневная", "Жемчуг"]);
+    expect(lightCards).toEqual(["Дневная", "Розовая", "Мятная", "Жемчуг"]);
 
     const darkCards = Array.from(
       container.querySelectorAll(".theme-picker__grid--dark .theme-picker__card"),
     ).map((card) => card.textContent);
-    expect(darkCards).toEqual(["Стандартная", "Океан", "Алый", "Лес", "Монохром"]);
+    expect(darkCards).toEqual(["Стандартная", "Алый", "Лес", "Монохром"]);
 
     const wideCard = container.querySelector(
       ".theme-picker__grid--custom .theme-picker__card--wide",
@@ -76,16 +76,16 @@ describe("theme picker", () => {
     const onThemeChange = vi.fn();
     const container = renderThemePicker({ onThemeChange });
 
-    const oceanCard = Array.from(
+    const roseCard = Array.from(
       container.querySelectorAll<HTMLButtonElement>(".theme-picker__card"),
-    ).find((card) => card.textContent === "Океан");
-    expect(oceanCard).toBeInstanceOf(HTMLButtonElement);
+    ).find((card) => card.textContent === "Розовая");
+    expect(roseCard).toBeInstanceOf(HTMLButtonElement);
 
     act(() => {
-      oceanCard!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      roseCard!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(onThemeChange).toHaveBeenCalledWith("ocean");
+    expect(onThemeChange).toHaveBeenCalledWith("rose");
   });
 
   it("marks the active card with aria-checked", () => {
@@ -146,7 +146,7 @@ describe("theme picker", () => {
 
   it("persists theme settings to extension storage", async () => {
     const stored = {
-      settings: normalizeSettings({ themeId: "ocean" }),
+      settings: normalizeSettings({ themeId: "mint" }),
       authSession: null,
       userProfile: null,
     };
@@ -154,7 +154,7 @@ describe("theme picker", () => {
     await saveStoredState(stored);
 
     const loaded = await loadStoredState();
-    expect(loaded.settings?.themeId).toBe("ocean");
+    expect(loaded.settings?.themeId).toBe("mint");
     expect(DEFAULT_SETTINGS.themeId).toBe("standard");
   });
 });

@@ -1,5 +1,13 @@
 export type ThemeId =
-  "standard" | "daylight" | "ocean" | "devil" | "forest" | "monochrome" | "pearl" | "custom";
+  | "standard"
+  | "daylight"
+  | "devil"
+  | "rose"
+  | "forest"
+  | "mint"
+  | "monochrome"
+  | "pearl"
+  | "custom";
 
 export type ThemeKind = "dark" | "light";
 
@@ -9,9 +17,10 @@ export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
 export const THEME_PRESET_IDS = [
   "standard",
   "daylight",
-  "ocean",
   "devil",
+  "rose",
   "forest",
+  "mint",
   "monochrome",
   "pearl",
 ] as const satisfies readonly Exclude<ThemeId, "custom">[];
@@ -116,22 +125,40 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
       textOnAccent: "#070707",
     }),
   },
-  ocean: {
-    kind: "dark",
-    palette: darkPalette({
-      accent: "#5eead4",
-      accentSoft: "#8bf0e0",
-      accentStrong: "#3e978e",
-      backgroundMain: "#16202b",
-      backgroundPanel: "#192430",
-      backgroundPanelSoft: "#1e2b39",
-      inputColor: "#131c26",
-      border: "rgba(191, 219, 254, 0.13)",
-      borderStrong: "rgba(191, 219, 254, 0.19)",
-      muted: "#9fb4c8",
-      disabled: "#7a8da0",
-      textPrimary: "#eaf2f9",
-      textOnAccent: "#06201d",
+  rose: {
+    kind: "light",
+    palette: lightPalette({
+      accent: "#e0565e",
+      accentSoft: "#e9858b",
+      accentStrong: "#914459",
+      backgroundMain: "#f4eeee",
+      backgroundPanel: "#ffffff",
+      backgroundPanelSoft: "#f6ecea",
+      inputColor: "#ffffff",
+      border: "rgba(60, 20, 24, 0.12)",
+      borderStrong: "rgba(60, 20, 24, 0.22)",
+      muted: "#6d5c5e",
+      disabled: "#a29496",
+      textPrimary: "#1c1416",
+      textOnAccent: "#ffffff",
+    }),
+  },
+  mint: {
+    kind: "light",
+    palette: lightPalette({
+      accent: "#2ea36b",
+      accentSoft: "#69bd94",
+      accentStrong: "#267161",
+      backgroundMain: "#eef4ef",
+      backgroundPanel: "#ffffff",
+      backgroundPanelSoft: "#e6efe8",
+      inputColor: "#ffffff",
+      border: "rgba(16, 46, 28, 0.12)",
+      borderStrong: "rgba(16, 46, 28, 0.22)",
+      muted: "#5a6b5e",
+      disabled: "#97a49b",
+      textPrimary: "#121d15",
+      textOnAccent: "#ffffff",
     }),
   },
   devil: {

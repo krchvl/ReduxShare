@@ -22,9 +22,10 @@ interface ThemePickerProps {
 const THEME_NAME_KEYS: Record<ThemeId, TranslationKey> = {
   standard: "settings.theme.preset.standard",
   daylight: "settings.theme.preset.daylight",
-  ocean: "settings.theme.preset.ocean",
   devil: "settings.theme.preset.devil",
+  rose: "settings.theme.preset.rose",
   forest: "settings.theme.preset.forest",
+  mint: "settings.theme.preset.mint",
   monochrome: "settings.theme.preset.monochrome",
   pearl: "settings.theme.preset.pearl",
   custom: "settings.theme.preset.custom",
