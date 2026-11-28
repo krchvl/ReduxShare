@@ -5,7 +5,7 @@ import {
   UPDATE_NOTICE_POSITION_STORAGE_KEY,
 } from "../../shared/storageKeys";
 import { canUseQuizFeatures } from "../../logic/settings";
-import { applyContentColorSchemeToHost, getAccentColor, getRgbCssValue } from "../../logic/theme";
+import { applyContentThemeToHost, getAccentColor, getRgbCssValue } from "../../logic/theme";
 import { currentStoredState, currentT } from "../../state";
 
 export const UPDATE_NOTICE_HOST_ID = "reduxshare-update-notice";
@@ -267,10 +267,9 @@ function ensureUpdateNotice(): HTMLDivElement | null {
           border-radius: 16px;
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-notice-accent-rgb), 0.18), transparent 54%),
-            linear-gradient(180deg, rgba(19, 20, 27, 0.95), rgba(15, 16, 22, 0.91)),
-            rgba(15, 16, 22, 0.92);
+            color-mix(in srgb, var(--reduxshare-panel, #17181f) 92%, transparent);
           backdrop-filter: blur(16px) saturate(120%);
-          color: #f6f7fb;
+          color: var(--reduxshare-text, #f6f7fb);
           box-shadow:
             0 20px 44px rgba(0, 0, 0, 0.28),
             0 0 0 1px rgba(var(--reduxshare-notice-accent-rgb), 0.05) inset;
@@ -334,7 +333,7 @@ function ensureUpdateNotice(): HTMLDivElement | null {
           height: 22px;
           place-items: center;
           border-radius: 6px;
-          color: rgba(246, 247, 251, 0.6);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 60%, transparent);
           cursor: pointer;
           font-size: 15px;
           line-height: 1;
@@ -342,8 +341,8 @@ function ensureUpdateNotice(): HTMLDivElement | null {
 
         .close:hover,
         .close:focus-visible {
-          background: rgba(255, 255, 255, 0.08);
-          color: #ffffff;
+          background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
+          color: var(--reduxshare-text, #ffffff);
           outline: 0;
         }
 
@@ -351,7 +350,7 @@ function ensureUpdateNotice(): HTMLDivElement | null {
           margin: 8px 0 12px;
           font-size: 12.5px;
           line-height: 1.45;
-          color: rgba(246, 247, 251, 0.82);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 82%, transparent);
         }
 
         .actions {
@@ -374,7 +373,7 @@ function ensureUpdateNotice(): HTMLDivElement | null {
 
         .button--primary {
           background: var(--reduxshare-notice-accent);
-          color: #14151b;
+          color: var(--reduxshare-text-on-accent, #14151b);
         }
 
         .button--primary:hover,
@@ -384,49 +383,49 @@ function ensureUpdateNotice(): HTMLDivElement | null {
         }
 
         .button--ghost {
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          color: #f6f7fb;
+          border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 16%, transparent);
+          color: var(--reduxshare-text, #f6f7fb);
         }
 
         .button--ghost:hover,
         .button--ghost:focus-visible {
-          background: rgba(255, 255, 255, 0.06);
+          background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 6%, transparent);
           outline: 0;
         }
 
         :host([data-theme="light"]) .notice {
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-notice-accent-rgb), 0.14), transparent 54%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 245, 248, 0.95));
-          color: #14151b;
-          border-color: rgba(20, 21, 27, 0.1);
+            linear-gradient(180deg, color-mix(in srgb, var(--reduxshare-text, #ffffff) 97%, transparent), rgba(244, 245, 248, 0.95));
+          color: var(--reduxshare-text-on-accent, #14151b);
+          border-color: color-mix(in srgb, var(--reduxshare-text, #14151b) 10%, transparent);
           box-shadow:
             0 20px 44px rgba(20, 24, 40, 0.18),
-            0 0 0 1px rgba(20, 21, 27, 0.04) inset;
+            0 0 0 1px color-mix(in srgb, var(--reduxshare-text, #14151b) 4%, transparent) inset;
         }
 
         :host([data-theme="light"]) .close {
-          color: rgba(20, 21, 27, 0.55);
+          color: color-mix(in srgb, var(--reduxshare-text, #14151b) 55%, transparent);
         }
 
         :host([data-theme="light"]) .close:hover,
         :host([data-theme="light"]) .close:focus-visible {
-          background: rgba(20, 21, 27, 0.07);
-          color: #14151b;
+          background: color-mix(in srgb, var(--reduxshare-text, #14151b) 7%, transparent);
+          color: var(--reduxshare-text-on-accent, #14151b);
         }
 
         :host([data-theme="light"]) .body {
-          color: rgba(20, 21, 27, 0.75);
+          color: color-mix(in srgb, var(--reduxshare-text, #14151b) 75%, transparent);
         }
 
         :host([data-theme="light"]) .button--ghost {
-          border-color: rgba(20, 21, 27, 0.16);
-          color: #14151b;
+          border-color: color-mix(in srgb, var(--reduxshare-text, #14151b) 16%, transparent);
+          color: var(--reduxshare-text-on-accent, #14151b);
         }
 
         :host([data-theme="light"]) .button--ghost:hover,
         :host([data-theme="light"]) .button--ghost:focus-visible {
-          background: rgba(20, 21, 27, 0.05);
+          background: color-mix(in srgb, var(--reduxshare-text, #14151b) 5%, transparent);
         }
       </style>
       <div class="notice" role="dialog" aria-live="polite">
@@ -472,9 +471,9 @@ export function renderUpdateNotice(): void {
   const accentColor = getAccentColor(storedState?.settings);
   const logoUrl = chrome.runtime.getURL("icons/reduxshare-icon-48.png");
 
+  applyContentThemeToHost(host);
   host.style.setProperty("--reduxshare-notice-accent", accentColor);
   host.style.setProperty("--reduxshare-notice-accent-rgb", getRgbCssValue(accentColor));
-  applyContentColorSchemeToHost(host);
 
   const title = shadowRoot.querySelector<HTMLElement>(".title");
   const body = shadowRoot.querySelector<HTMLElement>(".body");

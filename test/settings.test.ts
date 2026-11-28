@@ -6,8 +6,8 @@ import {
   normalizeAutoSelectAvgSeconds,
   normalizeOpacity,
   normalizeSettings,
-  resolveColorScheme,
 } from "../src/types";
+import { CUSTOM_THEME_DEFAULTS } from "../src/shared/themePalettes";
 import {
   autoSelectTempoPositionToSeconds,
   autoSelectTempoSecondsToPosition,
@@ -40,13 +40,33 @@ describe("opacity settings", () => {
     expect(normalizeSettings({ copyUnlock: false })).not.toHaveProperty("copyUnlock");
   });
 
-  it("normalizes the color scheme with a system default", () => {
-    expect(DEFAULT_SETTINGS.colorScheme).toBe("system");
-    expect(normalizeSettings({}).colorScheme).toBe("system");
-    expect(normalizeSettings({ colorScheme: "light" }).colorScheme).toBe("light");
-    expect(normalizeSettings({ colorScheme: "Night" as "dark" }).colorScheme).toBe("system");
-    expect(resolveColorScheme("light")).toBe("light");
-    expect(resolveColorScheme("dark")).toBe("dark");
+  it("normalizes theme settings with a standard default", () => {
+    expect(DEFAULT_SETTINGS.themeId).toBe("standard");
+    expect(DEFAULT_SETTINGS.customTheme).toEqual(CUSTOM_THEME_DEFAULTS);
+    expect(normalizeSettings({}).themeId).toBe("standard");
+    expect(normalizeSettings({ themeId: "ocean" }).themeId).toBe("ocean");
+    expect(normalizeSettings({ themeId: "Night" as "standard" }).themeId).toBe("standard");
+    expect(normalizeSettings({ themeId: 42 as "standard" }).themeId).toBe("standard");
+  });
+
+  it("normalizes custom theme colors with safe fallbacks", () => {
+    const custom = normalizeSettings({
+      themeId: "custom",
+      customTheme: {
+        accent: "#FF0000",
+        backgroundMain: "not-a-color",
+        backgroundPanel: "#101010",
+        backgroundPanelSoft: "#202020",
+        inputColor: "#080808",
+        textPrimary: "#eeeeee",
+        textMuted: "#999999",
+      },
+    }).customTheme;
+
+    expect(custom.accent).toBe("#ff0000");
+    expect(custom.backgroundMain).toBe(CUSTOM_THEME_DEFAULTS.backgroundMain);
+    expect(custom.backgroundPanel).toBe("#101010");
+    expect(normalizeSettings({}).customTheme).toEqual(CUSTOM_THEME_DEFAULTS);
   });
 
   it("clamps the average auto-select time", () => {
@@ -129,27 +149,49 @@ describe("opacity settings", () => {
 });
 
 describe("legacy theme migration", () => {
-  it("migrates legacy theme settings to accent colors", () => {
-    expect(normalizeSettings({ theme: "Night" }).accentColor).toBe("#9cb9f6");
-    expect(normalizeSettings({ theme: "Devil" }).accentColor).toBe("#ff6b6f");
-    expect(normalizeSettings({ theme: "Peace" }).accentColor).toBe("#76d982");
+  it("migrates legacy theme names to theme presets", () => {
+    expect(normalizeSettings({ theme: "Night" }).themeId).toBe("standard");
+    expect(normalizeSettings({ theme: "Devil" }).themeId).toBe("devil");
+    expect(normalizeSettings({ theme: "Peace" }).themeId).toBe("forest");
   });
 
-  it("prefers explicit accentColor over legacy theme", () => {
-    expect(normalizeSettings({ theme: "Night", accentColor: "#ff0000" }).accentColor).toBe(
-      "#ff0000",
-    );
-    expect(normalizeSettings({ theme: "Devil", accentColor: "#00ff00" }).accentColor).toBe(
-      "#00ff00",
-    );
+  it("keeps the legacy accent as a custom theme", () => {
+    const custom = normalizeSettings({ theme: "Night", accentColor: "#ff0000" });
+
+    expect(custom.themeId).toBe("custom");
+    expect(custom.customTheme.accent).toBe("#ff0000");
+    expect(normalizeSettings({ theme: "Devil", accentColor: "#00ff00" }).themeId).toBe("custom");
+    expect(normalizeSettings({ accentColor: "#00ff00" }).customTheme.accent).toBe("#00ff00");
   });
 
-  it("handles unknown legacy theme values", () => {
-    expect(normalizeSettings({ theme: "Unknown" as LegacyTheme }).accentColor).toBe("#9cb9f6");
+  it("keeps the default legacy accent on the standard theme", () => {
+    expect(normalizeSettings({ theme: "Unknown" as LegacyTheme }).themeId).toBe("standard");
+    expect(normalizeSettings({ accentColor: "#9cb9f6" }).themeId).toBe("standard");
+  });
+
+  it("seeds the custom theme from the stored light scheme", () => {
+    const custom = normalizeSettings({ colorScheme: "light", accentColor: "#123456" });
+
+    expect(custom.themeId).toBe("custom");
+    expect(custom.customTheme.backgroundMain).toBe("#e9ecf1");
+    expect(custom.customTheme.accent).toBe("#123456");
+    expect(normalizeSettings({ colorScheme: "light" }).themeId).toBe("daylight");
+    expect(normalizeSettings({}).themeId).toBe("standard");
   });
 
   it("works with partial legacy settings", () => {
     const legacySettings: Partial<LegacyStoredSettings> = { theme: "Night" };
-    expect(normalizeSettings(legacySettings).accentColor).toBe("#9cb9f6");
+    expect(normalizeSettings(legacySettings).themeId).toBe("standard");
+  });
+
+  it("preserves an explicit theme id over legacy markers", () => {
+    const migrated = normalizeSettings({
+      themeId: "violet",
+      theme: "Devil",
+      accentColor: "#ff0000",
+    });
+
+    expect(migrated.themeId).toBe("violet");
+    expect(migrated.customTheme).toEqual(CUSTOM_THEME_DEFAULTS);
   });
 });

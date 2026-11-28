@@ -18,17 +18,16 @@ import {
   type UpdateState,
   type UserProfile,
 } from "../types";
-import { AccentColorPicker } from "./AccentColorPicker";
 import { AiAccessModeIcon, type AiAccessMode } from "./AiAccessModeIcon";
 import { AiProviderIcon, OfficialModelIcon, TrashIcon } from "./AiProviderIcon";
 import { AuthGateOverlay } from "./AuthGateOverlay";
 import { HumanizationIcon } from "./HumanizationIcon";
 import { Button } from "./Button";
-import { ColorSchemeSelect } from "./ColorSchemeSelect";
 import { CustomSelect, getAnchoredFloatingStyle } from "./CustomSelect";
 import { ServerPicker } from "./ServerPicker";
 import { StatsPanel } from "./StatsPanel";
 import { TabCard, TabCardGroup } from "./TabCard";
+import { ThemePicker } from "./ThemePicker";
 import { LanguageSelect } from "./LanguageSelect";
 import { Switch } from "./Switch";
 import { requestAiConnectionTest, requestAiModels, requestOfficialAiUsage } from "../lib/ai";
@@ -1075,19 +1074,11 @@ export function MainScreen({
             title={t("settings.theme.title")}
             lines={[t("settings.theme.line1"), t("settings.theme.line2")]}
             control={
-              <ColorSchemeSelect
-                value={settings.colorScheme}
-                onChange={(colorScheme) => updateSetting("colorScheme", colorScheme)}
-              />
-            }
-          />
-          <SettingPanelRow
-            title={t("settings.accent.title")}
-            lines={[t("settings.accent.line1"), t("settings.accent.line2")]}
-            control={
-              <AccentColorPicker
-                value={settings.accentColor}
-                onChange={(accentColor) => updateSetting("accentColor", accentColor)}
+              <ThemePicker
+                themeId={settings.themeId}
+                customTheme={settings.customTheme}
+                onThemeChange={(themeId) => updateSetting("themeId", themeId)}
+                onCustomThemeChange={(customTheme) => updateSetting("customTheme", customTheme)}
               />
             }
           />

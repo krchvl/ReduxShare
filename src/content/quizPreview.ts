@@ -26,7 +26,7 @@ import {
   showQuizPreviewQuestions,
   updateQuizPreviewScanProgress,
 } from "../ui/quizPreviewPanel";
-import { applyContentColorSchemeToHost, getAccentColor, getRgbCssValue } from "../logic/theme";
+import { applyContentThemeToHost } from "../logic/theme";
 import {
   normalizeQuizIdScanRange,
   QUIZ_ID_SCAN_DEFAULT_FROM,
@@ -514,11 +514,7 @@ function syncQuizPreviewHotkey(storedState: StoredStateLike | undefined) {
 }
 
 function applyQuizPreviewButtonTheme(button: HTMLElement) {
-  const accentColor = getAccentColor(currentStoredState?.settings);
-
-  button.style.setProperty("--reduxshare-accent", accentColor);
-  button.style.setProperty("--reduxshare-accent-rgb", getRgbCssValue(accentColor));
-  applyContentColorSchemeToHost(button);
+  applyContentThemeToHost(button);
 }
 
 function updateQuizPreviewButton(button: HTMLElement) {

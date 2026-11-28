@@ -5,19 +5,30 @@ import {
   normalizeHotkeyValue,
 } from "./lib/hotkeys";
 import { BUILTIN_SERVER_ID, getBuiltinServerConfig, type DataProviderId } from "./lib/envConfig";
+import {
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_THEME_ID,
+  THEMES,
+  customPaletteFromPalette,
+  isThemeId,
+  normalizeCustomThemePalette,
+  resolveLegacyColorSchemeKind,
+  resolveThemeId,
+  type CustomThemePalette,
+  type ThemeId,
+  type ThemeSettingsLike,
+} from "./shared/themePalettes";
+
+export { DEFAULT_ACCENT_COLOR };
 
 export type ViewName = "login" | "register" | "main";
-
-const LEGACY_THEME_OPTIONS = [
-  { name: "Night", accent: "#9cb9f6" },
-  { name: "Devil", accent: "#ff6b6f" },
-  { name: "Peace", accent: "#76d982" },
-] as const;
 
 export type LegacyTheme = "Night" | "Devil" | "Peace";
 
 export interface LegacyStoredSettings {
   theme?: LegacyTheme;
+  accentColor?: string;
+  colorScheme?: string;
 }
 
 export type AutoSelectTempoPreset = "realistic" | "balanced" | "brisk";
@@ -28,10 +39,7 @@ export const AUTO_SELECT_TEMPO_PRESETS = {
   brisk: 1.5,
 } as const satisfies Record<AutoSelectTempoPreset, number>;
 
-export const DEFAULT_ACCENT_COLOR = "#9cb9f6";
-
 export type LanguageSetting = "auto" | "ru" | "en";
-export type ColorSchemeSetting = "light" | "dark" | "system";
 
 export const AI_PROVIDER_OPTIONS = [
   { value: "google", label: "Google" },
@@ -95,9 +103,9 @@ export interface Settings {
   attemptStatusPanelClosed: boolean;
   hotkey: string;
   hotkeyCode: string;
-  accentColor: string;
+  themeId: ThemeId;
+  customTheme: CustomThemePalette;
   language: LanguageSetting;
-  colorScheme: ColorSchemeSetting;
   popupOpacity: number;
   pageOverlayOpacity: number;
   servers: ServerConfig[];
@@ -206,9 +214,9 @@ export const DEFAULT_SETTINGS: Settings = {
   attemptStatusPanelClosed: false,
   hotkey: DEFAULT_HOTKEY,
   hotkeyCode: DEFAULT_HOTKEY_CODE,
-  accentColor: DEFAULT_ACCENT_COLOR,
+  themeId: DEFAULT_THEME_ID,
+  customTheme: customPaletteFromPalette(THEMES.standard.palette),
   language: "auto",
-  colorScheme: "system",
   popupOpacity: 1,
   pageOverlayOpacity: 1,
   servers: normalizeServerConfigs(undefined),
@@ -247,36 +255,8 @@ export function isLanguageSetting(value: unknown): value is LanguageSetting {
   return value === "auto" || value === "ru" || value === "en";
 }
 
-export function isColorSchemeSetting(value: unknown): value is ColorSchemeSetting {
-  return value === "light" || value === "dark" || value === "system";
-}
-
-export function resolveColorScheme(setting: ColorSchemeSetting | undefined): "light" | "dark" {
-  if (setting === "light" || setting === "dark") {
-    return setting;
-  }
-
-  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  }
-
-  return "dark";
-}
-
-export function normalizeAccentColor(value: unknown) {
-  if (typeof value !== "string") {
-    return DEFAULT_ACCENT_COLOR;
-  }
-
-  const trimmedValue = value.trim();
-
-  if (/^#[0-9a-f]{6}$/i.test(trimmedValue)) {
-    return trimmedValue.toLowerCase();
-  }
-
-  const legacyTheme = LEGACY_THEME_OPTIONS.find((theme) => theme.name === trimmedValue);
-
-  return legacyTheme?.accent ?? DEFAULT_ACCENT_COLOR;
+export function normalizeThemeId(value: unknown): ThemeId {
+  return isThemeId(value) ? value : resolveThemeId(value as ThemeSettingsLike);
 }
 
 export function isAiProvider(value: unknown): value is AiProvider {
@@ -471,10 +451,54 @@ export function resolveActiveServerId(rawId: unknown, servers: ServerConfig[]): 
   return servers[0]?.id ?? BUILTIN_SERVER_ID;
 }
 
+function migrateThemeSettings(
+  settings: (Partial<Settings> & Partial<LegacyStoredSettings>) | undefined,
+) {
+  if (isThemeId(settings?.themeId)) {
+    return {
+      themeId: settings.themeId,
+      customTheme: normalizeCustomThemePalette(settings?.customTheme),
+    };
+  }
+
+  const themeId = resolveThemeId(settings);
+  const customTheme = normalizeCustomThemePalette(undefined);
+
+  if (themeId !== "custom") {
+    const hadLegacyThemeName = typeof settings?.theme === "string";
+
+    if (
+      !hadLegacyThemeName &&
+      themeId === "standard" &&
+      resolveLegacyColorSchemeKind(settings?.colorScheme) === "light"
+    ) {
+      return { themeId: "daylight" as ThemeId, customTheme };
+    }
+
+    return { themeId, customTheme };
+  }
+
+  const legacyPalette =
+    resolveLegacyColorSchemeKind(settings?.colorScheme) === "light"
+      ? THEMES.daylight.palette
+      : THEMES.standard.palette;
+  const legacyAccent =
+    typeof settings?.accentColor === "string" ? settings.accentColor.trim().toLowerCase() : "";
+
+  return {
+    themeId,
+    customTheme: normalizeCustomThemePalette({
+      ...customPaletteFromPalette(legacyPalette),
+      accent: /^#[0-9a-f]{6}$/.test(legacyAccent) ? legacyAccent : undefined,
+    }),
+  };
+}
+
 export function normalizeSettings(
   settings: (Partial<Settings> & Partial<LegacyStoredSettings>) | undefined,
 ): Settings {
   const servers = normalizeServerConfigs(settings?.servers);
+  const theme = migrateThemeSettings(settings);
 
   return {
     extensionEnabled: settings?.extensionEnabled ?? DEFAULT_SETTINGS.extensionEnabled,
@@ -485,13 +509,9 @@ export function normalizeSettings(
     humanPrecursors: settings?.humanPrecursors ?? DEFAULT_SETTINGS.humanPrecursors,
     hotkey: normalizeHotkeyValue(settings?.hotkey),
     hotkeyCode: normalizeHotkeyCode(settings?.hotkeyCode, settings?.hotkey),
-    accentColor: normalizeAccentColor(
-      settings?.accentColor ?? (settings as Partial<LegacyStoredSettings>)?.theme,
-    ),
+    themeId: theme.themeId,
+    customTheme: theme.customTheme,
     language: isLanguageSetting(settings?.language) ? settings.language : DEFAULT_SETTINGS.language,
-    colorScheme: isColorSchemeSetting(settings?.colorScheme)
-      ? settings.colorScheme
-      : DEFAULT_SETTINGS.colorScheme,
     popupOpacity: settings?.popupOpacity ?? DEFAULT_SETTINGS.popupOpacity,
     pageOverlayOpacity: settings?.pageOverlayOpacity ?? DEFAULT_SETTINGS.pageOverlayOpacity,
     servers,

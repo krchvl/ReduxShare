@@ -107,9 +107,8 @@ type QuizAttemptTestApi = {
     applied: number;
     total: number;
   };
-  mountAnswerWidgets: (accentColor: string) => void;
+  mountAnswerWidgets: () => void;
   createAnswerWidgetHost: (
-    accentColor: string,
     questionId: string | null,
     variantCounts: AnswerVariantCounts,
     answerData: SourceAnswerData,

@@ -2,9 +2,9 @@ import type { AnswerEntry, QuizQuestionSummary, StoredStateLike } from "../../mo
 import type { Settings } from "../../types";
 import { canUseQuizFeatures, getContentLocale } from "../../logic/settings";
 import {
-  applyContentColorSchemeToHost,
-  getAccentColor,
+  applyContentThemeToHost,
   getRgbCssValue,
+  getThemePalette,
   mixHexColors,
 } from "../../logic/theme";
 import { getOrderingResponseInput } from "../../dom/ordering";
@@ -934,10 +934,9 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           border-radius: 16px;
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.18), transparent 54%),
-            linear-gradient(180deg, rgba(19, 20, 27, 0.95), rgba(15, 16, 22, 0.91)),
-            rgba(15, 16, 22, 0.92);
+            color-mix(in srgb, var(--reduxshare-panel, #17181f) 92%, transparent);
           backdrop-filter: blur(16px) saturate(120%);
-          color: #f6f7fb;
+          color: var(--reduxshare-text, #f6f7fb);
           box-shadow:
             0 20px 44px rgba(0, 0, 0, 0.28),
             0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.05) inset;
@@ -1019,7 +1018,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           object-fit: cover;
           box-shadow:
             0 8px 24px rgba(var(--reduxshare-panel-accent-rgb), 0.22),
-            0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+            0 0 0 1px color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent) inset;
           transition:
             transform 160ms ease,
             box-shadow 180ms ease;
@@ -1029,7 +1028,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           transform: scale(1.03);
           box-shadow:
             0 12px 28px rgba(var(--reduxshare-panel-accent-rgb), 0.28),
-            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+            0 0 0 1px color-mix(in srgb, var(--reduxshare-text, #ffffff) 10%, transparent) inset;
         }
 
         .brand-name {
@@ -1056,7 +1055,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.18);
           border-radius: 10px;
           background: rgba(var(--reduxshare-panel-accent-rgb), 0.08);
-          color: #f6f7fb;
+          color: var(--reduxshare-text, #f6f7fb);
           cursor: pointer;
           display: grid;
           place-items: center;
@@ -1097,7 +1096,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.18);
           border-radius: 10px;
           background: rgba(var(--reduxshare-panel-accent-rgb), 0.08);
-          color: #f6f7fb;
+          color: var(--reduxshare-text, #f6f7fb);
           cursor: pointer;
           display: grid;
           place-items: center;
@@ -1143,7 +1142,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           place-items: center;
           border: 1px solid rgba(var(--reduxshare-panel-accent-rgb), 0.24);
           border-radius: 8px;
-          background: linear-gradient(180deg, rgba(19, 20, 27, 0.97), rgba(15, 16, 22, 0.94));
+          background: color-mix(in srgb, var(--reduxshare-panel, #17181f) 95%, transparent);
           color: color-mix(in srgb, var(--reduxshare-panel-accent) 78%, #f6f7fb);
           cursor: pointer;
           pointer-events: auto;
@@ -1205,7 +1204,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           border-radius: 12px;
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.14), transparent 60%),
-            linear-gradient(180deg, rgba(19, 20, 27, 0.97), rgba(15, 16, 22, 0.94));
+            color-mix(in srgb, var(--reduxshare-panel, #17181f) 95%, transparent);
           box-shadow:
             0 16px 32px rgba(0, 0, 0, 0.3),
             0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.05) inset;
@@ -1244,10 +1243,10 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           width: 32px;
           height: 32px;
           place-items: center;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 20%, transparent);
           border-radius: 10px;
-          background: #262834;
-          color: #f6f7fb;
+          background: var(--reduxshare-panel-soft, #262834);
+          color: var(--reduxshare-text, #f6f7fb);
           cursor: pointer;
           transition:
             background-color 140ms ease,
@@ -1260,7 +1259,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         .tray-action:hover {
           border-color: rgba(var(--reduxshare-panel-accent-rgb), 0.55);
           background: color-mix(in srgb, var(--reduxshare-panel-accent) 26%, #262834);
-          color: #ffffff;
+          color: var(--reduxshare-text, #ffffff);
         }
 
         .tray-action:active {
@@ -1340,20 +1339,20 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         .tray-pause__title {
-          color: #f6f7fb;
+          color: var(--reduxshare-text, #f6f7fb);
           font-size: 12.5px;
           font-weight: 700;
           line-height: 1.35;
         }
 
         .tray-pause__question {
-          color: rgba(246, 247, 251, 0.72);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 72%, transparent);
           font-size: 11.5px;
           line-height: 1.4;
         }
 
         .tray-pause__hint {
-          color: rgba(246, 247, 251, 0.55);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 55%, transparent);
           font-size: 11px;
           line-height: 1.4;
         }
@@ -1398,14 +1397,14 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         .tray-pause__stop {
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(246, 247, 251, 0.6);
+          border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 14%, transparent);
+          background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 5%, transparent);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 60%, transparent);
         }
 
         .tray-pause__stop:hover {
           border-color: rgba(255, 107, 107, 0.5);
-          color: #ff6b6b;
+          color: var(--reduxshare-danger, #ff6b6b);
         }
 
         .panel__body {
@@ -1439,7 +1438,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .meta-label,
         .stat__label {
-          color: rgba(246, 247, 251, 0.64);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 64%, transparent);
           font-size: 11px;
           line-height: 1.2;
         }
@@ -1462,7 +1461,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           border-radius: 12px;
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-progress-rgb), 0.2), transparent 62%),
-            linear-gradient(180deg, rgba(var(--reduxshare-progress-rgb), 0.12), rgba(255, 255, 255, 0.035));
+            linear-gradient(180deg, rgba(var(--reduxshare-progress-rgb), 0.12), color-mix(in srgb, var(--reduxshare-text, #ffffff) 4%, transparent));
           padding: 10px;
           box-shadow:
             0 0 0 1px rgba(var(--reduxshare-progress-rgb), 0.04) inset,
@@ -1487,7 +1486,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .progress__label,
         .progress__caption {
-          color: rgba(246, 247, 251, 0.66);
+          color: color-mix(in srgb, var(--reduxshare-text, #f6f7fb) 66%, transparent);
           font-size: 11px;
           line-height: 1.2;
         }
@@ -1512,7 +1511,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
           height: 8px;
           overflow: hidden;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.08);
+          background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
           box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
         }
 
@@ -1535,11 +1534,11 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         .stat {
           min-width: 0;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid color-mix(in srgb, var(--reduxshare-text, #ffffff) 8%, transparent);
           border-radius: 11px;
-          background: rgba(255, 255, 255, 0.04);
+          background: color-mix(in srgb, var(--reduxshare-text, #ffffff) 4%, transparent);
           padding: 10px;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+          box-shadow: inset 0 1px 0 color-mix(in srgb, var(--reduxshare-text, #ffffff) 2%, transparent);
           transition:
             transform 160ms ease,
             border-color 160ms ease,
@@ -1574,7 +1573,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         .stat--answers .stat__value {
-          color: #68e3a1;
+          color: var(--reduxshare-success, #68e3a1);
         }
 
         .stat--failed {
@@ -1583,17 +1582,17 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         .stat--failed .stat__value {
-          color: #ff8a8a;
+          color: var(--reduxshare-danger, #ff8a8a);
         }
 
         :host([data-theme="light"]) .panel {
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.12), transparent 54%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 242, 246, 0.95));
+            linear-gradient(180deg, color-mix(in srgb, var(--reduxshare-text, #ffffff) 97%, transparent), rgba(240, 242, 246, 0.95));
           box-shadow:
             0 20px 44px rgba(20, 30, 60, 0.14),
             0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.08) inset;
-          color: #14171d;
+          color: var(--reduxshare-text, #14171d);
         }
 
         :host([data-theme="light"]) .brand-name {
@@ -1602,14 +1601,14 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         :host([data-theme="light"]) .toggle,
         :host([data-theme="light"]) .close {
-          color: #14171d;
+          color: var(--reduxshare-text, #14171d);
         }
 
         :host([data-theme="light"]) .meta-label,
         :host([data-theme="light"]) .stat__label,
         :host([data-theme="light"]) .progress__label,
         :host([data-theme="light"]) .progress__caption {
-          color: rgba(20, 25, 40, 0.62);
+          color: color-mix(in srgb, var(--reduxshare-text, #14171d) 62%, transparent);
         }
 
         :host([data-theme="light"]) .progress__percent {
@@ -1624,7 +1623,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
 
         :host([data-theme="light"]) .stat {
           border-color: rgba(15, 20, 35, 0.1);
-          background: #ffffff;
+          background: var(--reduxshare-panel, #ffffff);
         }
 
         :host([data-theme="light"]) .stat--total .stat__value {
@@ -1632,18 +1631,18 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         :host([data-theme="light"]) .stat--answers .stat__value {
-          color: #1f9d4d;
+          color: var(--reduxshare-success, #1f9d4d);
         }
 
         :host([data-theme="light"]) .stat--failed .stat__value {
-          color: #d9484f;
+          color: var(--reduxshare-danger, #d9484f);
         }
 
         :host([data-theme="light"]) .settings-ear,
         :host([data-theme="light"]) .settings-tray {
           background:
             radial-gradient(circle at top right, rgba(var(--reduxshare-panel-accent-rgb), 0.1), transparent 60%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 242, 246, 0.96));
+            linear-gradient(180deg, color-mix(in srgb, var(--reduxshare-text, #ffffff) 98%, transparent), rgba(240, 242, 246, 0.96));
           box-shadow:
             0 16px 32px rgba(20, 30, 60, 0.14),
             0 0 0 1px rgba(var(--reduxshare-panel-accent-rgb), 0.08) inset;
@@ -1653,7 +1652,7 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         :host([data-theme="light"]) .tray-action {
           border-color: rgba(15, 20, 35, 0.16);
           background: rgba(15, 20, 35, 0.08);
-          color: rgba(20, 25, 40, 0.78);
+          color: color-mix(in srgb, var(--reduxshare-text, #14171d) 78%, transparent);
         }
 
         :host([data-theme="light"]) .tray-action[aria-pressed="true"],
@@ -1668,21 +1667,21 @@ export function ensureAttemptStatusPanel(): HTMLDivElement {
         }
 
         :host([data-theme="light"]) .tray-pause__title {
-          color: #1c2233;
+          color: var(--reduxshare-text, #1c2233);
         }
 
         :host([data-theme="light"]) .tray-pause__question {
-          color: rgba(28, 34, 51, 0.72);
+          color: color-mix(in srgb, var(--reduxshare-text, #1c2233) 72%, transparent);
         }
 
         :host([data-theme="light"]) .tray-pause__hint {
-          color: rgba(28, 34, 51, 0.55);
+          color: color-mix(in srgb, var(--reduxshare-text, #1c2233) 55%, transparent);
         }
 
         :host([data-theme="light"]) .tray-pause__stop {
           border-color: rgba(15, 20, 35, 0.14);
           background: rgba(15, 20, 35, 0.04);
-          color: rgba(20, 25, 40, 0.6);
+          color: color-mix(in srgb, var(--reduxshare-text, #14171d) 60%, transparent);
         }
 
         @keyframes panel-enter {
@@ -1965,7 +1964,8 @@ export function renderAttemptStatusPanel() {
     return;
   }
 
-  const accentColor = getAccentColor(currentStoredState?.settings);
+  const palette = getThemePalette(currentStoredState?.settings);
+  const accentColor = palette.accent;
   const logoUrl = chrome.runtime.getURL("icons/reduxshare-icon-48.png");
   const username = getAttemptStatusPanelUsername();
   const stats = getAttemptStatusPanelStats();
@@ -1974,7 +1974,6 @@ export function renderAttemptStatusPanel() {
     ? currentT("quiz.panel.expand")
     : currentT("quiz.panel.collapse");
   const closeLabel = currentT("quiz.panel.close");
-  const accentSoftColor = mixHexColors(accentColor, "#ffffff", 0.28);
   const panel = shadowRoot.querySelector<HTMLElement>(".panel");
   const brandMark = shadowRoot.querySelector<HTMLImageElement>(".brand-mark");
   const brandSubtitle = shadowRoot.querySelector<HTMLElement>(".brand-subtitle");
@@ -1989,10 +1988,10 @@ export function renderAttemptStatusPanel() {
   const failedLabel = shadowRoot.querySelector<HTMLElement>(".stat__label--failed");
   const failedValue = shadowRoot.querySelector<HTMLElement>(".stat__value--failed");
 
+  applyContentThemeToHost(host);
   host.style.setProperty("--reduxshare-panel-accent", accentColor);
-  host.style.setProperty("--reduxshare-panel-accent-soft", accentSoftColor);
+  host.style.setProperty("--reduxshare-panel-accent-soft", palette.accentSoft);
   host.style.setProperty("--reduxshare-panel-accent-rgb", getRgbCssValue(accentColor));
-  applyContentColorSchemeToHost(host);
 
   panel?.classList.toggle("panel--collapsed", attemptStatusPanelCollapsed);
 
