@@ -1070,18 +1070,19 @@ export function MainScreen({
     if (activeTab === "ui") {
       return (
         <div className="settings-panel__rows">
-          <SettingPanelRow
-            title={t("settings.theme.title")}
-            lines={[t("settings.theme.line1"), t("settings.theme.line2")]}
-            control={
-              <ThemePicker
-                themeId={settings.themeId}
-                customTheme={settings.customTheme}
-                onThemeChange={(themeId) => updateSetting("themeId", themeId)}
-                onCustomThemeChange={(customTheme) => updateSetting("customTheme", customTheme)}
-              />
-            }
-          />
+          <section className="settings-row settings-row--stacked">
+            <div className="settings-row__text">
+              <h2>{t("settings.theme.title")}</h2>
+              <p>{t("settings.theme.line1")}</p>
+              <p>{t("settings.theme.line2")}</p>
+            </div>
+            <ThemePicker
+              themeId={settings.themeId}
+              customTheme={settings.customTheme}
+              onThemeChange={(themeId) => updateSetting("themeId", themeId)}
+              onCustomThemeChange={(customTheme) => updateSetting("customTheme", customTheme)}
+            />
+          </section>
           <SettingPanelRow
             title={t("settings.language.title")}
             lines={[t("settings.language.line1"), t("settings.language.line2")]}

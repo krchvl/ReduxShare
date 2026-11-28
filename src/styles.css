@@ -1331,6 +1331,15 @@ body:has(.main-content[data-view="menu"]) #root {
   border-bottom: 0;
 }
 
+.settings-row--stacked {
+  display: block;
+  min-height: 0;
+}
+
+.settings-row--stacked .settings-row__text {
+  margin-bottom: 20px;
+}
+
 .settings-row__text {
   min-width: 0;
 }
@@ -2295,19 +2304,19 @@ body:has(.main-content[data-view="menu"]) #root {
 .theme-picker__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .theme-picker__card {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 9px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--background-panel-soft);
-  padding: 12px 6px 10px;
+  padding: 14px 8px 12px;
   color: var(--white);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   line-height: 1.1;
   text-align: center;
@@ -2338,8 +2347,8 @@ body:has(.main-content[data-view="menu"]) #root {
   position: relative;
   display: block;
   width: 100%;
-  height: 44px;
-  border-radius: 9px;
+  height: 52px;
+  border-radius: 10px;
   background: var(--theme-preview-bg);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
   overflow: hidden;
@@ -2347,15 +2356,15 @@ body:has(.main-content[data-view="menu"]) #root {
 
 .theme-picker__preview-lines {
   position: absolute;
-  inset: 8px 8px auto;
+  inset: 10px 10px auto;
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .theme-picker__preview-line {
   display: block;
   width: 72%;
-  height: 6px;
+  height: 7px;
   border-radius: 999px;
   background: var(--theme-preview-panel);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-preview-text) 22%, transparent);
